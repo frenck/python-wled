@@ -47,6 +47,7 @@ async def main(loop):
         # Turn strip on, full brightness
         await led.light(on=True, brightness=255)
 
+
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main(loop))
