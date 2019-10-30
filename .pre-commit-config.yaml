@@ -4,7 +4,7 @@ repos:
     rev: 19.10b0
     hooks:
       - id: black
-        args: [--safe, --quiet, --target-version, py35]
+        args: [--safe, --quiet, --target-version, py36]
   - repo: https://github.com/asottile/blacken-docs
     rev: v1.3.0
     hooks:
@@ -58,3 +58,8 @@ repos:
     rev: v1.18.0
     hooks:
       - id: yamllint
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v1.25.1
+    hooks:
+      - id: pyupgrade
+        args: [--py36-plus]
