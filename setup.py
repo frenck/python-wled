@@ -1,7 +1,5 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """The setup script."""
-import io
 import os
 import re
 import sys
@@ -20,7 +18,7 @@ def read(*parts):
     """Read file."""
     filename = os.path.join(os.path.abspath(os.path.dirname(__file__)), *parts)
     sys.stdout.write(filename)
-    with io.open(filename, encoding="utf-8", mode="rt") as fp:
+    with open(filename, encoding="utf-8", mode="rt") as fp:
         return fp.read()
 
 

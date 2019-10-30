@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Models for WLED."""
 
 from typing import List, Tuple, Union
