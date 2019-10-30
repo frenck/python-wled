@@ -20,10 +20,11 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install -r requirements_test.txt
           pip install -r requirements.txt
+          pip install pre-commit
           pip list
+          pre-commit --version
       - name: Run pre-commit on all files
         run: |
-          pre-commit --version
           pre-commit run --all-files --show-diff-on-failure
   test:
     name: Python ${{ matrix.python }} on ${{ matrix.os }}
