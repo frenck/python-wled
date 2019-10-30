@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Asynchronous Python client for WLED."""
 import asyncio
 import json
