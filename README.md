@@ -21,9 +21,6 @@ This package allows you to control and monitor an WLED device
 programmatically. It is mainly created to allow third-party programs to automate
 the behavior of WLED.
 
-An excellent example of this might be Home Assistant, which allows you to write
-automations, to turn on parental controls when the kids get home.
-
 ## Installation
 
 ```bash
