@@ -1,4 +1,4 @@
-aresponses==1.1.1
+aresponses==1.1.2
 coverage==4.5.4
 flake8==3.7.9
 flake8-docstrings==1.5.0
