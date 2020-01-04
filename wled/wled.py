@@ -22,7 +22,6 @@ class WLED:
         self,
         host: str,
         base_path: str = "/json",
-        loop: asyncio.events.AbstractEventLoop = None,
         password: str = None,
         port: int = 80,
         request_timeout: int = 3,
@@ -33,7 +32,6 @@ class WLED:
         user_agent: str = None,
     ) -> None:
         """Initialize connection with WLED."""
-        self._loop = loop
         self._session = session
         self._close_session = False
 
@@ -77,11 +75,8 @@ class WLED:
             "Accept": "application/json, text/plain, */*",
         }
 
-        if self._loop is None:
-            self._loop = asyncio.get_event_loop()
-
         if self._session is None:
-            self._session = aiohttp.ClientSession(loop=self._loop)
+            self._session = aiohttp.ClientSession()
             self._close_session = True
 
         try:

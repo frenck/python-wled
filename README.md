@@ -35,9 +35,9 @@ import asyncio
 from wled import WLED
 
 
-async def main(loop):
+async def main():
     """Show example on controlling your WLED device."""
-    async with WLED("wled-frenck.local", loop=loop) as led:
+    async with WLED("wled-frenck.local") as led:
         device = await led.update()
         print(device.info.version)
 
@@ -47,7 +47,7 @@ async def main(loop):
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(main(loop))
+    loop.run_until_complete(main())
 ```
 
 ## Changelog & Releases
