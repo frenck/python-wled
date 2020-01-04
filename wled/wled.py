@@ -24,7 +24,7 @@ class WLED:
         base_path: str = "/json",
         password: str = None,
         port: int = 80,
-        request_timeout: int = 3,
+        request_timeout: int = 8,
         session: aiohttp.client.ClientSession = None,
         tls: bool = False,
         username: str = None,
