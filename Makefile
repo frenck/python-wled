@@ -85,7 +85,6 @@ clean-pyc: ## Removes Python file artifacts.
 
 .PHONY: clean-test
 clean-test: ## Removes test and coverage artifacts.
-	rm -fr .tox/; \
 	rm -f .coverage; \
 	rm -fr htmlcov/; \
 	rm -fr .pytest_cache;
@@ -103,10 +102,6 @@ dist: clean ## Builds source and wheel package.
 .PHONY: release
 release:  ## Release build on PyP
 	twine upload dist/*
-
-.PHONY: tox
-tox: ## Run tests on every Python version with tox.
-	tox
 
 .PHONY: venv
 venv: clean-venv ## Create Python venv environment.
