@@ -6,7 +6,7 @@ repos:
       - id: black
         args: [--safe, --quiet, --target-version, py36]
   - repo: https://github.com/asottile/blacken-docs
-    rev: v1.3.0
+    rev: v1.4.0
     hooks:
       - id: blacken-docs
         additional_dependencies: [black==19.3b0]
@@ -25,12 +25,12 @@ repos:
       - id: check-case-conflict
       - id: check-executables-have-shebangs
       - id: fix-encoding-pragma
-        args: ['--remove']
+        args: ["--remove"]
       - id: check-ast
       - id: detect-private-key
       - id: forbid-new-submodules
   - repo: https://github.com/pre-commit/pre-commit
-    rev: v1.20.0
+    rev: v1.21.0
     hooks:
       - id: validate_manifest
   - repo: https://github.com/pre-commit/mirrors-autopep8
@@ -42,11 +42,11 @@ repos:
     hooks:
       - id: isort
   - repo: https://github.com/pre-commit/mirrors-pylint
-    rev: v2.4.3
+    rev: v2.4.4
     hooks:
       - id: pylint
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.740
+    rev: v0.761
     hooks:
       - id: mypy
   - repo: https://gitlab.com/pycqa/flake8
@@ -55,11 +55,11 @@ repos:
       - id: flake8
         additional_dependencies: ["flake8-docstrings"]
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.18.0
+    rev: v1.20.0
     hooks:
       - id: yamllint
   - repo: https://github.com/asottile/pyupgrade
-    rev: v1.25.1
+    rev: v1.25.2
     hooks:
       - id: pyupgrade
         args: [--py36-plus]
