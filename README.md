@@ -9,9 +9,9 @@
 [![Code Coverage][codecov-shield]][codecov]
 [![Code Quality][code-quality-shield]][code-quality]
 
-[![Buy me a coffee][buymeacoffee-shield]][buymeacoffee]
+[![Sponsor Frenck via GitHub Sponsors][github-sponsors-shield]][github-sponsors]
 
-[![Support my work on Patreon][patreon-shield]][patreon]
+[![Support Frenck on Patreon][patreon-shield]][patreon]
 
 Asynchronous Python client for WLED.
 
@@ -111,7 +111,6 @@ Usage:
   make clean-venv                      Removes Python virtual environment artifacts.
   make dist                            Builds source and wheel package.
   make release                         Release build on PyP
-  make tox                             Run tests on every Python version with tox.
   make venv                            Create Python venv environment.
 ```
 
@@ -148,17 +147,18 @@ SOFTWARE.
 
 [build-shield]: https://github.com/frenck/python-wled/workflows/Continuous%20Integration/badge.svg
 [build]: https://github.com/frenck/python-wled/actions
-[buymeacoffee-shield]: https://www.buymeacoffee.com/assets/img/guidelines/download-assets-sm-2.svg
-[buymeacoffee]: https://www.buymeacoffee.com/frenck
 [code-quality-shield]: https://img.shields.io/lgtm/grade/python/g/frenck/python-wled.svg?logo=lgtm&logoWidth=18
 [code-quality]: https://lgtm.com/projects/g/frenck/python-wled/context:python
 [codecov-shield]: https://codecov.io/gh/frenck/python-wled/branch/master/graph/badge.svg
 [codecov]: https://codecov.io/gh/frenck/python-wled
 [contributors]: https://github.com/frenck/python-wled/graphs/contributors
 [frenck]: https://github.com/frenck
+[github-sponsors-shield]: https://frenck.dev/wp-content/uploads/2019/12/github_sponsor.png
+[github-sponsors]: https://github.com/sponsors/frenck
 [keepchangelog]: http://keepachangelog.com/en/1.0.0/
 [license-shield]: https://img.shields.io/github/license/frenck/python-wled.svg
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2020.svg
+[patreon-shield]: https://frenck.dev/wp-content/uploads/2019/12/patreon.png
 [patreon]: https://www.patreon.com/frenck
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-yellow.svg
 [releases-shield]: https://img.shields.io/github/release/frenck/python-wled.svg
