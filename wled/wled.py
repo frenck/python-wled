@@ -163,7 +163,6 @@ class WLED:
         state = {
             "bri": brightness,
             "on": on,
-            "transition": transition if transition is not None else 0,
         }
 
         segment = {
@@ -211,10 +210,13 @@ class WLED:
             segment["id"] = segment_id
             state["seg"] = [segment]  # type: ignore
 
+        if transition is not None:
+            state["transition"] = transition
+
         await self._request("state", method="POST", json_data=state)
 
         # Restore previous transition time
-        if transition is None:
+        if transition is not None:
             await self._request(
                 "state",
                 method="POST",
