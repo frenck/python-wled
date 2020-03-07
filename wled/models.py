@@ -239,9 +239,10 @@ class State:
     @staticmethod
     def from_dict(data, effects: List[Effect], palettes: List[Palette]):
         """Return State object from WLED API response."""
-        segments = []
-        for segment_id, segment in enumerate(data.get("seg", [])):
-            segments.append(Segment.from_dict(segment_id, segment, effects, palettes))
+        segments = [
+            Segment.from_dict(segment_id, segment, effects, palettes)
+            for segment_id, segment in enumerate(data.get("seg", []))
+        ]
 
         return State(
             nightlight=Nightlight.from_dict(data),
@@ -267,14 +268,16 @@ class Device:
     @staticmethod
     def from_dict(data):
         """Return Device object from WLED API response."""
-        effects = []
-        for effect_id, effect in enumerate(data.get("effects", {})):
-            effects.append(Effect(effect_id=effect_id, name=effect))
+        effects = [
+            Effect(effect_id=effect_id, name=effect)
+            for effect_id, effect in enumerate(data.get("effects", {}))
+        ]
         effects.sort(key=lambda x: x.name)
 
-        palettes = []
-        for palette_id, palette in enumerate(data.get("palettes", {})):
-            palettes.append(Palette(palette_id=palette_id, name=palette))
+        palettes = [
+            Palette(palette_id=palette_id, name=palette)
+            for palette_id, palette in enumerate(data.get("palettes", {}))
+        ]
         palettes.sort(key=lambda x: x.name)
 
         return Device(
