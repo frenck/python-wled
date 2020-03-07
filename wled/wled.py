@@ -16,7 +16,7 @@ from .models import Device
 class WLED:
     """Main class for handling connections with WLED."""
 
-    device: Optional[Device] = None
+    _device: Optional[Device] = None
 
     def __init__(
         self,
@@ -118,12 +118,12 @@ class WLED:
         """Get all information about the device in a single call."""
         try:
             data = await self._request()
-            self.device = Device.from_dict(data)
         except WLEDError as exception:
-            self.device = None
+            self._device = None
             raise exception
 
-        return self.device
+        self._device = Device.from_dict(data)
+        return self._device
 
     async def light(
         self,
@@ -152,13 +152,11 @@ class WLED:
         transition: Optional[int] = None,
     ) -> None:
         """Change state of a WLED Light segment."""
-        if self.device is None:
+        if self._device is None:
             await self.update()
 
-        if self.device is None:
+        if self._device is None:
             raise WLEDError("Unable to communicate with WLED to get the current state")
-
-        device = self.device
 
         state = {
             "bri": brightness,
@@ -178,10 +176,25 @@ class WLED:
             "sx": speed,
         }
 
+        # Find effect if it was based on a name
         if effect is not None and isinstance(effect, str):
             segment["fx"] = next(
-                (item.effect_id for item in self.device.effects if item.name == effect),
+                (
+                    item.effect_id
+                    for item in self._device.effects
+                    if item.name == effect
+                ),
                 None,
+            )
+
+        # Find palette if it was based on a name
+        if palette is not None and isinstance(palette, str):
+            segment["pal"] = next(
+                (
+                    item.palette_id
+                    for item in self._device.palettes
+                    if item.name == palette
+                ),
             )
 
         # Filter out not set values
@@ -193,12 +206,12 @@ class WLED:
         if color_primary is not None:
             colors.append(color_primary)
         elif color_secondary is not None or color_tertiary is not None:
-            colors.append(device.state.segments[segment_id].color_primary)
+            colors.append(self._device.state.segments[segment_id].color_primary)
 
         if color_secondary is not None:
             colors.append(color_secondary)
         elif color_tertiary is not None:
-            colors.append(device.state.segments[segment_id].color_secondary)
+            colors.append(self._device.state.segments[segment_id].color_secondary)
 
         if color_tertiary is not None:
             colors.append(color_tertiary)
@@ -220,7 +233,7 @@ class WLED:
             await self._request(
                 "state",
                 method="POST",
-                json_data={"transition": device.state.transition},
+                json_data={"transition": self._device.state.transition},
             )
 
     async def transition(self, transition: int) -> None:
