@@ -1,7 +1,7 @@
 """Models for WLED."""
 
 from dataclasses import dataclass
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 
 @dataclass(frozen=True)
@@ -145,6 +145,29 @@ class Leds:
 
 
 @dataclass(frozen=True)
+class Wifi:
+    """Object holding Wi-Fi information from WLED."""
+
+    bssid: str
+    channel: int
+    rssi: int
+    signal: int
+
+    @staticmethod
+    def from_dict(data: dict):
+        """Return Wifi object form WLED API response."""
+        if "wifi" not in data:
+            return None
+        wifi = data.get("wifi", {})
+        return Wifi(
+            bssid=wifi.get("bssid", "00:00:00:00:00:00"),
+            channel=wifi.get("channel", 0),
+            rssi=wifi.get("rssi", 0),
+            signal=wifi.get("signal", 0),
+        )
+
+
+@dataclass(frozen=True)
 class Info:
     """Object holding information from WLED."""
 
@@ -164,6 +187,7 @@ class Info:
     uptime: int
     version_id: str
     version: str
+    wifi: Optional[Wifi]
 
     @staticmethod
     def from_dict(data: dict):
@@ -185,6 +209,7 @@ class Info:
             uptime=data.get("uptime", 0),
             version_id=data.get("vid", "Unknown"),
             version=data.get("ver", "Unknown"),
+            wifi=Wifi.from_dict(data),
         )
 
 
