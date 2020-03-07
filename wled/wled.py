@@ -224,17 +224,9 @@ class WLED:
             state["seg"] = [segment]  # type: ignore
 
         if transition is not None:
-            state["transition"] = transition
+            state["tt"] = transition
 
         await self._request("state", method="POST", json_data=state)
-
-        # Restore previous transition time
-        if transition is not None:
-            await self._request(
-                "state",
-                method="POST",
-                json_data={"transition": self._device.state.transition},
-            )
 
     async def transition(self, transition: int) -> None:
         """Set the default transition time for manual control."""
