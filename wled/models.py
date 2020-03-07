@@ -1,11 +1,10 @@
 """Models for WLED."""
 
+from dataclasses import dataclass
 from typing import List, Tuple, Union
 
-import attr
 
-
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Nightlight:
     """Object holding nightlight state in WLED."""
 
@@ -26,7 +25,7 @@ class Nightlight:
         )
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Sync:
     """Object holding sync state in WLED."""
 
@@ -40,7 +39,7 @@ class Sync:
         return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Effect:
     """Object holding an effect in WLED."""
 
@@ -48,7 +47,7 @@ class Effect:
     name: str
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Palette:
     """Object holding an palette in WLED."""
 
@@ -56,7 +55,7 @@ class Palette:
     name: str
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Segment:
     """Object holding segment state in WLED."""
 
@@ -120,7 +119,7 @@ class Segment:
         )
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Leds:
     """Object holding leds info from WLED."""
 
@@ -145,7 +144,7 @@ class Leds:
         )
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Info:
     """Object holding information from WLED."""
 
@@ -189,7 +188,7 @@ class Info:
         )
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class State:
     """Object holding the state of WLED."""
 
@@ -231,7 +230,7 @@ class State:
         )
 
 
-@attr.s(auto_attribs=True, frozen=True)
+@dataclass(frozen=True)
 class Device:
     """Object holding all information of WLED."""
 
