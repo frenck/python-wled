@@ -261,9 +261,9 @@ class State:
 class Device:
     """Object holding all information of WLED."""
 
-    effects: List[Effect]
+    effects: List[Effect] = []
     info: Info
-    palettes: List[Palette]
+    palettes: List[Palette] = []
     state: State
 
     def __init__(self, data: dict):
