@@ -79,6 +79,10 @@ class WLED:
             self._session = aiohttp.ClientSession()
             self._close_session = True
 
+        # If updating the state, always request for a state response
+        if method == "POST" and uri == "state" and json_data is not None:
+            json_data["v"] = True
+
         try:
             with async_timeout.timeout(self.request_timeout):
                 response = await self._session.request(
@@ -110,19 +114,28 @@ class WLED:
             raise WLEDError(response.status, {"message": contents.decode("utf8")})
 
         if "application/json" in content_type:
-            return await response.json()
+            data = await response.json()
+            if (
+                method == "POST"
+                and uri == "state"
+                and self._device is not None
+                and json_data is not None
+            ):
+                self._device.update_from_dict(data={"state": data})
+            return data
 
         return await response.text()
 
-    async def update(self) -> Optional[Device]:
+    async def update(self, full_update: bool = False) -> Device:
         """Get all information about the device in a single call."""
-        try:
+        if self._device is None or full_update:
             data = await self._request()
-        except WLEDError as exception:
-            self._device = None
-            raise exception
+            self._device = Device(data)
+            return self._device
 
-        self._device = Device.from_dict(data)
+        info = await self._request("info")
+        state = await self._request("state")
+        self._device.update_from_dict({"info": info, "state": state})
         return self._device
 
     async def light(

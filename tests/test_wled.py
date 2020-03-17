@@ -213,17 +213,25 @@ async def test_state_on(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"state": {"on": true}}',
+            text='{"state": {"on": true}, "effects": [], "palettes": [], "info": {}}',
         ),
     )
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json/info",
+        "GET",
+        aresponses.Response(
+            status=200, headers={"Content-Type": "application/json"}, text="{}",
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/state",
         "GET",
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"state": {"on": false}}',
+            text='{"on": false}',
         ),
     )
     async with aiohttp.ClientSession() as session:

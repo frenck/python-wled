@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
 
+from .exceptions import WLEDError
+
 
 @dataclass(frozen=True)
 class Nightlight:
@@ -14,7 +16,7 @@ class Nightlight:
     target_brightness: int
 
     @staticmethod
-    def from_dict(data):
+    def from_dict(data) -> "Nightlight":
         """Return Nightlight object from WLED API response."""
         nightlight = data.get("nl", {})
         return Nightlight(
@@ -33,7 +35,7 @@ class Sync:
     receive: bool
 
     @staticmethod
-    def from_dict(data):
+    def from_dict(data) -> "Sync":
         """Return Sync object from WLED API response."""
         sync = data.get("udpn", {})
         return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
@@ -227,17 +229,17 @@ class State:
     playlist: int
 
     @property
-    def playlist_active(self):
+    def playlist_active(self) -> bool:
         """Return if a playlist is currently active."""
         return self.playlist == -1
 
     @property
-    def preset_active(self):
+    def preset_active(self) -> bool:
         """Return if a preset is currently active."""
         return self.preset == -1
 
     @staticmethod
-    def from_dict(data, effects: List[Effect], palettes: List[Palette]):
+    def from_dict(data, effects: List[Effect], palettes: List[Palette]) -> "State":
         """Return State object from WLED API response."""
         segments = [
             Segment.from_dict(segment_id, segment, effects, palettes)
@@ -256,7 +258,6 @@ class State:
         )
 
 
-@dataclass(frozen=True)
 class Device:
     """Object holding all information of WLED."""
 
@@ -265,24 +266,35 @@ class Device:
     palettes: List[Palette]
     state: State
 
-    @staticmethod
-    def from_dict(data):
+    def __init__(self, data: dict):
+        """Initialize an empty WLED device class."""
+        # Check if all elements are in the passed dict, else raise an Error
+        if any(k not in data for k in ["effects", "palettes", "info", "state"]):
+            raise WLEDError("WLED data is incomplete, cannot construct device object")
+        self.update_from_dict(data)
+
+    def update_from_dict(self, data: dict) -> "Device":
         """Return Device object from WLED API response."""
-        effects = [
-            Effect(effect_id=effect_id, name=effect)
-            for effect_id, effect in enumerate(data.get("effects", {}))
-        ]
-        effects.sort(key=lambda x: x.name)
+        if "effects" in data:
+            effects = [
+                Effect(effect_id=effect_id, name=effect)
+                for effect_id, effect in enumerate(data)
+            ]
+            effects.sort(key=lambda x: x.name)
+            self.effects = effects
 
-        palettes = [
-            Palette(palette_id=palette_id, name=palette)
-            for palette_id, palette in enumerate(data.get("palettes", {}))
-        ]
-        palettes.sort(key=lambda x: x.name)
+        if "palettes" in data:
+            palettes = [
+                Palette(palette_id=palette_id, name=palette)
+                for palette_id, palette in enumerate(data.get("palettes", {}))
+            ]
+            palettes.sort(key=lambda x: x.name)
+            self.palettes = palettes
 
-        return Device(
-            effects=effects,
-            info=Info.from_dict(data.get("info", {})),
-            palettes=palettes,
-            state=State.from_dict(data.get("state", {}), effects, palettes),
-        )
+        if "info" in data:
+            self.info = Info.from_dict(data["info"])
+
+        if "state" in data:
+            self.state = State.from_dict(data["state"], self.effects, self.palettes)
+
+        return self
