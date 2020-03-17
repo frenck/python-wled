@@ -130,6 +130,8 @@ class WLED:
         """Get all information about the device in a single call."""
         if self._device is None or full_update:
             data = await self._request()
+            if data is None:
+                raise WLEDError("WLED device returned an empty API response")
             self._device = Device(data)
             return self._device
 
