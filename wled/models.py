@@ -269,32 +269,35 @@ class Device:
     def __init__(self, data: dict):
         """Initialize an empty WLED device class."""
         # Check if all elements are in the passed dict, else raise an Error
-        if any(k not in data for k in ["effects", "palettes", "info", "state"]):
+        if any(
+            k not in data and data[k] is not None
+            for k in ["effects", "palettes", "info", "state"]
+        ):
             raise WLEDError("WLED data is incomplete, cannot construct device object")
         self.update_from_dict(data)
 
     def update_from_dict(self, data: dict) -> "Device":
         """Return Device object from WLED API response."""
-        if "effects" in data:
+        if "effects" in data and data["effects"]:
             effects = [
                 Effect(effect_id=effect_id, name=effect)
-                for effect_id, effect in enumerate(data)
+                for effect_id, effect in enumerate(data["effects"])
             ]
             effects.sort(key=lambda x: x.name)
             self.effects = effects
 
-        if "palettes" in data:
+        if "palettes" in data and data["palettes"]:
             palettes = [
                 Palette(palette_id=palette_id, name=palette)
-                for palette_id, palette in enumerate(data.get("palettes", {}))
+                for palette_id, palette in enumerate(data["palettes"])
             ]
             palettes.sort(key=lambda x: x.name)
             self.palettes = palettes
 
-        if "info" in data:
+        if "info" in data and data["info"]:
             self.info = Info.from_dict(data["info"])
 
-        if "state" in data:
+        if "state" in data and data["state"]:
             self.state = State.from_dict(data["state"], self.effects, self.palettes)
 
         return self
