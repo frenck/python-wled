@@ -4,10 +4,14 @@
 class WLEDError(Exception):
     """Generic WLED exception."""
 
-    pass
+
+class WLEDEmptyResponseError(Exception):
+    """WLED empty API response exception."""
 
 
 class WLEDConnectionError(WLEDError):
     """WLED connection exception."""
 
-    pass
+
+class WLEDConnectionTimeoutError(WLEDConnectionError):
+    """WLED connection Timeout exception."""

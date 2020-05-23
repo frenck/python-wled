@@ -155,17 +155,40 @@ async def test_request_custom_user_agent(aresponses):
 
 
 @pytest.mark.asyncio
+async def test_backoff(aresponses):
+    """Test requests are handled with retries."""
+    aresponses.add(
+        "example.com",
+        "/",
+        "GET",
+        aresponses.Response(status=500, text="FAIL"),
+        repeat=2,
+    )
+    aresponses.add(
+        "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        response = await wled._request("/")
+        assert response == "OK"
+
+
+@pytest.mark.asyncio
 async def test_timeout(aresponses):
     """Test request timeout from WLED."""
     # Faking a timeout by sleeping
     async def response_handler(_):
-        await asyncio.sleep(2)
+        await asyncio.sleep(0.2)
         return aresponses.Response(body="Goodmorning!")
 
+    # Backoff will try 3 times
+    aresponses.add("example.com", "/", "GET", response_handler)
+    aresponses.add("example.com", "/", "GET", response_handler)
     aresponses.add("example.com", "/", "GET", response_handler)
 
     async with aiohttp.ClientSession() as session:
-        wled = WLED("example.com", session=session, request_timeout=1)
+        wled = WLED("example.com", session=session, request_timeout=0.1)
         with pytest.raises(WLEDConnectionError):
             assert await wled._request("/")
 
@@ -221,7 +244,9 @@ async def test_state_on(aresponses):
         "/json/info",
         "GET",
         aresponses.Response(
-            status=200, headers={"Content-Type": "application/json"}, text="{}",
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"version": "1.0"}',
         ),
     )
     aresponses.add(
@@ -240,3 +265,68 @@ async def test_state_on(aresponses):
         assert device.state.on
         device = await wled.update()
         assert not device.state.on
+
+
+@pytest.mark.asyncio
+async def test_empty_responses(aresponses):
+    """Test request of current WLED device state."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"state": {"on": true}, "effects": [], "palettes": [], "info": {}}',
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/info",
+        "GET",
+        aresponses.Response(
+            status=200, headers={"Content-Type": "application/json"}, text="{}",
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/info",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"version": "1.0"}',
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/state",
+        "GET",
+        aresponses.Response(
+            status=200, headers={"Content-Type": "application/json"}, text="{}",
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/info",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"version": "1.0"}',
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/state",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"on": false}',
+        ),
+    )
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        await wled.update()
