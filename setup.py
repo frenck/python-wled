@@ -41,7 +41,7 @@ setup(
     ],
     description="Asynchronous Python client for WLED.",
     include_package_data=True,
-    install_requires=["aiohttp>=3.0.0", "yarl"],
+    install_requires=["aiohttp>=3.0.0", "yarl", "backoff>=1.9.0"],
     keywords=["wled", "api", "async", "client"],
     license="MIT license",
     long_description_content_type="text/markdown",

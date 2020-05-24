@@ -6,10 +6,16 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Union
 
 import aiohttp
 import async_timeout
+import backoff
 from yarl import URL
 
 from .__version__ import __version__
-from .exceptions import WLEDConnectionError, WLEDError
+from .exceptions import (
+    WLEDConnectionError,
+    WLEDConnectionTimeoutError,
+    WLEDEmptyResponseError,
+    WLEDError,
+)
 from .models import Device
 
 
@@ -24,7 +30,7 @@ class WLED:
         base_path: str = "/json",
         password: str = None,
         port: int = 80,
-        request_timeout: int = 8,
+        request_timeout: float = 8.0,
         session: aiohttp.client.ClientSession = None,
         tls: bool = False,
         username: str = None,
@@ -52,6 +58,7 @@ class WLED:
         if self.base_path[-1] != "/":
             self.base_path += "/"
 
+    @backoff.on_exception(backoff.expo, WLEDError, max_tries=3)
     async def _request(
         self,
         uri: str = "",
@@ -96,7 +103,7 @@ class WLED:
                     ssl=self.verify_ssl,
                 )
         except asyncio.TimeoutError as exception:
-            raise WLEDConnectionError(
+            raise WLEDConnectionTimeoutError(
                 "Timeout occurred while connecting to WLED device."
             ) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
@@ -126,17 +133,30 @@ class WLED:
 
         return await response.text()
 
+    @backoff.on_exception(backoff.expo, WLEDEmptyResponseError, max_tries=3)
     async def update(self, full_update: bool = False) -> Device:
         """Get all information about the device in a single call."""
         if self._device is None or full_update:
             data = await self._request()
-            if data is None:
-                raise WLEDError("WLED device returned an empty API response")
+            if not data:
+                raise WLEDEmptyResponseError(
+                    "WLED device returned an empty API response on full update"
+                )
             self._device = Device(data)
             return self._device
 
         info = await self._request("info")
+        if not info:
+            raise WLEDEmptyResponseError(
+                "WLED device returned an empty API response on info update"
+            )
+
         state = await self._request("state")
+        if not state:
+            raise WLEDEmptyResponseError(
+                "WLED device returned an empty API response on state update"
+            )
+
         self._device.update_from_dict({"info": info, "state": state})
         return self._device
 
