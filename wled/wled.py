@@ -254,7 +254,7 @@ class WLED:
                 (
                     item.effect_id
                     for item in self._device.effects
-                    if item.name == effect
+                    if item.name.lower() == effect.lower()
                 ),
                 None,
             )
@@ -265,7 +265,7 @@ class WLED:
                 (
                     item.palette_id
                     for item in self._device.palettes
-                    if item.name == palette
+                    if item.name.lower() == palette.lower()
                 ),
             )
 
