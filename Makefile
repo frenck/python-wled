@@ -53,7 +53,7 @@ lint-mypy: ## Run linting using MyPy.
 
 .PHONY: test
 test: ## Run tests quickly with the default Python.
-	pytest --cov-report html --cov-report term --cov=wled .;
+	pytest --cov-report html --cov-report term --cov-report xml:cov.xml --cov=wled .;
 
 .PHONY: coverage
 coverage: test ## Check code coverage quickly with the default Python.
