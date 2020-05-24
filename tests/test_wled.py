@@ -236,7 +236,11 @@ async def test_state_on(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"state": {"on": true}, "effects": [], "palettes": [], "info": {}}',
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.9.1"}}'
+            ),
         ),
     )
     aresponses.add(
@@ -246,7 +250,7 @@ async def test_state_on(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"version": "1.0"}',
+            text='{"ver": "1.0"}',
         ),
     )
     aresponses.add(
@@ -277,7 +281,11 @@ async def test_empty_responses(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"state": {"on": true}, "effects": [], "palettes": [], "info": {}}',
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.8.6"}}'
+            ),
         ),
     )
     aresponses.add(
@@ -295,7 +303,7 @@ async def test_empty_responses(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"version": "1.0"}',
+            text='{"ver": "1.0"}',
         ),
     )
     aresponses.add(
@@ -313,7 +321,7 @@ async def test_empty_responses(aresponses):
         aresponses.Response(
             status=200,
             headers={"Content-Type": "application/json"},
-            text='{"version": "1.0"}',
+            text='{"ver": "1.0"}',
         ),
     )
     aresponses.add(
@@ -330,3 +338,110 @@ async def test_empty_responses(aresponses):
         wled = WLED("example.com", session=session)
         await wled.update()
         await wled.update()
+
+
+@pytest.mark.asyncio
+async def test_si_request_version_based(aresponses):
+    """Test for supporting SI requests based on version data."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        assert wled._supports_si_request
+
+
+@pytest.mark.asyncio
+async def test_not_supporting_si_request_version_based(aresponses):
+    """Test for supporting SI requests based on version data."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.9.1"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        assert not wled._supports_si_request
+
+
+@pytest.mark.asyncio
+async def test_si_request_probing_based(aresponses):
+    """Test for supporting SI requests based on probing."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "INVALID VERSION NUMBER"}}'
+            ),
+        ),
+    )
+
+    aresponses.add(
+        "example.com",
+        "/json/si",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"yes": true}',
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        assert wled._supports_si_request
+
+
+@pytest.mark.asyncio
+async def test_not_supporting_si_request_probing_based(aresponses):
+    """Test for supporting SI requests based on probing."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "INVALID VERSION NUMBER"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        assert not wled._supports_si_request
