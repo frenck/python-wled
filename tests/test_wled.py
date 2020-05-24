@@ -272,8 +272,43 @@ async def test_state_on(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_empty_responses(aresponses):
+async def test_state_on_si_request(aresponses):
     """Test request of current WLED device state."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/si",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"state": {"on": false},"info": {"ver": "1.0"}}',
+        ),
+    )
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.state.on
+        device = await wled.update()
+        assert not device.state.on
+
+
+@pytest.mark.asyncio
+async def test_empty_responses(aresponses):
+    """Test empty responses for WLED device state."""
     aresponses.add(
         "example.com",
         "/json/",
@@ -337,6 +372,77 @@ async def test_empty_responses(aresponses):
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
         await wled.update()
+        await wled.update()
+
+
+@pytest.mark.asyncio
+async def test_empty_si_responses(aresponses):
+    """Test request of current WLED device state."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/si",
+        "GET",
+        aresponses.Response(
+            status=200, headers={"Content-Type": "application/json"}, text="{}",
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/si",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"state": {"on": false}, "info": {"ver": "1.0"}}',
+        ),
+    )
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.update()
+        await wled.update()
+
+
+@pytest.mark.asyncio
+async def test_empty_full_responses(aresponses):
+    """Test failure handling of full data request WLED device state."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200, headers={"Content-Type": "application/json"}, text="{}",
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
         await wled.update()
 
 
