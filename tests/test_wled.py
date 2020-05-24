@@ -157,19 +157,20 @@ async def test_request_custom_user_agent(aresponses):
 @pytest.mark.asyncio
 async def test_backoff(aresponses):
     """Test requests are handled with retries."""
+
+    async def response_handler(_):
+        await asyncio.sleep(0.2)
+        return aresponses.Response(body="Goodmorning!")
+
     aresponses.add(
-        "example.com",
-        "/",
-        "GET",
-        aresponses.Response(status=500, text="FAIL"),
-        repeat=2,
+        "example.com", "/", "GET", response_handler, repeat=2,
     )
     aresponses.add(
         "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
     )
 
     async with aiohttp.ClientSession() as session:
-        wled = WLED("example.com", session=session)
+        wled = WLED("example.com", session=session, request_timeout=0.1)
         response = await wled._request("/")
         assert response == "OK"
 
