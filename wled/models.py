@@ -181,6 +181,8 @@ class Info:
     free_heap: int
     leds: Leds
     live: bool
+    live_mode: str
+    live_ip: str
     mac_address: str
     name: str
     pallet_count: int
@@ -203,6 +205,8 @@ class Info:
             free_heap=data.get("freeheap", 0),
             leds=Leds.from_dict(data),
             live=data.get("live", False),
+            live_mode=data.get("lm", "Unknown"),
+            live_ip=data.get("lip", "Unknown"),
             mac_address=data.get("mac", ""),
             name=data.get("name", "WLED Light"),
             pallet_count=data.get("palcount", 0),
