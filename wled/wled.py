@@ -60,7 +60,7 @@ class WLED:
         if self.base_path[-1] != "/":
             self.base_path += "/"
 
-    @backoff.on_exception(backoff.expo, WLEDError, max_tries=3)
+    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3)
     async def _request(
         self,
         uri: str = "",
