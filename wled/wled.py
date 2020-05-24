@@ -220,16 +220,14 @@ class WLED:
         if self._device is None:
             raise WLEDError("Unable to communicate with WLED to get the current state")
 
-        state = {
-            "bri": brightness,
-            "on": on,
-        }
-
+        state = {}
         segment = {
+            "bri": brightness,
             "cln": clones,
             "fx": effect,
             "ix": intensity,
             "len": length,
+            "on": on,
             "pal": palette,
             "rev": reverse,
             "sel": selected,
@@ -237,6 +235,18 @@ class WLED:
             "stop": stop,
             "sx": speed,
         }
+
+        # > WLED 0.10.0, does not support segment control on/bri.
+        # Luckily, the same release introduced si requests.
+        # Therefore, we can use that capability check to decide.
+        if not self._supports_si_request:
+            # This device does not support on/bri in the segment
+            del segment["on"]
+            del segment["bri"]
+            state = {
+                "bri": brightness,
+                "on": on,
+            }
 
         # Find effect if it was based on a name
         if effect is not None and isinstance(effect, str):
