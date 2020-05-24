@@ -7,6 +7,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple, Union
 import aiohttp
 import async_timeout
 import backoff
+from packaging import version
 from yarl import URL
 
 from .__version__ import __version__
@@ -23,6 +24,7 @@ class WLED:
     """Main class for handling connections with WLED."""
 
     _device: Optional[Device] = None
+    _supports_si_request: Optional[bool] = None
 
     def __init__(
         self,
@@ -143,21 +145,46 @@ class WLED:
                     "WLED device returned an empty API response on full update"
                 )
             self._device = Device(data)
+
+            # Try to figure out if this version supports
+            # a single info and state call
+            try:
+                version.Version(self._device.info.version)
+                self._supports_si_request = version.parse(
+                    self._device.info.version
+                ) >= version.parse("0.10.0")
+            except version.InvalidVersion:
+                # Could be a manual build one? Lets poll for it
+                try:
+                    await self._request("si")
+                    self._supports_si_request = True
+                except WLEDError:
+                    self._supports_si_request = False
+
             return self._device
 
-        info = await self._request("info")
-        if not info:
-            raise WLEDEmptyResponseError(
-                "WLED device returned an empty API response on info update"
-            )
+        # Handle legacy state and update in separate requests
+        if not self._supports_si_request:
+            info = await self._request("info")
+            if not info:
+                raise WLEDEmptyResponseError(
+                    "WLED device returned an empty API response on info update"
+                )
 
-        state = await self._request("state")
-        if not state:
-            raise WLEDEmptyResponseError(
-                "WLED device returned an empty API response on state update"
-            )
+            state = await self._request("state")
+            if not state:
+                raise WLEDEmptyResponseError(
+                    "WLED device returned an empty API response on state update"
+                )
+            self._device.update_from_dict({"info": info, "state": state})
+            return self._device
 
-        self._device.update_from_dict({"info": info, "state": state})
+        state_info = await self._request("si")
+        if not state_info:
+            raise WLEDEmptyResponseError(
+                "WLED device returned an empty API response on state & info update"
+            )
+        self._device.update_from_dict(state_info)
         return self._device
 
     async def light(
