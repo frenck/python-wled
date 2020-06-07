@@ -1,12 +1,13 @@
 """Models for WLED."""
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .exceptions import WLEDError
 
 
-@dataclass(frozen=True)
+@dataclass
 class Nightlight:
     """Object holding nightlight state in WLED."""
 
@@ -16,7 +17,7 @@ class Nightlight:
     target_brightness: int
 
     @staticmethod
-    def from_dict(data) -> "Nightlight":
+    def from_dict(data: Dict[str, Any]) -> Nightlight:
         """Return Nightlight object from WLED API response."""
         nightlight = data.get("nl", {})
         return Nightlight(
@@ -27,21 +28,21 @@ class Nightlight:
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class Sync:
     """Object holding sync state in WLED."""
 
-    send: bool
     receive: bool
+    send: bool
 
     @staticmethod
-    def from_dict(data) -> "Sync":
+    def from_dict(data: Dict[str, Any]) -> Sync:
         """Return Sync object from WLED API response."""
         sync = data.get("udpn", {})
         return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
 
 
-@dataclass(frozen=True)
+@dataclass
 class Effect:
     """Object holding an effect in WLED."""
 
@@ -49,37 +50,45 @@ class Effect:
     name: str
 
 
-@dataclass(frozen=True)
+@dataclass
 class Palette:
     """Object holding an palette in WLED."""
 
-    palette_id: int
     name: str
+    palette_id: int
 
 
-@dataclass(frozen=True)
+@dataclass
 class Segment:
     """Object holding segment state in WLED."""
 
-    segment_id: int
-    start: int
-    stop: int
-    length: int
+    brightness: int
+    clones: int
     color_primary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
     color_secondary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
     color_tertiary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
     effect: Effect
-    speed: int
     intensity: int
+    length: int
+    on: bool
     palette: Palette
-    selected: bool
     reverse: bool
-    clones: int
+    segment_id: int
+    selected: bool
+    speed: int
+    start: int
+    stop: int
 
     @staticmethod
     def from_dict(
-        segment_id: int, data: dict, effects: List[Effect], palettes: List[Palette]
-    ) -> "Segment":
+        segment_id: int,
+        data: Dict[str, Any],
+        *,
+        effects: List[Effect],
+        palettes: List[Palette],
+        state_on: bool,
+        state_brightness: int,
+    ) -> Segment:
         """Return Segment object from WLED API response."""
         start = data.get("start", 0)
         stop = data.get("stop", 0)
@@ -104,24 +113,26 @@ class Segment:
         )
 
         return Segment(
-            segment_id=segment_id,
-            start=start,
-            stop=stop,
-            length=length,
+            brightness=data.get("bri", state_brightness),
+            clones=data.get("cln", -1),
             color_primary=primary_color,  # type: ignore
             color_secondary=secondary_color,  # type: ignore
             color_tertiary=tertiary_color,  # type: ignore
             effect=effect,
-            speed=data.get("sx", 0),
             intensity=data.get("ix", 0),
+            length=length,
+            on=data.get("on", state_on),
             palette=palette,
-            selected=data.get("sel", False),
             reverse=data.get("reverse", False),
-            clones=data.get("cln", -1),
+            segment_id=segment_id,
+            selected=data.get("sel", False),
+            speed=data.get("sx", 0),
+            start=start,
+            stop=stop,
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class Leds:
     """Object holding leds info from WLED."""
 
@@ -133,20 +144,20 @@ class Leds:
     max_segments: int
 
     @staticmethod
-    def from_dict(data: dict):
+    def from_dict(data: Dict[str, Any]) -> Leds:
         """Return Leds object from WLED API response."""
         leds = data.get("leds", {})
         return Leds(
             count=leds.get("count", 0),
-            rgbw=leds.get("rgbw", False),
-            pin=leds.get("pin", 0),
-            power=leds.get("pwr", 0),
             max_power=leds.get("maxpwr", 0),
             max_segments=leds.get("maxseg", 0),
+            pin=leds.get("pin", 0),
+            power=leds.get("pwr", 0),
+            rgbw=leds.get("rgbw", False),
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class Wifi:
     """Object holding Wi-Fi information from WLED."""
 
@@ -156,7 +167,7 @@ class Wifi:
     signal: int
 
     @staticmethod
-    def from_dict(data: dict):
+    def from_dict(data: Dict[str, Any]) -> Optional[Wifi]:
         """Return Wifi object form WLED API response."""
         if "wifi" not in data:
             return None
@@ -169,7 +180,7 @@ class Wifi:
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class Info:
     """Object holding information from WLED."""
 
@@ -180,9 +191,9 @@ class Info:
     effect_count: int
     free_heap: int
     leds: Leds
-    live: bool
-    live_mode: str
     live_ip: str
+    live_mode: str
+    live: bool
     mac_address: str
     name: str
     pallet_count: int
@@ -194,7 +205,7 @@ class Info:
     wifi: Optional[Wifi]
 
     @staticmethod
-    def from_dict(data: dict):
+    def from_dict(data: Dict[str, Any]) -> Info:
         """Return Info object from WLED API response."""
         return Info(
             architecture=data.get("arch", "Unknown"),
@@ -204,9 +215,9 @@ class Info:
             effect_count=data.get("fxcount", 0),
             free_heap=data.get("freeheap", 0),
             leds=Leds.from_dict(data),
-            live=data.get("live", False),
-            live_mode=data.get("lm", "Unknown"),
             live_ip=data.get("lip", "Unknown"),
+            live_mode=data.get("lm", "Unknown"),
+            live=data.get("live", False),
             mac_address=data.get("mac", ""),
             name=data.get("name", "WLED Light"),
             pallet_count=data.get("palcount", 0),
@@ -219,18 +230,18 @@ class Info:
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class State:
     """Object holding the state of WLED."""
 
-    nightlight: Nightlight
-    sync: Sync
-    segments: List[Segment]
-    on: bool
     brightness: int
-    transition: int
-    preset: int
+    nightlight: Nightlight
+    on: bool
     playlist: int
+    preset: int
+    segments: List[Segment]
+    sync: Sync
+    transition: int
 
     @property
     def playlist_active(self) -> bool:
@@ -243,22 +254,34 @@ class State:
         return self.preset == -1
 
     @staticmethod
-    def from_dict(data, effects: List[Effect], palettes: List[Palette]) -> "State":
+    def from_dict(
+        data: Dict[str, Any], effects: List[Effect], palettes: List[Palette]
+    ) -> State:
         """Return State object from WLED API response."""
+        brightness = data.get("bri", 1)
+        on = data.get("on", False)
+
         segments = [
-            Segment.from_dict(segment_id, segment, effects, palettes)
+            Segment.from_dict(
+                segment_id=segment_id,
+                data=segment,
+                effects=effects,
+                palettes=palettes,
+                state_on=on,
+                state_brightness=brightness,
+            )
             for segment_id, segment in enumerate(data.get("seg", []))
         ]
 
         return State(
+            brightness=brightness,
             nightlight=Nightlight.from_dict(data),
-            sync=Sync.from_dict(data),
-            segments=segments,
-            on=data.get("on", False),
-            brightness=data.get("bri", 1),
-            transition=data.get("transition", 0),
-            preset=data.get("ps", -1),
+            on=on,
             playlist=data.get("pl", -1),
+            preset=data.get("ps", -1),
+            segments=segments,
+            sync=Sync.from_dict(data),
+            transition=data.get("transition", 0),
         )
 
 

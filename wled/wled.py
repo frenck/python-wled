@@ -1,4 +1,6 @@
 """Asynchronous Python client for WLED."""
+from __future__ import annotations
+
 import asyncio
 import json
 import socket
@@ -187,8 +189,31 @@ class WLED:
         self._device.update_from_dict(state_info)
         return self._device
 
-    async def light(
+    async def master(
         self,
+        *,
+        brightness: Optional[int] = None,
+        on: Optional[bool] = None,
+        transition: Optional[int] = None,
+    ):
+        """Change master state of a WLED Light device."""
+        state: Dict[str, Union[bool, int]] = {}
+
+        if brightness is not None:
+            state["bri"] = brightness
+
+        if on is not None:
+            state["on"] = on
+
+        if transition is not None:
+            state["tt"] = transition
+
+        await self._request("state", method="POST", json_data=state)
+
+    async def segment(
+        self,
+        segment_id: int,
+        *,
         brightness: Optional[int] = None,
         clones: Optional[int] = None,
         color_primary: Optional[
@@ -206,7 +231,6 @@ class WLED:
         on: Optional[bool] = None,
         palette: Optional[Union[int, str]] = None,
         reverse: Optional[bool] = None,
-        segment_id: int = 0,
         selected: Optional[bool] = None,
         speed: Optional[int] = None,
         start: Optional[int] = None,
@@ -315,7 +339,7 @@ class WLED:
         await self._request("state", method="POST", json_data={"pl": playlist})
 
     async def sync(
-        self, send: Optional[bool] = None, receive: Optional[bool] = None
+        self, *, send: Optional[bool] = None, receive: Optional[bool] = None
     ) -> None:
         """Set the sync status of the WLED device."""
         sync = {"send": send, "recv": receive}
@@ -324,6 +348,7 @@ class WLED:
 
     async def nightlight(
         self,
+        *,
         duration: Optional[int] = None,
         fade: Optional[bool] = None,
         on: Optional[bool] = None,
@@ -351,7 +376,7 @@ class WLED:
         if self._session and self._close_session:
             await self._session.close()
 
-    async def __aenter__(self) -> "WLED":
+    async def __aenter__(self) -> WLED:
         """Async enter."""
         return self
 
