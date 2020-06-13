@@ -62,7 +62,7 @@ class WLED:
         if self.base_path[-1] != "/":
             self.base_path += "/"
 
-    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3)
+    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
     async def _request(
         self,
         uri: str = "",
@@ -137,7 +137,9 @@ class WLED:
 
         return await response.text()
 
-    @backoff.on_exception(backoff.expo, WLEDEmptyResponseError, max_tries=3)
+    @backoff.on_exception(
+        backoff.expo, WLEDEmptyResponseError, max_tries=3, logger=None
+    )
     async def update(self, full_update: bool = False) -> Device:
         """Get all information about the device in a single call."""
         if self._device is None or full_update:
