@@ -1,4 +1,4 @@
 aiohttp==3.6.2
 backoff==1.10.0
 packaging==20.04
-yarl==1.4.2
+yarl==1.5.0
