@@ -108,11 +108,11 @@ class WLED:
                 )
         except asyncio.TimeoutError as exception:
             raise WLEDConnectionTimeoutError(
-                "Timeout occurred while connecting to WLED device."
+                f"Timeout occurred while connecting to WLED device at {self.host}"
             ) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             raise WLEDConnectionError(
-                "Error occurred while communicating with WLED device."
+                f"Error occurred while communicating with WLED device at {self.host}"
             ) from exception
 
         content_type = response.headers.get("Content-Type", "")
@@ -146,7 +146,8 @@ class WLED:
             data = await self._request()
             if not data:
                 raise WLEDEmptyResponseError(
-                    "WLED device returned an empty API response on full update"
+                    f"WLED device at {self.host} returned an empty API"
+                    " response on full update"
                 )
             self._device = Device(data)
 
@@ -172,13 +173,15 @@ class WLED:
             info = await self._request("info")
             if not info:
                 raise WLEDEmptyResponseError(
-                    "WLED device returned an empty API response on info update"
+                    f"WLED device at {self.host} returned an empty API"
+                    " response on info update"
                 )
 
             state = await self._request("state")
             if not state:
                 raise WLEDEmptyResponseError(
-                    "WLED device returned an empty API response on state update"
+                    f"WLED device {self.host} returned an empty API"
+                    " response on state update"
                 )
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
@@ -186,7 +189,8 @@ class WLED:
         state_info = await self._request("si")
         if not state_info:
             raise WLEDEmptyResponseError(
-                "WLED device returned an empty API response on state & info update"
+                f"WLED device at {self.host} returned an empty API"
+                " response on state & info update"
             )
         self._device.update_from_dict(state_info)
         return self._device
