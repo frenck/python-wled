@@ -3,6 +3,7 @@ import asyncio
 
 import aiohttp
 import pytest
+
 from wled import WLED
 from wled.__version__ import __version__
 from wled.exceptions import WLEDConnectionError, WLEDError
@@ -42,7 +43,10 @@ async def test_authenticated_request(aresponses):
     )
     async with aiohttp.ClientSession() as session:
         wled = WLED(
-            "example.com", username="frenck", password="zerocool", session=session,
+            "example.com",
+            username="frenck",
+            password="zerocool",
+            session=session,
         )
         response = await wled._request("/")
         assert response["status"] == "ok"
@@ -149,7 +153,10 @@ async def test_request_custom_user_agent(aresponses):
 
     async with aiohttp.ClientSession() as session:
         wled = WLED(
-            "example.com", base_path="/", session=session, user_agent="LoremIpsum/1.0",
+            "example.com",
+            base_path="/",
+            session=session,
+            user_agent="LoremIpsum/1.0",
         )
         await wled._request("/")
 
@@ -163,7 +170,11 @@ async def test_backoff(aresponses):
         return aresponses.Response(body="Goodmorning!")
 
     aresponses.add(
-        "example.com", "/", "GET", response_handler, repeat=2,
+        "example.com",
+        "/",
+        "GET",
+        response_handler,
+        repeat=2,
     )
     aresponses.add(
         "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
@@ -329,7 +340,9 @@ async def test_empty_responses(aresponses):
         "/json/info",
         "GET",
         aresponses.Response(
-            status=200, headers={"Content-Type": "application/json"}, text="{}",
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="{}",
         ),
     )
     aresponses.add(
@@ -347,7 +360,9 @@ async def test_empty_responses(aresponses):
         "/json/state",
         "GET",
         aresponses.Response(
-            status=200, headers={"Content-Type": "application/json"}, text="{}",
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="{}",
         ),
     )
     aresponses.add(
@@ -398,7 +413,9 @@ async def test_empty_si_responses(aresponses):
         "/json/si",
         "GET",
         aresponses.Response(
-            status=200, headers={"Content-Type": "application/json"}, text="{}",
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="{}",
         ),
     )
     aresponses.add(
@@ -425,7 +442,9 @@ async def test_empty_full_responses(aresponses):
         "/json/",
         "GET",
         aresponses.Response(
-            status=200, headers={"Content-Type": "application/json"}, text="{}",
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="{}",
         ),
     )
     aresponses.add(
