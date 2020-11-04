@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checking out code from GitHub
-        uses: actions/checkout@v2.3.3
+        uses: actions/checkout@v2.3.4
       - name: Set up Python 3.7
         uses: actions/setup-python@v2.1.4
         with:
@@ -35,7 +35,7 @@ jobs:
         python: [3.7, 3.8]
     steps:
       - name: Checking out code from GitHub
-        uses: actions/checkout@v2.3.3
+        uses: actions/checkout@v2.3.4
       - name: Set up Python ${{ matrix.python }}
         uses: actions/setup-python@v2.1.4
         with:
