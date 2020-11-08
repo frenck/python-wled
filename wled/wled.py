@@ -340,6 +340,10 @@ class WLED:
         """Set a preset on a WLED device."""
         await self._request("state", method="POST", json_data={"ps": preset})
 
+    async def live(self, live: int) -> None:
+        """Set the live override status on a WLED device."""
+        await self._request("state", method="POST", json_data={"lor": live})
+
     async def playlist(self, playlist: int) -> None:
         """Set a running playlist on a WLED device."""
         await self._request("state", method="POST", json_data={"pl": playlist})
