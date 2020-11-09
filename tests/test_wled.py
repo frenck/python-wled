@@ -571,3 +571,58 @@ async def test_not_supporting_si_request_probing_based(aresponses):
         wled = WLED("example.com", session=session)
         await wled.update()
         assert not wled._supports_si_request
+
+
+@pytest.mark.asyncio
+async def test_live_override_state(aresponses):
+    """Test request of current WLED live override state."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.9.1"}}'
+            ),
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/info",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"ver": "1.0"}',
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/state",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"lor": 0}',
+        ),
+    )
+    aresponses.add(
+        "example.com",
+        "/json/state",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text='{"lor": 1}',
+        ),
+    )
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert not device.state.lor
+        device = await wled.update()
+        assert device.state.lor
