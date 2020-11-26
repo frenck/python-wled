@@ -2,7 +2,7 @@ autopep8==1.5.4
 black==20.8b1
 blacken-docs==1.8.0
 pip==20.2.4
-pre-commit==2.9.0
+pre-commit==2.9.2
 twine==3.2.0
 wheel==0.35.1
 yamllint==1.25.0
