@@ -4,5 +4,5 @@ blacken-docs==1.8.0
 pip==20.3.1
 pre-commit==2.9.2
 twine==3.2.0
-wheel==0.36.0
+wheel==0.36.1
 yamllint==1.25.0
