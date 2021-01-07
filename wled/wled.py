@@ -344,6 +344,13 @@ class WLED:
         """Set a running playlist on a WLED device."""
         await self._request("state", method="POST", json_data={"pl": playlist})
 
+    async def raw(self, json_data: dict) -> None:
+        """Post a raw state request to WLED.
+
+        See https://github.com/Aircoookie/WLED/wiki/JSON-API
+        """
+        await self._request("state", method="POST", json_data=json_data)
+
     async def sync(
         self, *, send: Optional[bool] = None, receive: Optional[bool] = None
     ) -> None:

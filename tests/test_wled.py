@@ -571,3 +571,15 @@ async def test_not_supporting_si_request_probing_based(aresponses):
         wled = WLED("example.com", session=session)
         await wled.update()
         assert not wled._supports_si_request
+
+
+@pytest.mark.asyncio
+async def test_raw_request(aresponses):
+    """Test for raw requests to WLED."""
+    aresponses.add(
+        "example.com", "/json/state", "POST", aresponses.Response(status=200, text="OK")
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.raw({"raw": "test"})
