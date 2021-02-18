@@ -178,6 +178,7 @@ class Leds:
 
     count: int
     rgbw: bool
+    wv: bool
     pin: int
     power: int
     max_power: int
@@ -201,6 +202,7 @@ class Leds:
             pin=leds.get("pin", 0),
             power=leds.get("pwr", 0),
             rgbw=leds.get("rgbw", False),
+            wv=leds.get("wv", True),
         )
 
 
