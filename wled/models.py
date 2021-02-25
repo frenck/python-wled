@@ -203,6 +203,7 @@ class Info:
     version_id: str
     version: str
     wifi: Optional[Wifi]
+    user_mods: Optional[dict]
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> Info:
@@ -227,6 +228,7 @@ class Info:
             version_id=data.get("vid", "Unknown"),
             version=data.get("ver", "Unknown"),
             wifi=Wifi.from_dict(data),
+            user_mods=data.get("u", None),
         )
 
 
