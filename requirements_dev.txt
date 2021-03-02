@@ -1,6 +1,6 @@
 autopep8==1.5.5
 black==20.8b1
-blacken-docs==1.9.2
+blacken-docs==1.10.0
 pip==21.0.1
 pre-commit==2.10.1
 twine==3.3.0
