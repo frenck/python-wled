@@ -7,4 +7,4 @@ mypy==0.812
 pylint==2.8.2
 pytest==6.2.4
 pytest-asyncio==0.15.1
-pytest-cov==2.11.1
+pytest-cov==2.12.0
