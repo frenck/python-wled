@@ -320,6 +320,7 @@ class WLED:
                     for item in self._device.palettes
                     if item.name.lower() == palette.lower()
                 ),
+                None,
             )
 
         # Filter out not set values
