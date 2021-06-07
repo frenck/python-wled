@@ -1,0 +1,61 @@
+---
+name: Release
+
+# yamllint disable-line rule:truthy
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  release:
+    name: Releasing to PyPi
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: 🏗 Set up Python 3.8
+        id: python
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.8
+      - name: 🏗 Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+      - name: ⤵️ Restore cached Python PIP packages
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install workflow dependencies
+        run: |
+          pip install -r .github/workflows/requirements.txt
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      - name: ⤵️ Restore cached Python virtual environment
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2.1.4
+        with:
+          path: .venv
+          key: >-
+            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install dependencies
+        run: poetry install --no-interaction
+      - name: 🏗 Set package version
+        run: |
+          version="${{ github.event.release.tag_name }}"
+          version="${version,,}"
+          version="${version#v}"
+          poetry version --no-interaction "${version}"
+      - name: 🏗 Build package
+        run: poetry build --no-interaction
+      - name: 🚀 Publish to PyPi
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          poetry config pypi-token.pypi "${PYPI_TOKEN}"
+          poetry publish --no-interaction

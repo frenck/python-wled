@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 from .exceptions import WLEDError
 
@@ -17,14 +17,21 @@ class Nightlight:
     target_brightness: int
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Nightlight:
-        """Return Nightlight object from WLED API response."""
+    def from_dict(data: dict[str, Any]) -> Nightlight:
+        """Return Nightlight object from WLED API response.
+
+        Args:
+            data: The data from the WLED device API.
+
+        Returns:
+            A Nightlight object.
+        """
         nightlight = data.get("nl", {})
         return Nightlight(
             duration=nightlight.get("dur", 1),
             fade=nightlight.get("fade", False),
             on=nightlight.get("on", False),
-            target_brightness=nightlight.get("tbri"),
+            target_brightness=nightlight.get("tbri", 0),
         )
 
 
@@ -36,8 +43,15 @@ class Sync:
     send: bool
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Sync:
-        """Return Sync object from WLED API response."""
+    def from_dict(data: dict[str, Any]) -> Sync:
+        """Return Sync object from WLED API response.
+
+        Args:
+            data: The data from the WLED device API.
+
+        Returns:
+            A sync object.
+        """
         sync = data.get("udpn", {})
         return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
 
@@ -52,7 +66,14 @@ class Effect:
 
 @dataclass
 class Palette:
-    """Object holding an palette in WLED."""
+    """Object holding an palette in WLED.
+
+    Args:
+        data: The data from the WLED device API.
+
+    Returns:
+        A palette object.
+    """
 
     name: str
     palette_id: int
@@ -60,13 +81,20 @@ class Palette:
 
 @dataclass
 class Segment:
-    """Object holding segment state in WLED."""
+    """Object holding segment state in WLED.
+
+    Args:
+        data: The data from the WLED device API.
+
+    Returns:
+        A segment object.
+    """
 
     brightness: int
     clones: int
-    color_primary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
-    color_secondary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
-    color_tertiary: Union[Tuple[int, int, int, int], Tuple[int, int, int]]
+    color_primary: tuple[int, int, int, int] | tuple[int, int, int]
+    color_secondary: tuple[int, int, int, int] | tuple[int, int, int]
+    color_tertiary: tuple[int, int, int, int] | tuple[int, int, int]
     effect: Effect
     intensity: int
     length: int
@@ -82,14 +110,26 @@ class Segment:
     @staticmethod
     def from_dict(
         segment_id: int,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         *,
-        effects: List[Effect],
-        palettes: List[Palette],
+        effects: list[Effect],
+        palettes: list[Palette],
         state_on: bool,
         state_brightness: int,
     ) -> Segment:
-        """Return Segment object from WLED API response."""
+        """Return Segment object from WLED API response.
+
+        Args:
+            segment_id: The ID of the LED strip segment.
+            data: The segment data received from the WLED device.
+            effects: A list of Effect objects.
+            palettes: A list of Palette objects.
+            state_on: Boolean the represents the on/off state of this segment.
+            state_brightness: The brightness level of this segment.
+
+        Returns:
+            An Segment object.
+        """
         start = data.get("start", 0)
         stop = data.get("stop", 0)
         length = data.get("len", (stop - start))
@@ -144,8 +184,15 @@ class Leds:
     max_segments: int
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Leds:
-        """Return Leds object from WLED API response."""
+    def from_dict(data: dict[str, Any]) -> Leds:
+        """Return Leds object from WLED API response.
+
+        Args:
+            data: The data from the WLED device API.
+
+        Returns:
+            A Leds object.
+        """
         leds = data.get("leds", {})
         return Leds(
             count=leds.get("count", 0),
@@ -159,7 +206,14 @@ class Leds:
 
 @dataclass
 class Wifi:
-    """Object holding Wi-Fi information from WLED."""
+    """Object holding Wi-Fi information from WLED.
+
+    Args:
+        data: The data from the WLED device API.
+
+    Returns:
+        A Wi-Fi object.
+    """
 
     bssid: str
     channel: int
@@ -167,8 +221,15 @@ class Wifi:
     signal: int
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Optional[Wifi]:
-        """Return Wifi object form WLED API response."""
+    def from_dict(data: dict[str, Any]) -> Wifi | None:
+        """Return Wifi object form WLED API response.
+
+        Args:
+            data: The response from the WLED API.
+
+        Returns:
+            An Wifi object.
+        """
         if "wifi" not in data:
             return None
         wifi = data.get("wifi", {})
@@ -202,11 +263,18 @@ class Info:
     uptime: int
     version_id: str
     version: str
-    wifi: Optional[Wifi]
+    wifi: Wifi | None
 
     @staticmethod
-    def from_dict(data: Dict[str, Any]) -> Info:
-        """Return Info object from WLED API response."""
+    def from_dict(data: dict[str, Any]) -> Info:
+        """Return Info object from WLED API response.
+
+        Args:
+            data: The data from the WLED device API.
+
+        Returns:
+            A info object.
+        """
         return Info(
             architecture=data.get("arch", "Unknown"),
             arduino_core_version=data.get("core", "Unknown").replace("_", "."),
@@ -239,25 +307,42 @@ class State:
     on: bool
     playlist: int
     preset: int
-    segments: List[Segment]
+    segments: list[Segment]
     sync: Sync
     transition: int
 
     @property
     def playlist_active(self) -> bool:
-        """Return if a playlist is currently active."""
+        """Return if a playlist is currently active.
+
+        Returns:
+            True if there is currently a playlist active, False otherwise.
+        """
         return self.playlist == -1
 
     @property
     def preset_active(self) -> bool:
-        """Return if a preset is currently active."""
+        """Return if a preset is currently active.
+
+        Returns:
+            True is a preset is currently active, False otherwise.
+        """
         return self.preset == -1
 
     @staticmethod
     def from_dict(
-        data: Dict[str, Any], effects: List[Effect], palettes: List[Palette]
+        data: dict[str, Any], effects: list[Effect], palettes: list[Palette]
     ) -> State:
-        """Return State object from WLED API response."""
+        """Return State object from WLED API response.
+
+        Args:
+            data: The state response received from the WLED device API.
+            effects: A list of effect objects.
+            palettes: A list of palette object.
+
+        Returns:
+            A State object.
+        """
         brightness = data.get("bri", 1)
         on = data.get("on", False)
 
@@ -288,13 +373,21 @@ class State:
 class Device:
     """Object holding all information of WLED."""
 
-    effects: List[Effect] = []
+    effects: list[Effect] = []
     info: Info
-    palettes: List[Palette] = []
+    palettes: list[Palette] = []
     state: State
 
-    def __init__(self, data: dict):
-        """Initialize an empty WLED device class."""
+    def __init__(self, data: dict) -> None:
+        """Initialize an empty WLED device class.
+
+        Args:
+            data: The full API response from a WLED device.
+
+        Raises:
+            WLEDError: In case the given API response is incomplete in a way
+                that a Device object cannot be constructed from it.
+        """
         # Check if all elements are in the passed dict, else raise an Error
         if any(
             k not in data and data[k] is not None
@@ -303,8 +396,16 @@ class Device:
             raise WLEDError("WLED data is incomplete, cannot construct device object")
         self.update_from_dict(data)
 
-    def update_from_dict(self, data: dict) -> "Device":
-        """Return Device object from WLED API response."""
+    def update_from_dict(self, data: dict) -> Device:
+        """Return Device object from WLED API response.
+
+        Args:
+            data: Update the device object with the data received from a
+                WLED device API.
+
+        Returns:
+            The updated Device object.
+        """
         if "effects" in data and data["effects"]:
             effects = [
                 Effect(effect_id=effect_id, name=effect)

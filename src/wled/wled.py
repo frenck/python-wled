@@ -4,15 +4,15 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
-from typing import Any, Dict, Mapping, Optional, Tuple, Union
+from dataclasses import dataclass
+from typing import Any
 
 import aiohttp
 import async_timeout
-import backoff
+import backoff  # type: ignore
 from packaging import version
 from yarl import URL
 
-from .__version__ import __version__
 from .exceptions import (
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
@@ -22,89 +22,69 @@ from .exceptions import (
 from .models import Device
 
 
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
-    _device: Optional[Device] = None
-    _supports_si_request: Optional[bool] = None
+    host: str
+    request_timeout: float = 8.0
+    session: aiohttp.client.ClientSession | None = None
 
-    def __init__(
-        self,
-        host: str,
-        base_path: str = "/json",
-        password: str = None,
-        port: int = 80,
-        request_timeout: float = 8.0,
-        session: aiohttp.client.ClientSession = None,
-        tls: bool = False,
-        username: str = None,
-        verify_ssl: bool = True,
-        user_agent: str = None,
-    ) -> None:
-        """Initialize connection with WLED."""
-        self._session = session
-        self._close_session = False
-
-        self.base_path = base_path
-        self.host = host
-        self.password = password
-        self.port = port
-        self.socketaddr = None
-        self.request_timeout = request_timeout
-        self.tls = tls
-        self.username = username
-        self.verify_ssl = verify_ssl
-        self.user_agent = user_agent
-
-        if user_agent is None:
-            self.user_agent = f"PythonWLED/{__version__}"
-
-        if self.base_path[-1] != "/":
-            self.base_path += "/"
+    _close_session: bool = False
+    _device: Device | None = None
+    _supports_si_request: bool | None = None
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
-    async def _request(
+    async def request(
         self,
         uri: str = "",
         method: str = "GET",
-        data: Optional[Any] = None,
-        json_data: Optional[dict] = None,
-        params: Optional[Mapping[str, str]] = None,
+        data: dict | None = None,
     ) -> Any:
-        """Handle a request to a WLED device."""
-        scheme = "https" if self.tls else "http"
-        url = URL.build(
-            scheme=scheme, host=self.host, port=self.port, path=self.base_path
-        ).join(URL(uri))
+        """Handle a request to a WLED device.
 
-        auth = None
-        if self.username and self.password:
-            auth = aiohttp.BasicAuth(self.username, self.password)
+        A generic method for sending/handling HTTP requests done gainst
+        the WLED device.
+
+        Args:
+            uri: Request URI, for example `si`
+            method: HTTP method to use for the request.E.g., "GET" or "POST".
+            data: Dictionary of data to send to the WLED device.
+
+        Returns:
+            A Python dictionary (JSON decoded) with the response from the
+            WLED device.
+
+        Raises:
+            WLEDConnectionError: An error occurred while communitcation with
+                the WLED device.
+            WLEDConnectionTimeoutError: A timeout occurred while communicating
+                with the WLED device.
+            WLEDError: Received an unexpected response from the WLED device.
+        """
+        url = URL.build(scheme="http", host=self.host, port=80, path="/json/").join(
+            URL(uri)
+        )
 
         headers = {
-            "User-Agent": self.user_agent,
             "Accept": "application/json, text/plain, */*",
         }
 
-        if self._session is None:
-            self._session = aiohttp.ClientSession()
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
             self._close_session = True
 
         # If updating the state, always request for a state response
-        if method == "POST" and uri == "state" and json_data is not None:
-            json_data["v"] = True
+        if method == "POST" and uri == "state" and data is not None:
+            data["v"] = True
 
         try:
             with async_timeout.timeout(self.request_timeout):
-                response = await self._session.request(
+                response = await self.session.request(
                     method,
                     url,
-                    auth=auth,
-                    data=data,
-                    json=json_data,
-                    params=params,
+                    json=data,
                     headers=headers,
-                    ssl=self.verify_ssl,
                 )
         except asyncio.TimeoutError as exception:
             raise WLEDConnectionTimeoutError(
@@ -125,15 +105,15 @@ class WLED:
             raise WLEDError(response.status, {"message": contents.decode("utf8")})
 
         if "application/json" in content_type:
-            data = await response.json()
+            response_data = await response.json()
             if (
                 method == "POST"
                 and uri == "state"
                 and self._device is not None
-                and json_data is not None
+                and data is not None
             ):
-                self._device.update_from_dict(data={"state": data})
-            return data
+                self._device.update_from_dict(data={"state": response_data})
+            return response_data
 
         return await response.text()
 
@@ -141,9 +121,22 @@ class WLED:
         backoff.expo, WLEDEmptyResponseError, max_tries=3, logger=None
     )
     async def update(self, full_update: bool = False) -> Device:
-        """Get all information about the device in a single call."""
+        """Get all information about the device in a single call.
+
+        This method updates all WLED information available with a single API
+        call.
+
+        Args:
+            full_update: Force a full update from the WLED Device.
+
+        Returns:
+            WLED Device data.
+
+        Raises:
+            WLEDEmptyResponseError: The WLED device returned an empty response.
+        """
         if self._device is None or full_update:
-            data = await self._request()
+            data = await self.request()
             if not data:
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
@@ -161,7 +154,7 @@ class WLED:
             except version.InvalidVersion:
                 # Could be a manual build one? Lets poll for it
                 try:
-                    await self._request("si")
+                    await self.request("si")
                     self._supports_si_request = True
                 except WLEDError:
                     self._supports_si_request = False
@@ -170,14 +163,14 @@ class WLED:
 
         # Handle legacy state and update in separate requests
         if not self._supports_si_request:
-            info = await self._request("info")
+            info = await self.request("info")
             if not info:
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
                     " response on info update"
                 )
 
-            state = await self._request("state")
+            state = await self.request("state")
             if not state:
                 raise WLEDEmptyResponseError(
                     f"WLED device {self.host} returned an empty API"
@@ -186,7 +179,7 @@ class WLED:
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
 
-        state_info = await self._request("si")
+        state_info = await self.request("si")
         if not state_info:
             raise WLEDEmptyResponseError(
                 f"WLED device at {self.host} returned an empty API"
@@ -198,12 +191,20 @@ class WLED:
     async def master(
         self,
         *,
-        brightness: Optional[int] = None,
-        on: Optional[bool] = None,
-        transition: Optional[int] = None,
+        brightness: int | None = None,
+        on: bool | None = None,
+        transition: int | None = None,
     ):
-        """Change master state of a WLED Light device."""
-        state: Dict[str, Union[bool, int]] = {}
+        """Change master state of a WLED Light device.
+
+        Args:
+            brightness: The brightness of the light master, between 0 and 255.
+            on: A boolean, true to turn the master light on, false otherwise.
+            transition: Duration of the crossfade between different
+                colors/brightness levels. One unit is 100ms, so a value of 4
+                results in a transition of 400ms.
+        """
+        state: dict[str, bool | int] = {}
 
         if brightness is not None:
             state["bri"] = brightness
@@ -214,36 +215,58 @@ class WLED:
         if transition is not None:
             state["tt"] = transition
 
-        await self._request("state", method="POST", json_data=state)
+        await self.request("state", method="POST", data=state)
 
-    async def segment(
+    async def segment(  # pylint: disable=too-many-locals, too-many-branches
         self,
         segment_id: int,
         *,
-        brightness: Optional[int] = None,
-        clones: Optional[int] = None,
-        color_primary: Optional[
-            Union[Tuple[int, int, int, int], Tuple[int, int, int]]
-        ] = None,
-        color_secondary: Optional[
-            Union[Tuple[int, int, int, int], Tuple[int, int, int]]
-        ] = None,
-        color_tertiary: Optional[
-            Union[Tuple[int, int, int, int], Tuple[int, int, int]]
-        ] = None,
-        effect: Optional[Union[int, str]] = None,
-        intensity: Optional[int] = None,
-        length: Optional[int] = None,
-        on: Optional[bool] = None,
-        palette: Optional[Union[int, str]] = None,
-        reverse: Optional[bool] = None,
-        selected: Optional[bool] = None,
-        speed: Optional[int] = None,
-        start: Optional[int] = None,
-        stop: Optional[int] = None,
-        transition: Optional[int] = None,
+        brightness: int | None = None,
+        clones: int | None = None,
+        color_primary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
+        color_secondary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
+        color_tertiary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
+        effect: int | str | None = None,
+        intensity: int | None = None,
+        length: int | None = None,
+        on: bool | None = None,
+        palette: int | str | None = None,
+        reverse: bool | None = None,
+        selected: bool | None = None,
+        speed: int | None = None,
+        start: int | None = None,
+        stop: int | None = None,
+        transition: int | None = None,
     ) -> None:
-        """Change state of a WLED Light segment."""
+        """Change state of a WLED Light segment.
+
+        Args:
+            segment_id: The ID of the segment to adjust.
+            brightness: The brightness of the segment, between 0 and 255.
+            clones: Deprecated.
+            color_primary: The primary color of this segment.
+            color_secondary: The secondary color of this segment.
+            color_tertiary: The tertiary color of this segment.
+            effect: The effect number (or name) to use on this segment.
+            intensity: The effect intensity to use on this segment.
+            length: The length of this segment.
+            on: A boolean, true to turn this segment on, false otherwise.
+            palette: the palette number or name to use on this segment.
+            reverse: Flips the segment, causing animations to change direction.
+            selected: Selected segments will have their state (color/FX) updated
+                by APIs that don't support segments.
+            speed: The relative effect speed, between 0 and 255.
+            start: LED the segment starts at.
+            stop: LED the segment stops at, not included in range. If stop is
+                set to a lower or equal value than start (setting to 0 is
+                recommended), the segment is invalidated and deleted.
+            transition:  Duration of the crossfade between different
+                colors/brightness levels. One unit is 100ms, so a value of 4
+                results in a transition of 400ms.
+
+        Raises:
+            WLEDError: Something went wrong setting the segment state.
+        """
         if self._device is None:
             await self.update()
 
@@ -297,6 +320,7 @@ class WLED:
                     for item in self._device.palettes
                     if item.name.lower() == palette.lower()
                 ),
+                None,
             )
 
         # Filter out not set values
@@ -328,39 +352,66 @@ class WLED:
         if transition is not None:
             state["tt"] = transition
 
-        await self._request("state", method="POST", json_data=state)
+        await self.request("state", method="POST", data=state)
 
     async def transition(self, transition: int) -> None:
-        """Set the default transition time for manual control."""
-        await self._request(
-            "state", method="POST", json_data={"transition": transition}
-        )
+        """Set the default transition time for manual control.
+
+        Args:
+            transition: Duration of the default crossfade between different
+                colors/brightness levels. One unit is 100ms, so a value of 4
+                results in a transition of 400ms.
+        """
+        await self.request("state", method="POST", data={"transition": transition})
 
     async def preset(self, preset: int) -> None:
-        """Set a preset on a WLED device."""
-        await self._request("state", method="POST", json_data={"ps": preset})
+        """Set a preset on a WLED device.
+
+        Args:
+            preset: The preset number to activate on this WLED device.
+        """
+        await self.request("state", method="POST", data={"ps": preset})
 
     async def playlist(self, playlist: int) -> None:
-        """Set a running playlist on a WLED device."""
-        await self._request("state", method="POST", json_data={"pl": playlist})
+        """Set a running playlist on a WLED device.
+
+        Args:
+            playlist: ID of playlist to run. For now, this sets the preset
+                cycle feature, -1 is off and 0 is on.
+        """
+        await self.request("state", method="POST", data={"pl": playlist})
 
     async def sync(
-        self, *, send: Optional[bool] = None, receive: Optional[bool] = None
+        self, *, send: bool | None = None, receive: bool | None = None
     ) -> None:
-        """Set the sync status of the WLED device."""
+        """Set the sync status of the WLED device.
+
+        Args:
+            send: Send WLED broadcast (UDP sync) packet on state change.
+            receive: Receive broadcast packets.
+        """
         sync = {"send": send, "recv": receive}
         sync = {k: v for k, v in sync.items() if v is not None}
-        await self._request("state", method="POST", json_data={"udpn": sync})
+        await self.request("state", method="POST", data={"udpn": sync})
 
     async def nightlight(
         self,
         *,
-        duration: Optional[int] = None,
-        fade: Optional[bool] = None,
-        on: Optional[bool] = None,
-        target_brightness: Optional[int] = None,
+        duration: int | None = None,
+        fade: bool | None = None,
+        on: bool | None = None,
+        target_brightness: int | None = None,
     ) -> None:
-        """Control the nightlight function of a WLED device."""
+        """Control the nightlight function of a WLED device.
+
+        Args:
+            duration: Duration of nightlight in minutes.
+            fade: If true, the light will gradually dim over the course of the
+                nightlight duration. If false, it will instantly turn to the
+                target brightness once the duration has elapsed.
+            on: A boolean, true to turn the nightlight on, false otherwise.
+            target_brightness: Target brightness of nightlight, between 0 and 255.
+        """
         nightlight = {
             "dur": duration,
             "fade": fade,
@@ -371,21 +422,29 @@ class WLED:
         # Filter out not set values
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
 
-        state: Dict[str, Any] = {"nl": nightlight}
+        state: dict[str, Any] = {"nl": nightlight}
         if on:
             state["on"] = True
 
-        await self._request("state", method="POST", json_data=state)
+        await self.request("state", method="POST", data=state)
 
     async def close(self) -> None:
         """Close open client session."""
-        if self._session and self._close_session:
-            await self._session.close()
+        if self.session and self._close_session:
+            await self.session.close()
 
     async def __aenter__(self) -> WLED:
-        """Async enter."""
+        """Async enter.
+
+        Returns:
+            The WLED object.
+        """
         return self
 
-    async def __aexit__(self, *exc_info) -> None:
-        """Async exit."""
+    async def __aexit__(self, *_exc_info) -> None:
+        """Async exit.
+
+        Args:
+            _exc_info: Exec type.
+        """
         await self.close()

@@ -1,4 +1,0 @@
-include README.md
-include LICENSE.md
-graft wled
-recursive-exclude * *.py[co]

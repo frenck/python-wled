@@ -1,6 +1,7 @@
 # Python: WLED API Client
 
 [![GitHub Release][releases-shield]][releases]
+[![Python Versions][python-versions-shield]][pypi]
 ![Project Stage][project-stage-shield]
 ![Project Maintenance][maintenance-shield]
 [![License][license-shield]](LICENSE.md)
@@ -8,6 +9,7 @@
 [![Build Status][build-shield]][build]
 [![Code Coverage][codecov-shield]][codecov]
 [![Code Quality][code-quality-shield]][code-quality]
+[![Deepcode.ai][deepcode-shield]][deepcode]
 
 [![Sponsor Frenck via GitHub Sponsors][github-sponsors-shield]][github-sponsors]
 
@@ -53,16 +55,15 @@ if __name__ == "__main__":
 ## Changelog & Releases
 
 This repository keeps a change log using [GitHub's releases][releases]
-functionality. The format of the log is based on
-[Keep a Changelog][keepchangelog].
+functionality.
 
 Releases are based on [Semantic Versioning][semver], and use the format
-of ``MAJOR.MINOR.PATCH``. In a nutshell, the version will be incremented
+of `MAJOR.MINOR.PATCH`. In a nutshell, the version will be incremented
 based on the following:
 
-- ``MAJOR``: Incompatible or major changes.
-- ``MINOR``: Backwards-compatible new features and enhancements.
-- ``PATCH``: Backwards-compatible bugfixes and package updates.
+- `MAJOR`: Incompatible or major changes.
+- `MINOR`: Backwards-compatible new features and enhancements.
+- `PATCH`: Backwards-compatible bugfixes and package updates.
 
 ## Contributing
 
@@ -76,42 +77,35 @@ Thank you for being involved! :heart_eyes:
 
 ## Setting up development environment
 
-In case you'd like to contribute, a `Makefile` has been included to ensure a
-quick start.
+This Python project is fully managed using the [Poetry][poetry] dependency
+manager. But also relies on the use of NodeJS for certain checks during
+development.
+
+You need at least:
+
+- Python 3.7+
+- [Poetry][poetry-install]
+- NodeJS 12+ (including NPM)
+
+To install all packages, including all development requirements:
 
 ```bash
-make venv
-source ./venv/bin/activate
-make dev
+npm install
+poetry install
 ```
 
-Now you can start developing, run `make` without arguments to get an overview
-of all make goals that are available (including description):
+As this repository uses the [pre-commit][pre-commit] framework, all changes
+are linted and tested with each commit. You can run all checks and tests
+manually, using the following command:
 
 ```bash
-$ make
-Asynchronous Python client for WLED.
+poetry run pre-commit run --all-files
+```
 
-Usage:
-  make help                            Shows this message.
-  make dev                             Set up a development environment.
-  make lint                            Run all linters.
-  make lint-black                      Run linting using black & blacken-docs.
-  make lint-flake8                     Run linting using flake8 (pycodestyle/pydocstyle).
-  make lint-pylint                     Run linting using PyLint.
-  make lint-mypy                       Run linting using MyPy.
-  make test                            Run tests quickly with the default Python.
-  make coverage                        Check code coverage quickly with the default Python.
-  make install                         Install the package to the active Python's site-packages.
-  make clean                           Removes build, test, coverage and Python artifacts.
-  make clean-all                       Removes all venv, build, test, coverage and Python artifacts.
-  make clean-build                     Removes build artifacts.
-  make clean-pyc                       Removes Python file artifacts.
-  make clean-test                      Removes test and coverage artifacts.
-  make clean-venv                      Removes Python virtual environment artifacts.
-  make dist                            Builds source and wheel package.
-  make release                         Release build on PyP
-  make venv                            Create Python venv environment.
+To run just the Python tests:
+
+```bash
+poetry run pytest
 ```
 
 ## Authors & contributors
@@ -125,7 +119,7 @@ check [the contributor's page][contributors].
 
 MIT License
 
-Copyright (c) 2019-2020 Franck Nijhof
+Copyright (c) 2019-2021 Franck Nijhof
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -145,22 +139,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-[build-shield]: https://github.com/frenck/python-wled/workflows/Continuous%20Integration/badge.svg
-[build]: https://github.com/frenck/python-wled/actions
+[build-shield]: https://github.com/frenck/python-wled/actions/workflows/tests.yaml/badge.svg
+[build]: https://github.com/frenck/python-wled/actions/workflows/tests.yaml
 [code-quality-shield]: https://img.shields.io/lgtm/grade/python/g/frenck/python-wled.svg?logo=lgtm&logoWidth=18
 [code-quality]: https://lgtm.com/projects/g/frenck/python-wled/context:python
 [codecov-shield]: https://codecov.io/gh/frenck/python-wled/branch/master/graph/badge.svg
 [codecov]: https://codecov.io/gh/frenck/python-wled
 [contributors]: https://github.com/frenck/python-wled/graphs/contributors
+[deepcode-shield]: https://www.deepcode.ai/api/gh/badge?key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwbGF0Zm9ybTEiOiJnaCIsIm93bmVyMSI6ImZyZW5jayIsInJlcG8xIjoicHl0aG9uLWVsZ2F0byIsImluY2x1ZGVMaW50IjpmYWxzZSwiYXV0aG9ySWQiOjI4MDU1LCJpYXQiOjE2MTUxODgzODh9.hJsD6PTw8K8bnTmHUzroQi7XkXRi46bdt-oMqx2zXj0
+[deepcode]: https://www.deepcode.ai/app/gh/frenck/python-wled/_/dashboard?utm_content=gh%2Ffrenck%2Fpython-wled
 [frenck]: https://github.com/frenck
 [github-sponsors-shield]: https://frenck.dev/wp-content/uploads/2019/12/github_sponsor.png
 [github-sponsors]: https://github.com/sponsors/frenck
-[keepchangelog]: http://keepachangelog.com/en/1.0.0/
 [license-shield]: https://img.shields.io/github/license/frenck/python-wled.svg
-[maintenance-shield]: https://img.shields.io/maintenance/yes/2020.svg
+[maintenance-shield]: https://img.shields.io/maintenance/yes/2021.svg
 [patreon-shield]: https://frenck.dev/wp-content/uploads/2019/12/patreon.png
 [patreon]: https://www.patreon.com/frenck
+[poetry-install]: https://python-poetry.org/docs/#installation
+[poetry]: https://python-poetry.org
+[pre-commit]: https://pre-commit.com/
 [project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-yellow.svg
+[pypi]: https://pypi.org/project/wled/
+[python-versions-shield]: https://img.shields.io/pypi/pyversions/wled
 [releases-shield]: https://img.shields.io/github/release/frenck/python-wled.svg
 [releases]: https://github.com/frenck/python-wled/releases
 [semver]: http://semver.org/spec/v2.0.0.html

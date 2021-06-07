@@ -69,7 +69,6 @@ coverage.xml
 *,cover
 .hypothesis/
 .pytest_cache/
-cov.xml
 
 # Translations
 *.mo
@@ -112,3 +111,9 @@ target/
 # Cookiecutter
 output/
 python_boilerplate/
+
+# Node
+node_modules/
+
+# Deepcode AI
+.dccache
