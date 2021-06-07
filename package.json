@@ -1,0 +1,16 @@
+{
+  "name": "wled",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Asynchronous Python client for WLED",
+  "scripts": {
+    "pyright": "pyright",
+    "prettier": "prettier --write **/*.{json,js,md,yml,yaml} *.{json,js,md,yml,yaml}"
+  },
+  "author": "Franck Nijhof <opensource@frenck.dev>",
+  "license": "MIT",
+  "devDependencies": {
+    "prettier": "^2.3.1",
+    "pyright": "^1.1.147"
+  }
+}

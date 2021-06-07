@@ -1,0 +1,101 @@
+---
+name: Testing
+
+# yamllint disable-line rule:truthy
+on: [push, pull_request]
+
+jobs:
+  pytest:
+    name: Python ${{ matrix.python }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      matrix:
+        os: [ubuntu, windows, macos]
+        python: [3.8, 3.9]
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: 🏗 Set up Python ${{ matrix.python }}
+        id: python
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: ${{ matrix.python }}
+      - name: 🏗 Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+      - name: ⤵️ Restore cached Python PIP packages
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install workflow dependencies
+        run: |
+          pip install -r .github/workflows/requirements.txt
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      - name: ⤵️ Restore cached Python virtual environment
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2.1.4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+          restore-keys: |
+            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install dependencies
+        run: poetry install --no-interaction
+      - name: 🚀 Run pytest
+        run: poetry run pytest --cov wled tests
+      - name: ⬆️ Upload coverage artifact
+        uses: actions/upload-artifact@v2.2.2
+        with:
+          name: coverage-${{ matrix.python }}-${{ matrix.os }}
+          path: .coverage
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: pytest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@v2.3.4
+      - name: ⬇️ Download coverage data
+        uses: actions/download-artifact@v2.0.8
+      - name: 🏗 Set up Python 3.9
+        id: python
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.9
+      - name: 🏗 Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+      - name: ⤵️ Restore cached Python PIP packages
+        uses: actions/cache@v2.1.4
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key: pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install workflow dependencies
+        run: |
+          pip install -r .github/workflows/requirements.txt
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      - name: ⤵️ Restore cached Python virtual environment
+        id: cached-poetry-dependencies
+        uses: actions/cache@v2.1.4
+        with:
+          path: .venv
+          key: >-
+            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+      - name: 🏗 Install dependencies
+        run: poetry install --no-interaction
+      - name: 🚀 Process coverage results
+        run: |
+          poetry run coverage combine coverage*/.coverage*
+          poetry run coverage xml -i
+      - name: 🚀 Upload coverage report
+        uses: codecov/codecov-action@v1.2.2
