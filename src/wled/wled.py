@@ -5,7 +5,7 @@ import asyncio
 import json
 import socket
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import aiohttp
 import async_timeout
@@ -14,6 +14,7 @@ from packaging import version
 from yarl import URL
 
 from .exceptions import (
+    WLEDConnectionClosed,
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
     WLEDEmptyResponseError,
@@ -30,9 +31,98 @@ class WLED:
     request_timeout: float = 8.0
     session: aiohttp.client.ClientSession | None = None
 
+    _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
     _supports_si_request: bool | None = None
+
+    @property
+    def connected(self) -> bool:
+        """Return if we are connect to the WebSocket of a WLED device.
+
+        Returns:
+            True if we are connected to the WebSocket of a WLED device,
+            False otherwise.
+        """
+        return self._client is not None and not self._client.closed
+
+    async def connect(self) -> None:
+        """Connect to the WebSocket of a WLED device.
+
+        Raises:
+            WLEDError: The configured WLED device, does not support WebSocket
+                communications.
+            WLEDConnectionError: Error occurred while communicating with
+                the WLED device via the WebSocket.
+        """
+        if self.connected:
+            return
+
+        if not self._device:
+            await self.update()
+
+        if not self.session or not self._device or self._device.info.websocket is None:
+            raise WLEDError(
+                "The WLED device at {self.host} does not support WebSockets"
+            )
+
+        url = URL.build(scheme="ws", host=self.host, port=80, path="/ws")
+
+        try:
+            self._client = await self.session.ws_connect(url=url, heartbeat=30)
+        except (
+            aiohttp.WSServerHandshakeError,
+            aiohttp.ClientConnectionError,
+            socket.gaierror,
+        ) as exception:
+            raise WLEDConnectionError(
+                "Error occurred while communicating with WLED device"
+                f" on WebSocket at {self.host}"
+            ) from exception
+
+    async def listen(self, callback: Callable[[Device], None]) -> None:
+        """Listen for events on the WLED WebSocket.
+
+        Args:
+            callback: Method to call when a state update is received from
+                the WLED device.
+
+        Raises:
+            WLEDError: Not connected to a WebSocket.
+            WLEDConnectionError: An connection error occurred while connected
+                to the WLED device.
+            WLEDConnectionClosed: The WebSocket connection to the remote WLED
+                has been closed.
+        """
+        if not self._client or not self.connected or not self._device:
+            raise WLEDError("Not connected to a WLED WebSocket")
+
+        while not self._client.closed:
+            message = await self._client.receive()
+
+            if message.type == aiohttp.WSMsgType.ERROR:
+                raise WLEDConnectionError(self._client.exception())
+
+            if message.type == aiohttp.WSMsgType.TEXT:
+                message_data = message.json()
+                device = self._device.update_from_dict(data=message_data)
+                callback(device)
+
+            if message.type in (
+                aiohttp.WSMsgType.CLOSE,
+                aiohttp.WSMsgType.CLOSED,
+                aiohttp.WSMsgType.CLOSING,
+            ):
+                raise WLEDConnectionClosed(
+                    f"Connection to the WLED WebSocket on {self.host} has been closed"
+                )
+
+    async def disconnect(self) -> None:
+        """Disconnect from the WebSocket of a WLED device."""
+        if not self._client or not self.connected:
+            return
+
+        await self._client.close()
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
     async def request(
@@ -47,7 +137,7 @@ class WLED:
         the WLED device.
 
         Args:
-            uri: Request URI, for example `si`
+            uri: Request URI, for example `si`.
             method: HTTP method to use for the request.E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
 
@@ -429,7 +519,8 @@ class WLED:
         await self.request("state", method="POST", data=state)
 
     async def close(self) -> None:
-        """Close open client session."""
+        """Close open client (WebSocket) session."""
+        await self.disconnect()
         if self.session and self._close_session:
             await self.session.close()
 
@@ -447,4 +538,5 @@ class WLED:
         Args:
             _exc_info: Exec type.
         """
+        print("Disconnecting nicely....")
         await self.close()

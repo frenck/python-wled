@@ -11,7 +11,13 @@ from .models import (  # noqa
     State,
     Sync,
 )
-from .wled import WLED, WLEDConnectionError, WLEDError
+from .wled import (
+    WLED,
+    WLEDConnectionClosed,
+    WLEDConnectionError,
+    WLEDConnectionTimeoutError,
+    WLEDError,
+)
 
 __all__ = [
     "Device",
@@ -24,6 +30,8 @@ __all__ = [
     "State",
     "Sync",
     "WLED",
+    "WLEDConnectionClosed",
     "WLEDConnectionError",
+    "WLEDConnectionTimeoutError",
     "WLEDError",
 ]
