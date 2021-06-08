@@ -320,6 +320,7 @@ class State:
     segments: list[Segment]
     sync: Sync
     transition: int
+    lor: int
 
     @property
     def playlist_active(self) -> bool:
@@ -355,6 +356,7 @@ class State:
         """
         brightness = data.get("bri", 1)
         on = data.get("on", False)
+        lor = data.get("lor", 0)
 
         segments = [
             Segment.from_dict(
@@ -377,6 +379,7 @@ class State:
             segments=segments,
             sync=Sync.from_dict(data),
             transition=data.get("transition", 0),
+            lor=lor,
         )
 
 
