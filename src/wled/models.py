@@ -265,6 +265,7 @@ class Info:
     uptime: int
     version_id: str
     version: str
+    websocket: int | None
     wifi: Wifi | None
 
     @staticmethod
@@ -277,6 +278,10 @@ class Info:
         Returns:
             A info object.
         """
+        websocket = data.get("ws")
+        if websocket == -1:
+            websocket = None
+
         return Info(
             architecture=data.get("arch", "Unknown"),
             arduino_core_version=data.get("core", "Unknown").replace("_", "."),
@@ -296,6 +301,7 @@ class Info:
             uptime=data.get("uptime", 0),
             version_id=data.get("vid", "Unknown"),
             version=data.get("ver", "Unknown"),
+            websocket=websocket,
             wifi=Wifi.from_dict(data),
         )
 
