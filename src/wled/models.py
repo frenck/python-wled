@@ -177,12 +177,13 @@ class Leds:
     """Object holding leds info from WLED."""
 
     count: int
-    rgbw: bool
-    wv: bool
-    pin: int
-    power: int
+    fps: int | None
     max_power: int
     max_segments: int
+    pin: int
+    power: int
+    rgbw: bool
+    wv: bool
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> Leds:
@@ -197,6 +198,7 @@ class Leds:
         leds = data.get("leds", {})
         return Leds(
             count=leds.get("count", 0),
+            fps=leds.get("fps", None),
             max_power=leds.get("maxpwr", 0),
             max_segments=leds.get("maxseg", 0),
             pin=leds.get("pin", 0),
