@@ -83,7 +83,7 @@ development.
 
 You need at least:
 
-- Python 3.7+
+- Python 3.8+
 - [Poetry][poetry-install]
 - NodeJS 12+ (including NPM)
 
