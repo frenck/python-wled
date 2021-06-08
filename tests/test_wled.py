@@ -479,3 +479,92 @@ async def test_not_supporting_si_request_probing_based(aresponses):
         wled = WLED("example.com", session=session)
         await wled.update()
         assert not wled._supports_si_request  # pylint: disable=protected-access
+
+
+@pytest.mark.asyncio
+async def test_info_contains_wv_true(aresponses):
+    """Test for determining if wv is used and set to true."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {'
+                '"ver": "0.11.1",'
+                '"leds": {'
+                '"count": 120,'
+                '"rgbw": true,'
+                '"wv": true'
+                "}}}"
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.info.leds.wv
+
+
+@pytest.mark.asyncio
+async def test_info_contains_wv_false(aresponses):
+    """Test for determining if wv is used and set to false."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {'
+                '"ver": "0.11.1",'
+                '"leds": {'
+                '"count": 120,'
+                '"rgbw": true,'
+                '"wv": false'
+                "}}}"
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert not device.info.leds.wv
+
+
+@pytest.mark.asyncio
+async def test_info_contains_no_wv(aresponses):
+    """Test for determining if wv is used and set to false."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true},'
+                '"effects": [], "palettes": [],'
+                '"info": {'
+                '"ver": "0.8.4",'
+                '"leds": {'
+                '"count": 120,'
+                '"rgbw": true'
+                "}}}"
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.info.leds.wv

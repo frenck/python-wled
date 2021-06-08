@@ -99,6 +99,7 @@ good-names = [
     "on",
     "Run",
     "T",
+    "wv",
 ]
 
 [tool.pylint."MESSAGES CONTROL"]
