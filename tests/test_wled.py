@@ -507,8 +507,8 @@ async def test_info_contains_wv_true(aresponses):
 
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
-        await wled.update()
-        assert wled._device.info.leds.wv
+        device = await wled.update()
+        assert device.info.leds.wv
 
 
 @pytest.mark.asyncio
@@ -537,8 +537,8 @@ async def test_info_contains_wv_false(aresponses):
 
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
-        await wled.update()
-        assert not wled._device.info.leds.wv
+        device = await wled.update()
+        assert not device.info.leds.wv
 
 
 @pytest.mark.asyncio
@@ -566,5 +566,5 @@ async def test_info_contains_no_wv(aresponses):
 
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
-        await wled.update()
-        assert wled._device.info.leds.wv
+        device = await wled.update()
+        assert device.info.leds.wv
