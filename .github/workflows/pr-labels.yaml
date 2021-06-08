@@ -15,6 +15,7 @@ jobs:
         uses: jesusvasquez333/verify-pr-label-action@v1.4.0
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
+          pull-request-number: "${{ github.event.pull_request.number }}"
           valid-labels: >-
             breaking-change, bugfix, documentation, enhancement,
             refactor, performance, new-feature, maintenance, ci, dependencies
