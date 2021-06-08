@@ -463,11 +463,12 @@ class WLED:
         await self.request("state", method="POST", data={"ps": preset})
 
     async def live(self, live: int) -> None:
-        """Sets the live override mode on a WLED device.
+        """Set the live override mode on a WLED device.
 
         Args:
             live: The live override mode to set on this WLED device.
-                0 is off, 1 is override until live data ends, 2 is override until reboot.
+                0 is off, 1 is override until live data ends,
+                2 is override until reboot.
         """
         await self.request("state", method="POST", data={"lor": live})
 
