@@ -3,6 +3,7 @@ name: Sync labels
 
 # yamllint disable-line rule:truthy
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
