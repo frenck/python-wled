@@ -406,26 +406,26 @@ class Device:
         Returns:
             The updated Device object.
         """
-        if "effects" in data and data["effects"]:
+        if _effects := data.get("effects"):
             effects = [
                 Effect(effect_id=effect_id, name=effect)
-                for effect_id, effect in enumerate(data["effects"])
+                for effect_id, effect in enumerate(_effects)
             ]
             effects.sort(key=lambda x: x.name)
             self.effects = effects
 
-        if "palettes" in data and data["palettes"]:
+        if _palettes := data.get("palettes"):
             palettes = [
                 Palette(palette_id=palette_id, name=palette)
-                for palette_id, palette in enumerate(data["palettes"])
+                for palette_id, palette in enumerate(_palettes)
             ]
             palettes.sort(key=lambda x: x.name)
             self.palettes = palettes
 
-        if "info" in data and data["info"]:
-            self.info = Info.from_dict(data["info"])
+        if _info := data.get("info"):
+            self.info = Info.from_dict(_info)
 
-        if "state" in data and data["state"]:
-            self.state = State.from_dict(data["state"], self.effects, self.palettes)
+        if _state := data.get("state"):
+            self.state = State.from_dict(_state, self.effects, self.palettes)
 
         return self
