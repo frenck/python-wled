@@ -20,7 +20,7 @@ from .exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
 )
-from .models import Device
+from .models import Device, Live
 
 
 @dataclass
@@ -462,15 +462,13 @@ class WLED:
         """
         await self.request("state", method="POST", data={"ps": preset})
 
-    async def live(self, live: int) -> None:
+    async def live(self, live: Live) -> None:
         """Set the live override mode on a WLED device.
 
         Args:
             live: The live override mode to set on this WLED device.
-                0 is off, 1 is override until live data ends,
-                2 is override until reboot.
         """
-        await self.request("state", method="POST", data={"lor": live})
+        await self.request("state", method="POST", data={"lor": live.value})
 
     async def playlist(self, playlist: int) -> None:
         """Set a running playlist on a WLED device.
