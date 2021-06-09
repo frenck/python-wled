@@ -38,7 +38,7 @@ coverage = {version = "^5.5", extras = ["toml"]}
 flake8 = "^3.8.4"
 flake8-docstrings = "^1.5.0"
 isort = "^5.7.0"
-mypy = "^0.812"
+mypy = "^0.901"
 pre-commit = "^2.11.1"
 pre-commit-hooks = "^4.0.1"
 pylint = "^2.7.2"
