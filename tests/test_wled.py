@@ -571,7 +571,7 @@ async def test_info_contains_no_wv(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_live_override_state(aresponses):
+async def test_live_override_state_off(aresponses):
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
@@ -587,31 +587,56 @@ async def test_live_override_state(aresponses):
             ),
         ),
     )
-    aresponses.add(
-        "example.com",
-        "/json/state",
-        "GET",
-        aresponses.Response(
-            status=200,
-            headers={"Content-Type": "application/json"},
-            text='{"lor": 1}',
-        ),
-    )
-    aresponses.add(
-        "example.com",
-        "/json/state",
-        "GET",
-        aresponses.Response(
-            status=200,
-            headers={"Content-Type": "application/json"},
-            text='{"lor": 2}',
-        ),
-    )
+
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
         device = await wled.update()
         assert device.state.lor == 0
+
+
+@pytest.mark.asyncio
+async def test_live_override_state_on(aresponses):
+    """Test request of current WLED live override mode."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true, "lor": 1},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
         device = await wled.update()
         assert device.state.lor == 1
+
+
+@pytest.mark.asyncio
+async def test_live_override_state_off_until_reboot(aresponses):
+    """Test request of current WLED live override mode."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true, "lor": 2},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
         device = await wled.update()
         assert device.state.lor == 2
