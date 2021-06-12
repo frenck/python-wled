@@ -15,6 +15,7 @@ class Nightlight:
     duration: int
     fade: bool
     on: bool
+    mode: NightlightMode
     target_brightness: int
 
     @staticmethod
@@ -28,9 +29,19 @@ class Nightlight:
             A Nightlight object.
         """
         nightlight = data.get("nl", {})
+
+        # Handle deprecated fade property for Nightlight
+        mode = nightlight.get("mode")
+        fade = nightlight.get("fade", False)
+        if mode is not None:
+            fade = mode != NightlightMode.INSTANT
+        if mode is None:
+            mode = NightlightMode.FADE if fade else NightlightMode.INSTANT
+
         return Nightlight(
             duration=nightlight.get("dur", 1),
-            fade=nightlight.get("fade", False),
+            fade=fade,
+            mode=NightlightMode(mode),
             on=nightlight.get("on", False),
             target_brightness=nightlight.get("tbri", 0),
         )
@@ -449,3 +460,12 @@ class Live(IntEnum):
     OFF = 0
     ON = 1
     OFF_UNTIL_REBOOT = 2
+
+
+class NightlightMode(IntEnum):
+    """Enumeration representing nightlight mode from WLED."""
+
+    INSTANT = 0
+    FADE = 1
+    COLOR_FADE = 2
+    SUNRISE = 3
