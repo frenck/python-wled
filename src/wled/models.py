@@ -181,7 +181,6 @@ class Leds:
     fps: int | None
     max_power: int
     max_segments: int
-    pin: int
     power: int
     rgbw: bool
     wv: bool
@@ -202,7 +201,6 @@ class Leds:
             fps=leds.get("fps", None),
             max_power=leds.get("maxpwr", 0),
             max_segments=leds.get("maxseg", 0),
-            pin=leds.get("pin", 0),
             power=leds.get("pwr", 0),
             rgbw=leds.get("rgbw", False),
             wv=leds.get("wv", True),
