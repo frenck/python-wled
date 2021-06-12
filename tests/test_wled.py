@@ -568,3 +568,75 @@ async def test_info_contains_no_wv(aresponses):
         wled = WLED("example.com", session=session)
         device = await wled.update()
         assert device.info.leds.wv
+
+
+@pytest.mark.asyncio
+async def test_live_override_state_off(aresponses):
+    """Test request of current WLED live override mode."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true, "lor": 0},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.state.lor == 0
+
+
+@pytest.mark.asyncio
+async def test_live_override_state_on(aresponses):
+    """Test request of current WLED live override mode."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true, "lor": 1},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.state.lor == 1
+
+
+@pytest.mark.asyncio
+async def test_live_override_state_off_until_reboot(aresponses):
+    """Test request of current WLED live override mode."""
+    aresponses.add(
+        "example.com",
+        "/json/",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text=(
+                '{"state": {"on": true, "lor": 2},'
+                '"effects": [], "palettes": [],'
+                '"info": {"ver": "0.10.0"}}'
+            ),
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.state.lor == 2

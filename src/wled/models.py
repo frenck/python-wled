@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import IntEnum
 from typing import Any
 
 from .exceptions import WLEDError
@@ -320,6 +321,7 @@ class State:
     segments: list[Segment]
     sync: Sync
     transition: int
+    lor: Live
 
     @property
     def playlist_active(self) -> bool:
@@ -355,6 +357,7 @@ class State:
         """
         brightness = data.get("bri", 1)
         on = data.get("on", False)
+        lor = data.get("lor", 0)
 
         segments = [
             Segment.from_dict(
@@ -377,6 +380,7 @@ class State:
             segments=segments,
             sync=Sync.from_dict(data),
             transition=data.get("transition", 0),
+            lor=Live(lor),
         )
 
 
@@ -439,3 +443,11 @@ class Device:
             self.state = State.from_dict(_state, self.effects, self.palettes)
 
         return self
+
+
+class Live(IntEnum):
+    """Enumeration representing live override mode from WLED."""
+
+    OFF = 0
+    ON = 1
+    OFF_UNTIL_REBOOT = 2
