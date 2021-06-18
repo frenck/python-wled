@@ -11,6 +11,6 @@
   "license": "MIT",
   "devDependencies": {
     "prettier": "^2.3.1",
-    "pyright": "^1.1.149"
+    "pyright": "^1.1.150"
   }
 }
