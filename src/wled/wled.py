@@ -260,7 +260,7 @@ class WLED:
             return self._device
 
         if self._supports_presets:
-            presets = await self.request("/presets")
+            presets = await self.request("/presets.json")
             if not presets:
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
