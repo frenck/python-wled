@@ -385,7 +385,7 @@ class State:
         ]
 
         preset = data.get("ps", -1)
-        if presets and preset:
+        if presets:
             preset = next(
                 (item for item in presets if item.preset_id == data.get("ps")),
                 None,
