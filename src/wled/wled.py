@@ -35,6 +35,7 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _supports_si_request: bool | None = None
+    _supports_presets: bool | None = None
 
     @property
     def connected(self) -> bool:
@@ -230,6 +231,15 @@ class WLED:
                     f"WLED device at {self.host} returned an empty API"
                     " response on full update"
                 )
+
+            # Try to get presets, introduced in WLED 0.11
+            try:
+                presets = await self.request("/presets.json")
+                data["presets"] = presets
+                self._supports_presets = True
+            except WLEDError:
+                self._supports_presets = False
+
             self._device = Device(data)
 
             # Try to figure out if this version supports
@@ -248,6 +258,15 @@ class WLED:
                     self._supports_si_request = False
 
             return self._device
+
+        if self._supports_presets:
+            presets = await self.request("/presets.json")
+            if not presets:
+                raise WLEDEmptyResponseError(
+                    f"WLED device at {self.host} returned an empty API"
+                    " response on presets update"
+                )
+            self._device.update_from_dict({"presets": presets})
 
         # Handle legacy state and update in separate requests
         if not self._supports_si_request:
@@ -274,6 +293,7 @@ class WLED:
                 " response on state & info update"
             )
         self._device.update_from_dict(state_info)
+
         return self._device
 
     async def master(
@@ -454,12 +474,23 @@ class WLED:
             "/json/state", method="POST", data={"transition": transition}
         )
 
-    async def preset(self, preset: int) -> None:
+    async def preset(self, preset: int | str) -> None:
         """Set a preset on a WLED device.
 
         Args:
             preset: The preset number to activate on this WLED device.
         """
+        # Find preset if it was based on a name
+        if self._device and self._device.presets and isinstance(preset, str):
+            preset = next(
+                (
+                    item.preset_id
+                    for item in self._device.presets
+                    if item.name.lower() == preset.lower()
+                ),
+                preset,
+            )
+
         await self.request("/json/state", method="POST", data={"ps": preset})
 
     async def live(self, live: Live) -> None:

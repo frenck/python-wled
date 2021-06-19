@@ -326,7 +326,7 @@ class State:
     nightlight: Nightlight
     on: bool
     playlist: int
-    preset: int
+    preset: Preset | int | None
     segments: list[Segment]
     sync: Sync
     transition: int
@@ -352,14 +352,18 @@ class State:
 
     @staticmethod
     def from_dict(
-        data: dict[str, Any], effects: list[Effect], palettes: list[Palette]
+        data: dict[str, Any],
+        effects: list[Effect],
+        palettes: list[Palette],
+        presets: list[Preset],
     ) -> State:
         """Return State object from WLED API response.
 
         Args:
             data: The state response received from the WLED device API.
             effects: A list of effect objects.
-            palettes: A list of palette object.
+            palettes: A list of palette objects.
+            presets: A list of presets objects.
 
         Returns:
             A State object.
@@ -380,16 +384,82 @@ class State:
             for segment_id, segment in enumerate(data.get("seg", []))
         ]
 
+        preset = data.get("ps", -1)
+        if presets:
+            preset = next(
+                (item for item in presets if item.preset_id == data.get("ps")),
+                None,
+            )
+
         return State(
             brightness=brightness,
             nightlight=Nightlight.from_dict(data),
             on=on,
             playlist=data.get("pl", -1),
-            preset=data.get("ps", -1),
+            preset=preset,
             segments=segments,
             sync=Sync.from_dict(data),
             transition=data.get("transition", 0),
             lor=Live(lor),
+        )
+
+
+@dataclass
+class Preset:
+    """Object representing a WLED preset."""
+
+    preset_id: int
+    name: str
+    quick_label: str | None
+
+    on: bool
+    transition: int
+    main_segment: Segment | None
+    segments: list[Segment]
+
+    @staticmethod
+    def from_dict(
+        preset_id: int,
+        data: dict[str, Any],
+        effects: list[Effect],
+        palettes: list[Palette],
+    ) -> Preset:
+        """Return Preset object from WLED API response.
+
+        Args:
+            preset_id: The ID of the preset.
+            data: The data from the WLED device API.
+            effects: A list of effect objects.
+            palettes: A list of palette object.
+
+        Returns:
+            A Preset object.
+        """
+        segments = [
+            Segment.from_dict(
+                segment_id=segment_id,
+                data=segment,
+                effects=effects,
+                palettes=palettes,
+                state_on=False,
+                state_brightness=0,
+            )
+            for segment_id, segment in enumerate(data.get("seg", []))
+        ]
+
+        main_segment = next(
+            (item for item in segments if item.segment_id == data.get("mainseg", 0)),
+            None,
+        )
+
+        return Preset(
+            main_segment=main_segment,
+            name=data["n"],
+            on=data.get("on", False),
+            preset_id=preset_id,
+            quick_label=data.get("ql"),
+            segments=segments,
+            transition=data.get("transition", 0),
         )
 
 
@@ -399,6 +469,7 @@ class Device:
     effects: list[Effect] = []
     info: Info
     palettes: list[Palette] = []
+    presets: list[Preset] = []
     state: State
 
     def __init__(self, data: dict) -> None:
@@ -445,11 +516,22 @@ class Device:
             palettes.sort(key=lambda x: x.name)
             self.palettes = palettes
 
+        if _presets := data.get("presets"):
+            _presets.pop("0")
+            presets = [
+                Preset.from_dict(int(preset_id), preset, self.effects, self.palettes)
+                for preset_id, preset in _presets.items()
+            ]
+            presets.sort(key=lambda x: x.name)
+            self.presets = presets
+
         if _info := data.get("info"):
             self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
-            self.state = State.from_dict(_state, self.effects, self.palettes)
+            self.state = State.from_dict(
+                _state, self.effects, self.palettes, self.presets
+            )
 
         return self
 
