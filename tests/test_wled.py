@@ -151,7 +151,7 @@ async def test_state_on(aresponses):
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -196,7 +196,7 @@ async def test_state_on_si_request(aresponses):
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -231,7 +231,7 @@ async def test_empty_responses(aresponses):
     """Test empty responses for WLED device state."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -304,7 +304,7 @@ async def test_empty_si_responses(aresponses):
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -347,7 +347,7 @@ async def test_empty_full_responses(aresponses):
     """Test failure handling of full data request WLED device state."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -357,7 +357,7 @@ async def test_empty_full_responses(aresponses):
     )
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -379,7 +379,7 @@ async def test_si_request_version_based(aresponses):
     """Test for supporting SI requests based on version data."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -403,7 +403,7 @@ async def test_not_supporting_si_request_version_based(aresponses):
     """Test for supporting SI requests based on version data."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -427,7 +427,7 @@ async def test_si_request_probing_based(aresponses):
     """Test for supporting SI requests based on probing."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -462,7 +462,7 @@ async def test_not_supporting_si_request_probing_based(aresponses):
     """Test for supporting SI requests based on probing."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -486,7 +486,7 @@ async def test_info_contains_wv_true(aresponses):
     """Test for determining if wv is used and set to true."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -516,7 +516,7 @@ async def test_info_contains_wv_false(aresponses):
     """Test for determining if wv is used and set to false."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -546,7 +546,7 @@ async def test_info_contains_no_wv(aresponses):
     """Test for determining if wv is used and set to false."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -575,7 +575,7 @@ async def test_live_override_state_off(aresponses):
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -599,7 +599,7 @@ async def test_live_override_state_on(aresponses):
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -623,7 +623,7 @@ async def test_live_override_state_off_until_reboot(aresponses):
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
-        "/json/",
+        "/json",
         "GET",
         aresponses.Response(
             status=200,
@@ -640,3 +640,22 @@ async def test_live_override_state_off_until_reboot(aresponses):
         wled = WLED("example.com", session=session)
         device = await wled.update()
         assert device.state.lor == 2
+
+
+@pytest.mark.asyncio
+async def test_reset(aresponses):
+    """Test rebooting WLED device works."""
+    aresponses.add(
+        "example.com",
+        "/reset",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "text/html"},
+            text="<!DOCTYPE html>",
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        await wled.reset()

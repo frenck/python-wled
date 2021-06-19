@@ -137,7 +137,7 @@ class WLED:
         the WLED device.
 
         Args:
-            uri: Request URI, for example `si`.
+            uri: Request URI, for example `/json/si`.
             method: HTTP method to use for the request.E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
 
@@ -152,9 +152,7 @@ class WLED:
                 with the WLED device.
             WLEDError: Received an unexpected response from the WLED device.
         """
-        url = URL.build(scheme="http", host=self.host, port=80, path="/json/").join(
-            URL(uri)
-        )
+        url = URL.build(scheme="http", host=self.host, port=80, path=uri)
 
         headers = {
             "Accept": "application/json, text/plain, */*",
@@ -165,7 +163,7 @@ class WLED:
             self._close_session = True
 
         # If updating the state, always request for a state response
-        if method == "POST" and uri == "state" and data is not None:
+        if method == "POST" and uri == "/json/state" and data is not None:
             data["v"] = True
 
         try:
@@ -198,7 +196,7 @@ class WLED:
             response_data = await response.json()
             if (
                 method == "POST"
-                and uri == "state"
+                and uri == "/json/state"
                 and self._device is not None
                 and data is not None
             ):
@@ -226,7 +224,7 @@ class WLED:
             WLEDEmptyResponseError: The WLED device returned an empty response.
         """
         if self._device is None or full_update:
-            data = await self.request()
+            data = await self.request("/json")
             if not data:
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
@@ -244,7 +242,7 @@ class WLED:
             except version.InvalidVersion:
                 # Could be a manual build one? Lets poll for it
                 try:
-                    await self.request("si")
+                    await self.request("/json/si")
                     self._supports_si_request = True
                 except WLEDError:
                     self._supports_si_request = False
@@ -253,14 +251,14 @@ class WLED:
 
         # Handle legacy state and update in separate requests
         if not self._supports_si_request:
-            info = await self.request("info")
+            info = await self.request("/json/info")
             if not info:
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
                     " response on info update"
                 )
 
-            state = await self.request("state")
+            state = await self.request("/json/state")
             if not state:
                 raise WLEDEmptyResponseError(
                     f"WLED device {self.host} returned an empty API"
@@ -269,7 +267,7 @@ class WLED:
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
 
-        state_info = await self.request("si")
+        state_info = await self.request("/json/si")
         if not state_info:
             raise WLEDEmptyResponseError(
                 f"WLED device at {self.host} returned an empty API"
@@ -305,7 +303,7 @@ class WLED:
         if transition is not None:
             state["tt"] = transition
 
-        await self.request("state", method="POST", data=state)
+        await self.request("/json/state", method="POST", data=state)
 
     async def segment(  # pylint: disable=too-many-locals, too-many-branches
         self,
@@ -442,7 +440,7 @@ class WLED:
         if transition is not None:
             state["tt"] = transition
 
-        await self.request("state", method="POST", data=state)
+        await self.request("/json/state", method="POST", data=state)
 
     async def transition(self, transition: int) -> None:
         """Set the default transition time for manual control.
@@ -452,7 +450,9 @@ class WLED:
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
         """
-        await self.request("state", method="POST", data={"transition": transition})
+        await self.request(
+            "/json/state", method="POST", data={"transition": transition}
+        )
 
     async def preset(self, preset: int) -> None:
         """Set a preset on a WLED device.
@@ -460,7 +460,7 @@ class WLED:
         Args:
             preset: The preset number to activate on this WLED device.
         """
-        await self.request("state", method="POST", data={"ps": preset})
+        await self.request("/json/state", method="POST", data={"ps": preset})
 
     async def live(self, live: Live) -> None:
         """Set the live override mode on a WLED device.
@@ -468,7 +468,7 @@ class WLED:
         Args:
             live: The live override mode to set on this WLED device.
         """
-        await self.request("state", method="POST", data={"lor": live.value})
+        await self.request("/json/state", method="POST", data={"lor": live.value})
 
     async def playlist(self, playlist: int) -> None:
         """Set a running playlist on a WLED device.
@@ -477,7 +477,7 @@ class WLED:
             playlist: ID of playlist to run. For now, this sets the preset
                 cycle feature, -1 is off and 0 is on.
         """
-        await self.request("state", method="POST", data={"pl": playlist})
+        await self.request("/json/state", method="POST", data={"pl": playlist})
 
     async def sync(
         self, *, send: bool | None = None, receive: bool | None = None
@@ -490,7 +490,7 @@ class WLED:
         """
         sync = {"send": send, "recv": receive}
         sync = {k: v for k, v in sync.items() if v is not None}
-        await self.request("state", method="POST", data={"udpn": sync})
+        await self.request("/json/state", method="POST", data={"udpn": sync})
 
     async def nightlight(
         self,
@@ -524,7 +524,11 @@ class WLED:
         if on:
             state["on"] = True
 
-        await self.request("state", method="POST", data=state)
+        await self.request("/json/state", method="POST", data=state)
+
+    async def reset(self) -> None:
+        """Reboot WLED device."""
+        await self.request("/reset")
 
     async def close(self) -> None:
         """Close open client (WebSocket) session."""
@@ -546,5 +550,4 @@ class WLED:
         Args:
             _exc_info: Exec type.
         """
-        print("Disconnecting nicely....")
         await self.close()
