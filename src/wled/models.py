@@ -435,6 +435,12 @@ class Preset:
         Returns:
             A Preset object.
         """
+        segment_data = data.get("seg", [])
+        if not isinstance(segment_data, list):
+            # Some older versions of WLED have an single segment
+            # instead of a list.
+            segment_data = [segment_data]
+
         segments = [
             Segment.from_dict(
                 segment_id=segment_id,
@@ -444,7 +450,7 @@ class Preset:
                 state_on=False,
                 state_brightness=0,
             )
-            for segment_id, segment in enumerate(data.get("seg", []))
+            for segment_id, segment in enumerate(segment_data)
         ]
 
         main_segment = next(
