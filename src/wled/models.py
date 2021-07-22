@@ -491,7 +491,7 @@ class Device:
         # Check if all elements are in the passed dict, else raise an Error
         if any(
             k not in data and data[k] is not None
-            for k in ["effects", "palettes", "info", "state"]
+            for k in ("effects", "palettes", "info", "state")
         ):
             raise WLEDError("WLED data is incomplete, cannot construct device object")
         self.update_from_dict(data)
