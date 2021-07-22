@@ -460,7 +460,7 @@ class Preset:
 
         return Preset(
             main_segment=main_segment,
-            name=data["n"],
+            name=data.get("n", str(preset_id)),
             on=data.get("on", False),
             preset_id=preset_id,
             quick_label=data.get("ql"),
