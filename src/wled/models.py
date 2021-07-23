@@ -483,7 +483,7 @@ class PlaylistEntry:
 
     duration: int
     entry_id: int
-    preset: Preset
+    preset: Preset | None
     transition: int
 
 
@@ -525,7 +525,7 @@ class Playlist:
                 duration=entries_durations[entry_id],
                 transition=entries_transitions[entry_id],
                 preset=next(
-                    (item for item in presets if item.preset_id == preset_id),
+                    (item for item in presets if item.preset_id == preset_id), None
                 ),
             )
             for entry_id, preset_id in enumerate(entries_presets)
