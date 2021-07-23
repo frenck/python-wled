@@ -325,7 +325,7 @@ class State:
     brightness: int
     nightlight: Nightlight
     on: bool
-    playlist: int
+    playlist: Playlist | int | None
     preset: Preset | int | None
     segments: list[Segment]
     sync: Sync
@@ -356,6 +356,7 @@ class State:
         effects: list[Effect],
         palettes: list[Palette],
         presets: list[Preset],
+        playlists: list[Playlist],
     ) -> State:
         """Return State object from WLED API response.
 
@@ -363,7 +364,8 @@ class State:
             data: The state response received from the WLED device API.
             effects: A list of effect objects.
             palettes: A list of palette objects.
-            presets: A list of presets objects.
+            presets: A list of preset objects.
+            playlists: A list of playlist objects.
 
         Returns:
             A State object.
@@ -384,6 +386,7 @@ class State:
             for segment_id, segment in enumerate(data.get("seg", []))
         ]
 
+        playlist = data.get("pl", -1)
         preset = data.get("ps", -1)
         if presets:
             preset = next(
@@ -391,11 +394,16 @@ class State:
                 None,
             )
 
+            playlist = next(
+                (item for item in playlists if item.playlist_id == data.get("pl")),
+                None,
+            )
+
         return State(
             brightness=brightness,
             nightlight=Nightlight.from_dict(data),
             on=on,
-            playlist=data.get("pl", -1),
+            playlist=playlist,
             preset=preset,
             segments=segments,
             sync=Sync.from_dict(data),
@@ -469,12 +477,82 @@ class Preset:
         )
 
 
+@dataclass
+class PlaylistEntry:
+    """Object representing a entry in a WLED playlist."""
+
+    duration: int
+    entry_id: int
+    preset: Preset
+    transition: int
+
+
+@dataclass
+class Playlist:
+    """Object representing a WLED playlist."""
+
+    end: Preset | None
+    entries: list[PlaylistEntry]
+    name: str
+    playlist_id: int
+    repeat: int
+    shuffle: bool
+
+    @staticmethod
+    def from_dict(
+        playlist_id: int,
+        data: dict[str, Any],
+        presets: list[Preset],
+    ) -> Playlist:
+        """Return Playlist object from WLED API response.
+
+        Args:
+            playlist_id: The ID of the playlist.
+            data: The data from the WLED device API.
+            presets: A list of preset objects.
+
+        Returns:
+            A Playlist object.
+        """
+        playlist = data.get("playlist", {})
+        entries_durations = playlist.get("dur", [])
+        entries_presets = playlist.get("ps", [])
+        entries_transitions = playlist.get("transition", [])
+
+        entries = [
+            PlaylistEntry(
+                entry_id=entry_id,
+                duration=entries_durations[entry_id],
+                transition=entries_transitions[entry_id],
+                preset=next(
+                    (item for item in presets if item.preset_id == preset_id),
+                ),
+            )
+            for entry_id, preset_id in enumerate(entries_presets)
+        ]
+
+        end = next(
+            (item for item in presets if item.preset_id == playlist.get("end")),
+            None,
+        )
+
+        return Playlist(
+            playlist_id=playlist_id,
+            shuffle=playlist.get("r", False),
+            name=data.get("n", str(playlist_id)),
+            repeat=playlist.get("repeat", 0),
+            end=end,
+            entries=entries,
+        )
+
+
 class Device:
     """Object holding all information of WLED."""
 
     effects: list[Effect] = []
     info: Info
     palettes: list[Palette] = []
+    playlists: list[Playlist] = []
     presets: list[Preset] = []
     state: State
 
@@ -523,20 +601,37 @@ class Device:
             self.palettes = palettes
 
         if _presets := data.get("presets"):
+            # The preset data contains both presets and playlists,
+            # we split those out, so we can handle those correctly.
+
+            # Nobody cares about 0.
             _presets.pop("0")
+
             presets = [
                 Preset.from_dict(int(preset_id), preset, self.effects, self.palettes)
                 for preset_id, preset in _presets.items()
+                if "playlist" not in preset
+                or not ("ps" in preset["playlist"] and preset["playlist"]["ps"])
             ]
             presets.sort(key=lambda x: x.name)
             self.presets = presets
+
+            playlists = [
+                Playlist.from_dict(int(playlist_id), playlist, self.presets)
+                for playlist_id, playlist in _presets.items()
+                if "playlist" in playlist
+                and "ps" in playlist["playlist"]
+                and playlist["playlist"]["ps"]
+            ]
+            playlists.sort(key=lambda x: x.name)
+            self.playlists = playlists
 
         if _info := data.get("info"):
             self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
             self.state = State.from_dict(
-                _state, self.effects, self.palettes, self.presets
+                _state, self.effects, self.palettes, self.presets, self.playlists
             )
 
         return self

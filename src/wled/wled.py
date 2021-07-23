@@ -20,7 +20,7 @@ from .exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
 )
-from .models import Device, Live
+from .models import Device, Live, Playlist, Preset
 
 
 @dataclass
@@ -474,11 +474,11 @@ class WLED:
             "/json/state", method="POST", data={"transition": transition}
         )
 
-    async def preset(self, preset: int | str) -> None:
+    async def preset(self, preset: int | str | Preset) -> None:
         """Set a preset on a WLED device.
 
         Args:
-            preset: The preset number to activate on this WLED device.
+            preset: The preset to activate on this WLED device.
         """
         # Find preset if it was based on a name
         if self._device and self._device.presets and isinstance(preset, str):
@@ -491,7 +491,33 @@ class WLED:
                 preset,
             )
 
+        if isinstance(preset, Preset):
+            preset = preset.preset_id
+
         await self.request("/json/state", method="POST", data={"ps": preset})
+
+    async def playlist(self, playlist: int | str | Playlist) -> None:
+        """Set a playlist on a WLED device.
+
+        Args:
+            playlist: The playlist to activate on this WLED device.
+        """
+
+        # Find playlist if it was based on a name
+        if self._device and self._device.playlists and isinstance(playlist, str):
+            playlist = next(
+                (
+                    item.playlist_id
+                    for item in self._device.playlists
+                    if item.name.lower() == playlist.lower()
+                ),
+                playlist,
+            )
+
+        if isinstance(playlist, Playlist):
+            playlist = playlist.playlist_id
+
+        await self.request("/json/state", method="POST", data={"ps": playlist})
 
     async def live(self, live: Live) -> None:
         """Set the live override mode on a WLED device.
@@ -500,15 +526,6 @@ class WLED:
             live: The live override mode to set on this WLED device.
         """
         await self.request("/json/state", method="POST", data={"lor": live.value})
-
-    async def playlist(self, playlist: int) -> None:
-        """Set a running playlist on a WLED device.
-
-        Args:
-            playlist: ID of playlist to run. For now, this sets the preset
-                cycle feature, -1 is off and 0 is on.
-        """
-        await self.request("/json/state", method="POST", data={"pl": playlist})
 
     async def sync(
         self, *, send: bool | None = None, receive: bool | None = None
