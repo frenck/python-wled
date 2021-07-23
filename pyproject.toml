@@ -129,7 +129,7 @@ max-line-length=88
 max-attributes=20
 
 [tool.pytest.ini_options]
-addopts = "--cov"
+addopts = " --cov"
 
 [tool.vulture]
 min_confidence = 80
