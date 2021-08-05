@@ -717,7 +717,7 @@ testing = ["fields", "hunter", "process-tests", "six", "pytest-xdist", "virtuale
 
 [[package]]
 name = "pyupgrade"
-version = "2.23.2"
+version = "2.23.3"
 description = "A tool to automatically upgrade syntax for newer versions."
 category = "dev"
 optional = false
@@ -942,7 +942,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "a48de1c425d8a9158a072a7a8147a469deabbc1ef81d19d6fbe5b0841ddd2f8b"
+content-hash = "ca83cab06a09980c73e699d8cdce621912ee8425cf85a6260c8561f67791b896"
 
 [metadata.files]
 aiohttp = [
@@ -1361,8 +1361,8 @@ pytest-cov = [
     {file = "pytest_cov-2.12.1-py2.py3-none-any.whl", hash = "sha256:261bb9e47e65bd099c89c3edf92972865210c36813f80ede5277dceb77a4a62a"},
 ]
 pyupgrade = [
-    {file = "pyupgrade-2.23.2-py2.py3-none-any.whl", hash = "sha256:307a598ddb79ee22d8f90fd76f525137babfb11fda50422b0b4c28467d78a1cc"},
-    {file = "pyupgrade-2.23.2.tar.gz", hash = "sha256:c8dd30701c2ef98e3f7380d1ecf1e60b29d3fa464655d3b32c5df662aa421ea3"},
+    {file = "pyupgrade-2.23.3-py2.py3-none-any.whl", hash = "sha256:ee2355a5f4bf8541eed3687545c59640e50789268cf1802cf214540e5bcc860a"},
+    {file = "pyupgrade-2.23.3.tar.gz", hash = "sha256:c5262dcfea5b464bd0e4eb9c3b402bee604b9414885df11cf44ed1eca3037dc4"},
 ]
 pyyaml = [
     {file = "PyYAML-5.4.1-cp27-cp27m-macosx_10_9_x86_64.whl", hash = "sha256:3b2b1824fe7112845700f815ff6a489360226a5609b96ec2190a45e62a9fc922"},
