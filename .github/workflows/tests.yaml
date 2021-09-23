@@ -98,4 +98,4 @@ jobs:
           poetry run coverage combine coverage*/.coverage*
           poetry run coverage xml -i
       - name: 🚀 Upload coverage report
-        uses: codecov/codecov-action@v2.0.3
+        uses: codecov/codecov-action@v2.1.0
