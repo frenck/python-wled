@@ -375,14 +375,14 @@ flake8 = ">=3.5,<4.0"
 
 [[package]]
 name = "flake8-markdown"
-version = "0.2.0"
+version = "0.3.0"
 description = "Lints Python code blocks in Markdown files using flake8"
 category = "dev"
 optional = false
 python-versions = ">=3.6,<4.0"
 
 [package.dependencies]
-flake8 = ">=3.7,<4.0"
+flake8 = ">=3.0,<5.0"
 
 [[package]]
 name = "flake8-polyfill"
@@ -945,7 +945,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "6553fcfa47f3dc8c7f779fe2ed0c6fd016871365cc3ad994e388f75bdc9cef51"
+content-hash = "efa88d9af6ae7b424f1c64ffdfb994171314d2406f21628e8ce19b6a88abe998"
 
 [metadata.files]
 aiohttp = [
@@ -1141,8 +1141,8 @@ flake8-eradicate = [
     {file = "flake8_eradicate-1.1.0-py3-none-any.whl", hash = "sha256:d8e39b684a37c257a53cda817d86e2d96c9ba3450ddc292742623a5dfee04d9e"},
 ]
 flake8-markdown = [
-    {file = "flake8-markdown-0.2.0.tar.gz", hash = "sha256:bca29422c66815c2f360fea3efce7356d42832e925d8ceb0525983f4e94a591c"},
-    {file = "flake8_markdown-0.2.0-py3-none-any.whl", hash = "sha256:6727f28c71b941f0026bc7e08675a71002bfbf69018317bcec81e0502a33db3f"},
+    {file = "flake8-markdown-0.3.0.tar.gz", hash = "sha256:5b54f143c9568da11a9d74ce5e580e96685fe758a14933f140c6d7006041fafd"},
+    {file = "flake8_markdown-0.3.0-py3-none-any.whl", hash = "sha256:122705b8b26b1523c5a225a728743393d254394e142680e4af17f930cdd87386"},
 ]
 flake8-polyfill = [
     {file = "flake8-polyfill-1.0.2.tar.gz", hash = "sha256:e44b087597f6da52ec6393a709e7108b2905317d0c0b744cdca6208e670d8eda"},
