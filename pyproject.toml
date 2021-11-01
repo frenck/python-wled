@@ -32,7 +32,7 @@ backoff = ">=1.9.0"
 
 [tool.poetry.dev-dependencies]
 aresponses = "^2.1.4"
-black = "^21.9b0"
+black = "^21.10b0"
 blacken-docs = "^1.11.0"
 coverage = {version = "^6.0", extras = ["toml"]}
 flake8 = "^4.0.1"
