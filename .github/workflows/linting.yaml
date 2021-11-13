@@ -37,8 +37,6 @@ jobs:
           - id: check-toml
             name: Check TOML files
           - id: check-xml
-            name: Check XML files
-          - id: check-yaml
             name: Check YAML files
           - id: codespell
             name: Check code for common misspellings
