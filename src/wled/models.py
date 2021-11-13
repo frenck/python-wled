@@ -175,7 +175,7 @@ class Segment:
             length=length,
             on=data.get("on", state_on),
             palette=palette,
-            reverse=data.get("reverse", False),
+            reverse=data.get("rev", False),
             segment_id=segment_id,
             selected=data.get("sel", False),
             speed=data.get("sx", 0),
