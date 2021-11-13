@@ -36,7 +36,7 @@ jobs:
             name: Check for broken symlinks
           - id: check-toml
             name: Check TOML files
-          - id: check-xml
+          - id: check-yaml
             name: Check YAML files
           - id: codespell
             name: Check code for common misspellings
