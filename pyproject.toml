@@ -31,6 +31,7 @@ aiohttp = ">=3.0.0"
 yarl = ">=1.6.0"
 backoff = ">=1.9.0"
 awesomeversion = ">=21.10.1"
+cachetools = ">=4.0.0"
 
 [tool.poetry.dev-dependencies]
 aresponses = "^2.1.4"
@@ -61,6 +62,7 @@ darglint = "^1.8.1"
 safety = "^1.10.3"
 codespell = "^2.1.0"
 bandit = "^1.7.0"
+types-cachetools = "^4.2.4"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/frenck/python-wled/issues"
