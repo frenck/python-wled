@@ -30,6 +30,7 @@ python = "^3.8"
 aiohttp = ">=3.0.0"
 yarl = ">=1.6.0"
 backoff = ">=1.9.0"
+awesomeversion = ">=21.10.1"
 
 [tool.poetry.dev-dependencies]
 aresponses = "^2.1.4"

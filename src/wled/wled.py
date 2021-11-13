@@ -11,7 +11,7 @@ from typing import Any
 import aiohttp
 import async_timeout
 import backoff  # type: ignore
-from packaging import version
+from awesomeversion import AwesomeVersion, AwesomeVersionException
 from yarl import URL
 
 from .exceptions import (
@@ -245,11 +245,10 @@ class WLED:
             # Try to figure out if this version supports
             # a single info and state call
             try:
-                version.Version(self._device.info.version)
-                self._supports_si_request = version.parse(
-                    self._device.info.version
-                ) >= version.parse("0.10.0")
-            except version.InvalidVersion:
+                current = AwesomeVersion(self._device.info.version)
+                supported = AwesomeVersion("0.10.0")
+                self._supports_si_request = current >= supported
+            except AwesomeVersionException:
                 # Could be a manual build one? Lets poll for it
                 try:
                     await self.request("/json/si")
