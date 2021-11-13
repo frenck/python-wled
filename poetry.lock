@@ -96,6 +96,14 @@ tests = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)"
 tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>=4.3.0)", "six", "mypy", "pytest-mypy-plugins"]
 
 [[package]]
+name = "awesomeversion"
+version = "21.10.1"
+description = "One version package to rule them all, One version package to find them, One version package to bring them all, and in the darkness bind them."
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "backoff"
 version = "1.11.1"
 description = "Function decoration for backoff and retry"
@@ -965,7 +973,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "ba7364e74e2151b794aa10a408b78987fa7a220f8910fa2b45301cf1d24c3250"
+content-hash = "31f711968d8c006f3caef557ee5f01a2d7578021ea458a9d2c9a07de93792b6b"
 
 [metadata.files]
 aiohttp = [
@@ -1069,6 +1077,10 @@ atomicwrites = [
 attrs = [
     {file = "attrs-21.2.0-py2.py3-none-any.whl", hash = "sha256:149e90d6d8ac20db7a955ad60cf0e6881a3f20d37096140088356da6c716b0b1"},
     {file = "attrs-21.2.0.tar.gz", hash = "sha256:ef6aaac3ca6cd92904cdd0d83f629a15f18053ec84e6432106f7a4d04ae4f5fb"},
+]
+awesomeversion = [
+    {file = "awesomeversion-21.10.1-py3-none-any.whl", hash = "sha256:c3d46a3095857f58cdf8edac90452dfac3f61f5d7f0fe1e2fd1e973bc3425c31"},
+    {file = "awesomeversion-21.10.1.tar.gz", hash = "sha256:871318fbb7940d0e36ba6f9b3a07cc5ce84d810986522ef19262e82b55be5c8b"},
 ]
 backoff = [
     {file = "backoff-1.11.1-py2.py3-none-any.whl", hash = "sha256:61928f8fa48d52e4faa81875eecf308eccfb1016b018bb6bd21e05b5d90a96c5"},
