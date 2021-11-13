@@ -256,7 +256,46 @@ class Wifi:
 
 
 @dataclass
-class Info:
+class Filesystem:
+    """Object holding Filesystem information from WLED.
+
+    Args:
+        data: The data from the WLED device API.
+
+    Returns:
+        A Filesystem object.
+    """
+
+    total: int
+    used: int
+    free: int
+    percentage: int
+
+    @staticmethod
+    def from_dict(data: dict[str, Any]) -> Filesystem | None:
+        """Return Filesystem object form WLED API response.
+
+        Args:
+            data: The response from the WLED API.
+
+        Returns:
+            An Filesystem object.
+        """
+        if "fs" not in data:
+            return None
+        filesystem = data.get("fs", {})
+        total = filesystem.get("t", 1)
+        used = filesystem.get("u", 1)
+        return Filesystem(
+            total=total,
+            used=used,
+            free=(total - used),
+            percentage=round((used / total) * 100),
+        )
+
+
+@dataclass
+class Info:  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
     architecture: str
@@ -264,6 +303,7 @@ class Info:
     brand: str
     build_type: str
     effect_count: int
+    filesystem: Filesystem | None
     free_heap: int
     leds: Leds
     live_ip: str
@@ -299,6 +339,7 @@ class Info:
             brand=data.get("brand", "WLED"),
             build_type=data.get("btype", "Unknown"),
             effect_count=data.get("fxcount", 0),
+            filesystem=Filesystem.from_dict(data),
             free_heap=data.get("freeheap", 0),
             leds=Leds.from_dict(data),
             live_ip=data.get("lip", "Unknown"),
