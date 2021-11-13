@@ -2,7 +2,10 @@
 name: Linting
 
 # yamllint disable-line rule:truthy
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   precommit:
@@ -33,6 +36,8 @@ jobs:
             name: Check for broken symlinks
           - id: check-toml
             name: Check TOML files
+          - id: check-xml
+            name: Check XML files
           - id: check-yaml
             name: Check YAML files
           - id: codespell
