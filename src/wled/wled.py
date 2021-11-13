@@ -4,8 +4,9 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import aiohttp
 import async_timeout
@@ -225,8 +226,7 @@ class WLED:
             WLEDEmptyResponseError: The WLED device returned an empty response.
         """
         if self._device is None or full_update:
-            data = await self.request("/json")
-            if not data:
+            if not (data := await self.request("/json")):
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
                     " response on full update"
@@ -260,8 +260,7 @@ class WLED:
             return self._device
 
         if self._supports_presets:
-            presets = await self.request("/presets.json")
-            if not presets:
+            if not (presets := await self.request("/presets.json")):
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
                     " response on presets update"
@@ -270,15 +269,13 @@ class WLED:
 
         # Handle legacy state and update in separate requests
         if not self._supports_si_request:
-            info = await self.request("/json/info")
-            if not info:
+            if not (info := await self.request("/json/info")):
                 raise WLEDEmptyResponseError(
                     f"WLED device at {self.host} returned an empty API"
                     " response on info update"
                 )
 
-            state = await self.request("/json/state")
-            if not state:
+            if not (state := await self.request("/json/state")):
                 raise WLEDEmptyResponseError(
                     f"WLED device {self.host} returned an empty API"
                     " response on state update"
@@ -286,8 +283,7 @@ class WLED:
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
 
-        state_info = await self.request("/json/si")
-        if not state_info:
+        if not (state_info := await self.request("/json/si")):
             raise WLEDEmptyResponseError(
                 f"WLED device at {self.host} returned an empty API"
                 " response on state & info update"

@@ -290,8 +290,7 @@ class Info:
         Returns:
             A info object.
         """
-        websocket = data.get("ws")
-        if websocket == -1:
+        if (websocket := data.get("ws")) == -1:
             websocket = None
 
         return Info(
