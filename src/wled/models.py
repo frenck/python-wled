@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
 
+from awesomeversion import AwesomeVersion
+
 from .exceptions import WLEDError
 
 
@@ -316,7 +318,9 @@ class Info:  # pylint: disable=too-many-instance-attributes
     udp_port: int
     uptime: int
     version_id: str
-    version: str
+    version: AwesomeVersion | None
+    version_latest_beta: AwesomeVersion | None
+    version_latest_stable: AwesomeVersion | None
     websocket: int | None
     wifi: Wifi | None
 
@@ -332,6 +336,15 @@ class Info:  # pylint: disable=too-many-instance-attributes
         """
         if (websocket := data.get("ws")) == -1:
             websocket = None
+
+        if version := data.get("ver"):
+            version = AwesomeVersion(version)
+
+        if version_latest_stable := data.get("version_latest_stable"):
+            version_latest_stable = AwesomeVersion(version_latest_stable)
+
+        if version_latest_beta := data.get("version_latest_beta"):
+            version_latest_beta = AwesomeVersion(version_latest_beta)
 
         return Info(
             architecture=data.get("arch", "Unknown"),
@@ -352,7 +365,9 @@ class Info:  # pylint: disable=too-many-instance-attributes
             udp_port=data.get("udpport", 0),
             uptime=data.get("uptime", 0),
             version_id=data.get("vid", "Unknown"),
-            version=data.get("ver", "Unknown"),
+            version=version,
+            version_latest_beta=version_latest_beta,
+            version_latest_stable=version_latest_stable,
             websocket=websocket,
             wifi=Wifi.from_dict(data),
         )

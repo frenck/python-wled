@@ -176,6 +176,14 @@ python-versions = ">=3.6.1"
 black = ">=19.3b0"
 
 [[package]]
+name = "cachetools"
+version = "4.2.4"
+description = "Extensible memoizing collections and decorators"
+category = "main"
+optional = false
+python-versions = "~=3.5"
+
+[[package]]
 name = "certifi"
 version = "2021.10.8"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -888,6 +896,14 @@ optional = false
 python-versions = ">=3.6"
 
 [[package]]
+name = "types-cachetools"
+version = "4.2.4"
+description = "Typing stubs for cachetools"
+category = "dev"
+optional = false
+python-versions = "*"
+
+[[package]]
 name = "typing-extensions"
 version = "3.10.0.2"
 description = "Backported and Experimental Type Hints for Python 3.5+"
@@ -973,7 +989,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.8"
-content-hash = "31f711968d8c006f3caef557ee5f01a2d7578021ea458a9d2c9a07de93792b6b"
+content-hash = "ca0de235eba44b7510f1db251f667204e8731fa110eef9e339d8aaf3602745f8"
 
 [metadata.files]
 aiohttp = [
@@ -1101,6 +1117,10 @@ black = [
 blacken-docs = [
     {file = "blacken_docs-1.11.0-py2.py3-none-any.whl", hash = "sha256:9fcd6c11fd6e128fa25b0bbb30e6a054bf81e818ffdee4c6c2281a77e75696f0"},
     {file = "blacken_docs-1.11.0.tar.gz", hash = "sha256:cce2e16d2d97ee1bbbb4659ae9094d93bec2acc71b2153d1d2c81cf124de81d3"},
+]
+cachetools = [
+    {file = "cachetools-4.2.4-py3-none-any.whl", hash = "sha256:92971d3cb7d2a97efff7c7bb1657f21a8f5fb309a37530537c71b1774189f2d1"},
+    {file = "cachetools-4.2.4.tar.gz", hash = "sha256:89ea6f1b638d5a73a4f9226be57ac5e4f399d22770b92355f92dcb0f7f001693"},
 ]
 certifi = [
     {file = "certifi-2021.10.8-py2.py3-none-any.whl", hash = "sha256:d62a0163eb4c2344ac042ab2bdf75399a71a2d8c7d47eac2e2ee91b9d6339569"},
@@ -1682,6 +1702,10 @@ toml = [
 tomli = [
     {file = "tomli-1.2.2-py3-none-any.whl", hash = "sha256:f04066f68f5554911363063a30b108d2b5a5b1a010aa8b6132af78489fe3aade"},
     {file = "tomli-1.2.2.tar.gz", hash = "sha256:c6ce0015eb38820eaf32b5db832dbc26deb3dd427bd5f6556cf0acac2c214fee"},
+]
+types-cachetools = [
+    {file = "types-cachetools-4.2.4.tar.gz", hash = "sha256:f6331ef60e788920200b92a4648728e4de0a71cd67322abe38296125c2b75f7b"},
+    {file = "types_cachetools-4.2.4-py3-none-any.whl", hash = "sha256:a675d2ee0d7a3f20ba0fa5bb975e7e7774307b434bcb2ffe504c2f9c2aa83e97"},
 ]
 typing-extensions = [
     {file = "typing_extensions-3.10.0.2-py2-none-any.whl", hash = "sha256:d8226d10bc02a29bcc81df19a26e56a9647f8b0a6d4a83924139f4a8b01f17b7"},

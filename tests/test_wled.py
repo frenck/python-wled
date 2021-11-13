@@ -1,11 +1,22 @@
 """Tests for `wled.WLED`."""
 import asyncio
+from unittest.mock import patch
 
 import aiohttp
 import pytest
 
 from wled import WLED
 from wled.exceptions import WLEDConnectionError, WLEDError
+
+
+@pytest.fixture(autouse=True)
+def mock_get_version_from_github():
+    """Patch out connection to GitHub."""
+    with patch(
+        "wled.WLED.get_wled_versions_from_github",
+        return_value={"version_latest_stable": None, "version_latest_beta": None},
+    ):
+        yield
 
 
 @pytest.mark.asyncio

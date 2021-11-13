@@ -5,6 +5,7 @@ import asyncio
 import json
 import socket
 from collections.abc import Callable
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any
 
@@ -12,6 +13,7 @@ import aiohttp
 import async_timeout
 import backoff  # type: ignore
 from awesomeversion import AwesomeVersion, AwesomeVersionException
+from cachetools import TTLCache
 from yarl import URL
 
 from .exceptions import (
@@ -37,6 +39,7 @@ class WLED:
     _device: Device | None = None
     _supports_si_request: bool | None = None
     _supports_presets: bool | None = None
+    _version_cache: TTLCache = TTLCache(maxsize=16, ttl=7200)
 
     @property
     def connected(self) -> bool:
@@ -169,7 +172,7 @@ class WLED:
             data["v"] = True
 
         try:
-            with async_timeout.timeout(self.request_timeout):
+            async with async_timeout.timeout(self.request_timeout):
                 response = await self.session.request(
                     method,
                     url,
@@ -240,14 +243,17 @@ class WLED:
             except WLEDError:
                 self._supports_presets = False
 
+            versions = await self.get_wled_versions_from_github()
+            data["info"].update(versions)
+
             self._device = Device(data)
 
             # Try to figure out if this version supports
             # a single info and state call
             try:
-                current = AwesomeVersion(self._device.info.version)
-                supported = AwesomeVersion("0.10.0")
-                self._supports_si_request = current >= supported
+                self._supports_si_request = self._device.info.version >= AwesomeVersion(
+                    "0.10.0"
+                )
             except AwesomeVersionException:
                 # Could be a manual build one? Lets poll for it
                 try:
@@ -279,6 +285,10 @@ class WLED:
                     f"WLED device {self.host} returned an empty API"
                     " response on state update"
                 )
+
+            versions = await self.get_wled_versions_from_github()
+            info.update(versions)
+
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
 
@@ -287,6 +297,10 @@ class WLED:
                 f"WLED device at {self.host} returned an empty API"
                 " response on state & info update"
             )
+
+        versions = await self.get_wled_versions_from_github()
+        state_info["info"].update(versions)
+
         self._device.update_from_dict(state_info)
 
         return self._device
@@ -568,6 +582,127 @@ class WLED:
             state["on"] = True
 
         await self.request("/json/state", method="POST", data=state)
+
+    async def upgrade(self, *, version: str) -> None:
+        """Upgrades WLED device to the specified version.
+
+        Args:
+            version: The version to upgrade to.
+
+        Raises:
+            WLEDError: If the upgrade fails.
+            WLEDConnectionTimeoutError: When a connection timeout occurs.
+            WLEDConnectionError: When a connection error occurs.
+        """
+        if self._device is None:
+            await self.update()
+
+        if self.session is None or self._device is None:
+            return
+
+        if self._device.info.architecture not in {"esp8266", "esp32"}:
+            raise WLEDError("Upgrade is only supported on ESP8266 and ESP32")
+
+        url = URL.build(scheme="http", host=self.host, port=80, path="/update")
+        update_file = f"WLED_{version}_{self._device.info.architecture.upper()}.bin"
+        download_url = f"https://github.com/Aircoookie/WLED/releases/download/v{version}/{update_file}"
+
+        try:
+            async with async_timeout.timeout(self.request_timeout * 10):
+                async with self.session.get(
+                    download_url, raise_for_status=True
+                ) as download:
+                    form = aiohttp.FormData()
+                    form.add_field("file", await download.read(), filename=update_file)
+                    await self.session.post(url, data=form)
+        except asyncio.TimeoutError as exception:
+            raise WLEDConnectionTimeoutError(
+                "Timeout occurred while fetching WLED version information from GitHub"
+            ) from exception
+        except aiohttp.ClientResponseError as exception:
+            if exception.status == 404:
+                raise WLEDError(
+                    f"Requested WLED version '{version}' does not exists"
+                ) from exception
+            raise WLEDError(
+                f"Could not download requested WLED version '{version}' from {download_url}"
+            ) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            raise WLEDConnectionError(
+                "Timeout occurred while communicating with GitHub for WLED version information"
+            ) from exception
+
+    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
+    async def get_wled_versions_from_github(self) -> dict[str, str | None]:
+        """Fetch WLED version information from GitHub.
+
+        Returns:
+            A dictionary of WLED versions, with the key being the version type.
+
+        Raises:
+            WLEDConnectionTimeoutError: Timeout occurred while fetching WLED
+                version information from GitHub.
+            WLEDConnectionError: Timeout occurred while communicating with
+                GitHub for WLED version information.
+            WLEDError: Didn't get a JSON response from GitHub while retrieving
+                version information.
+        """
+        with suppress(KeyError):
+            return {
+                "version_latest_stable": self._version_cache["stable"],
+                "version_latest_beta": self._version_cache["beta"],
+            }
+
+        if self.session is None:
+            return {"version_latest_stable": None, "version_latest_beta": None}
+
+        try:
+            async with async_timeout.timeout(self.request_timeout):
+                response = await self.session.get(
+                    "https://api.github.com/repos/Aircoookie/WLED/releases"
+                )
+        except asyncio.TimeoutError as exception:
+            raise WLEDConnectionTimeoutError(
+                "Timeout occurred while fetching WLED version information from GitHub"
+            ) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            raise WLEDConnectionError(
+                "Timeout occurred while communicating with GitHub for WLED version"
+            ) from exception
+
+        content_type = response.headers.get("Content-Type", "")
+        if (response.status // 100) in [4, 5]:
+            contents = await response.read()
+            response.close()
+
+            if content_type == "application/json":
+                raise WLEDError(response.status, json.loads(contents.decode("utf8")))
+            raise WLEDError(response.status, {"message": contents.decode("utf8")})
+
+        if "application/json" not in content_type:
+            raise WLEDError(
+                "Didn't get a JSON response from GitHub while retrieving version information"
+            )
+
+        releases = await response.json()
+        version_latest = None
+        version_latest_beta = None
+        for release in releases:
+            if release["prerelease"] is False and version_latest is None:
+                version_latest = release["tag_name"].lstrip("vV")
+            if release["prerelease"] is True and version_latest_beta is None:
+                version_latest_beta = release["tag_name"].lstrip("vV")
+            if version_latest is not None and version_latest_beta is not None:
+                break
+
+        # Cache results
+        self._version_cache["stable"] = version_latest
+        self._version_cache["beta"] = version_latest_beta
+
+        return {
+            "version_latest_stable": version_latest,
+            "version_latest_beta": version_latest_beta,
+        }
 
     async def reset(self) -> None:
         """Reboot WLED device."""
