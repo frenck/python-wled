@@ -19,3 +19,7 @@ class WLEDConnectionTimeoutError(WLEDConnectionError):
 
 class WLEDConnectionClosed(WLEDConnectionError):
     """WLED WebSocket connection has been closed."""
+
+
+class WLEDUpgradeError(WLEDError):
+    """WLED upgrade exception."""
