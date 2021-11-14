@@ -9,7 +9,6 @@
 [![Build Status][build-shield]][build]
 [![Code Coverage][codecov-shield]][codecov]
 [![Code Quality][code-quality-shield]][code-quality]
-[![Deepcode.ai][deepcode-shield]][deepcode]
 
 [![Sponsor Frenck via GitHub Sponsors][github-sponsors-shield]][github-sponsors]
 
@@ -145,8 +144,6 @@ SOFTWARE.
 [codecov-shield]: https://codecov.io/gh/frenck/python-wled/branch/master/graph/badge.svg
 [codecov]: https://codecov.io/gh/frenck/python-wled
 [contributors]: https://github.com/frenck/python-wled/graphs/contributors
-[deepcode-shield]: https://www.deepcode.ai/api/gh/badge?key=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwbGF0Zm9ybTEiOiJnaCIsIm93bmVyMSI6ImZyZW5jayIsInJlcG8xIjoicHl0aG9uLWVsZ2F0byIsImluY2x1ZGVMaW50IjpmYWxzZSwiYXV0aG9ySWQiOjI4MDU1LCJpYXQiOjE2MTUxODgzODh9.hJsD6PTw8K8bnTmHUzroQi7XkXRi46bdt-oMqx2zXj0
-[deepcode]: https://www.deepcode.ai/app/gh/frenck/python-wled/_/dashboard?utm_content=gh%2Ffrenck%2Fpython-wled
 [frenck]: https://github.com/frenck
 [github-sponsors-shield]: https://frenck.dev/wp-content/uploads/2019/12/github_sponsor.png
 [github-sponsors]: https://github.com/sponsors/frenck
