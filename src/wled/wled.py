@@ -610,8 +610,21 @@ class WLED:
         if self._device.info.version == version:
             raise WLEDUpgradeError("Device already running the requested version")
 
+        # Determine if this is an Ethernet board
+        ethernet = ""
+        if (
+            self._device.info.architecture == "esp32"
+            and self._device.info.wifi is not None
+            and not self._device.info.wifi.bssid
+            and self._device.info.version
+            and self._device.info.version >= "0.10.0"
+        ):
+            ethernet = "_Ethernet"
+
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-        update_file = f"WLED_{version}_{self._device.info.architecture.upper()}.bin"
+        update_file = (
+            f"WLED_{version}_{self._device.info.architecture.upper()}{ethernet}.bin"
+        )
         download_url = f"https://github.com/Aircoookie/WLED/releases/download/v{version}/{update_file}"
 
         try:
