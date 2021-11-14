@@ -21,6 +21,7 @@ from .wled import (
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
     WLEDError,
+    WLEDUpgradeError,
 )
 
 __all__ = [
@@ -42,4 +43,5 @@ __all__ = [
     "WLEDConnectionError",
     "WLEDConnectionTimeoutError",
     "WLEDError",
+    "WLEDUpgradeError",
 ]

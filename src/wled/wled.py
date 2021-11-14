@@ -22,6 +22,7 @@ from .exceptions import (
     WLEDConnectionTimeoutError,
     WLEDEmptyResponseError,
     WLEDError,
+    WLEDUpgradeError,
 )
 from .models import Device, Live, Playlist, Preset
 
@@ -590,7 +591,7 @@ class WLED:
             version: The version to upgrade to.
 
         Raises:
-            WLEDError: If the upgrade fails.
+            WLEDUpgradeError: If the upgrade has failed.
             WLEDConnectionTimeoutError: When a connection timeout occurs.
             WLEDConnectionError: When a connection error occurs.
         """
@@ -598,10 +599,10 @@ class WLED:
             await self.update()
 
         if self.session is None or self._device is None:
-            return
+            raise WLEDUpgradeError("Unexpected upgrade error; No session or device")
 
         if self._device.info.architecture not in {"esp8266", "esp32"}:
-            raise WLEDError("Upgrade is only supported on ESP8266 and ESP32")
+            raise WLEDUpgradeError("Upgrade is only supported on ESP8266 and ESP32")
 
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
         update_file = f"WLED_{version}_{self._device.info.architecture.upper()}.bin"
@@ -621,10 +622,10 @@ class WLED:
             ) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                raise WLEDError(
+                raise WLEDUpgradeError(
                     f"Requested WLED version '{version}' does not exists"
                 ) from exception
-            raise WLEDError(
+            raise WLEDUpgradeError(
                 f"Could not download requested WLED version '{version}' from {download_url}"
             ) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
