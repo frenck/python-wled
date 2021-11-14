@@ -604,6 +604,12 @@ class WLED:
         if self._device.info.architecture not in {"esp8266", "esp32"}:
             raise WLEDUpgradeError("Upgrade is only supported on ESP8266 and ESP32")
 
+        if not self._device.info.version:
+            raise WLEDUpgradeError("Current version is unknown, cannot perform upgrade")
+
+        if self._device.info.version == version:
+            raise WLEDUpgradeError("Device already running the requested version")
+
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
         update_file = f"WLED_{version}_{self._device.info.architecture.upper()}.bin"
         download_url = f"https://github.com/Aircoookie/WLED/releases/download/v{version}/{update_file}"
