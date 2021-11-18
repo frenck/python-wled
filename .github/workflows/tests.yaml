@@ -20,7 +20,7 @@ jobs:
         uses: actions/checkout@v2.4.0
       - name: 🏗 Set up Python ${{ matrix.python }}
         id: python
-        uses: actions/setup-python@v2.2.2
+        uses: actions/setup-python@v2.3.0
         with:
           python-version: ${{ matrix.python }}
       - name: 🏗 Get pip cache dir
@@ -67,7 +67,7 @@ jobs:
         uses: actions/download-artifact@v2.0.10
       - name: 🏗 Set up Python 3.9
         id: python
-        uses: actions/setup-python@v2.2.2
+        uses: actions/setup-python@v2.3.0
         with:
           python-version: 3.9
       - name: 🏗 Get pip cache dir
