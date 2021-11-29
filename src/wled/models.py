@@ -660,7 +660,7 @@ class Device:
             # we split those out, so we can handle those correctly.
 
             # Nobody cares about 0.
-            _presets.pop("0")
+            _presets.pop("0", None)
 
             presets = [
                 Preset.from_dict(int(preset_id), preset, self.effects, self.palettes)
