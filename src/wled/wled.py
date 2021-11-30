@@ -584,7 +584,7 @@ class WLED:
 
         await self.request("/json/state", method="POST", data=state)
 
-    async def upgrade(self, *, version: str) -> None:
+    async def upgrade(self, *, version: str | AwesomeVersion) -> None:
         """Upgrades WLED device to the specified version.
 
         Args:
