@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v2.4.0
       - name: 🏗 Set up Python ${{ matrix.python }}
         id: python
-        uses: actions/setup-python@v2.3.0
+        uses: actions/setup-python@v2.3.1
         with:
           python-version: ${{ matrix.python }}
       - name: 🏗 Get pip cache dir
@@ -62,7 +62,7 @@ jobs:
         uses: actions/checkout@v2.4.0
       - name: 🏗 Set up Python ${{ matrix.python }}
         id: python
-        uses: actions/setup-python@v2.3.0
+        uses: actions/setup-python@v2.3.1
         with:
           python-version: ${{ matrix.python }}
       - name: 🏗 Read .nvmrc
