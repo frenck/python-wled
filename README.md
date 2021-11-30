@@ -43,7 +43,7 @@ async def main():
         print(device.info.version)
 
         # Turn strip on, full brightness
-        await led.light(on=True, brightness=255)
+        await led.master(on=True, brightness=255)
 
 
 if __name__ == "__main__":
