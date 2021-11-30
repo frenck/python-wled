@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v2.4.0
       - name: 🏗 Set up Python 3.8
         id: python
-        uses: actions/setup-python@v2.3.0
+        uses: actions/setup-python@v2.3.1
         with:
           python-version: 3.8
       - name: 🏗 Get pip cache dir
