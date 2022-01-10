@@ -62,7 +62,7 @@ darglint = "^1.8.1"
 safety = "^1.10.3"
 codespell = "^2.1.0"
 bandit = "^1.7.0"
-types-cachetools = "^4.2.7"
+types-cachetools = "^4.2.8"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/frenck/python-wled/issues"
