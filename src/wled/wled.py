@@ -712,9 +712,15 @@ class WLED:
         version_latest = None
         version_latest_beta = None
         for release in releases:
-            if release["prerelease"] is False and version_latest is None:
+            if (
+                release["prerelease"] is False
+                and "b" not in release["tag_name"].lower()
+                and version_latest is None
+            ):
                 version_latest = release["tag_name"].lstrip("vV")
-            if release["prerelease"] is True and version_latest_beta is None:
+            if (
+                release["prerelease"] is True or "b" in release["tag_name"].lower()
+            ) and version_latest_beta is None:
                 version_latest_beta = release["tag_name"].lstrip("vV")
             if version_latest is not None and version_latest_beta is not None:
                 break
