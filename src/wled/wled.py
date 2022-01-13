@@ -26,6 +26,8 @@ from .exceptions import (
 )
 from .models import Device, Live, Playlist, Preset
 
+VERSION_CACHE: TTLCache = TTLCache(maxsize=16, ttl=7200)
+
 
 @dataclass
 class WLED:
@@ -40,7 +42,6 @@ class WLED:
     _device: Device | None = None
     _supports_si_request: bool | None = None
     _supports_presets: bool | None = None
-    _version_cache: TTLCache = TTLCache(maxsize=16, ttl=7200)
 
     @property
     def connected(self) -> bool:
@@ -669,8 +670,8 @@ class WLED:
         """
         with suppress(KeyError):
             return {
-                "version_latest_stable": self._version_cache["stable"],
-                "version_latest_beta": self._version_cache["beta"],
+                "version_latest_stable": VERSION_CACHE["stable"],
+                "version_latest_beta": VERSION_CACHE["beta"],
             }
 
         if self.session is None:
@@ -716,8 +717,8 @@ class WLED:
                 break
 
         # Cache results
-        self._version_cache["stable"] = version_latest
-        self._version_cache["beta"] = version_latest_beta
+        VERSION_CACHE["stable"] = version_latest
+        VERSION_CACHE["beta"] = version_latest_beta
 
         return {
             "version_latest_stable": version_latest,
