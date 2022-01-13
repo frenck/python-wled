@@ -287,8 +287,9 @@ class WLED:
                     " response on state update"
                 )
 
-            versions = await self.get_wled_versions_from_github()
-            info.update(versions)
+            with suppress(WLEDError):
+                versions = await self.get_wled_versions_from_github()
+                info.update(versions)
 
             self._device.update_from_dict({"info": info, "state": state})
             return self._device
@@ -299,8 +300,9 @@ class WLED:
                 " response on state & info update"
             )
 
-        versions = await self.get_wled_versions_from_github()
-        state_info["info"].update(versions)
+        with suppress(WLEDError):
+            versions = await self.get_wled_versions_from_github()
+            state_info["info"].update(versions)
 
         self._device.update_from_dict(state_info)
 
