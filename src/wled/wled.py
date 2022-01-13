@@ -682,7 +682,8 @@ class WLED:
         try:
             async with async_timeout.timeout(self.request_timeout):
                 response = await self.session.get(
-                    "https://api.github.com/repos/Aircoookie/WLED/releases"
+                    "https://api.github.com/repos/Aircoookie/WLED/releases",
+                    headers={"Accept": "application/json"},
                 )
         except asyncio.TimeoutError as exception:
             raise WLEDConnectionTimeoutError(
