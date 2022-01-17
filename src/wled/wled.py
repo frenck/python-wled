@@ -181,6 +181,30 @@ class WLED:
                     json=data,
                     headers=headers,
                 )
+
+            content_type = response.headers.get("Content-Type", "")
+            if (response.status // 100) in [4, 5]:
+                contents = await response.read()
+                response.close()
+
+                if content_type == "application/json":
+                    raise WLEDError(
+                        response.status, json.loads(contents.decode("utf8"))
+                    )
+                raise WLEDError(response.status, {"message": contents.decode("utf8")})
+
+            if "application/json" in content_type:
+                response_data = await response.json()
+                if (
+                    method == "POST"
+                    and uri == "/json/state"
+                    and self._device is not None
+                    and data is not None
+                ):
+                    self._device.update_from_dict(data={"state": response_data})
+            else:
+                response_data = await response.text()
+
         except asyncio.TimeoutError as exception:
             raise WLEDConnectionTimeoutError(
                 f"Timeout occurred while connecting to WLED device at {self.host}"
@@ -190,27 +214,7 @@ class WLED:
                 f"Error occurred while communicating with WLED device at {self.host}"
             ) from exception
 
-        content_type = response.headers.get("Content-Type", "")
-        if (response.status // 100) in [4, 5]:
-            contents = await response.read()
-            response.close()
-
-            if content_type == "application/json":
-                raise WLEDError(response.status, json.loads(contents.decode("utf8")))
-            raise WLEDError(response.status, {"message": contents.decode("utf8")})
-
-        if "application/json" in content_type:
-            response_data = await response.json()
-            if (
-                method == "POST"
-                and uri == "/json/state"
-                and self._device is not None
-                and data is not None
-            ):
-                self._device.update_from_dict(data={"state": response_data})
-            return response_data
-
-        return await response.text()
+        return response_data
 
     @backoff.on_exception(
         backoff.expo, WLEDEmptyResponseError, max_tries=3, logger=None
