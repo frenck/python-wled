@@ -190,6 +190,7 @@ class Segment:
 class Leds:
     """Object holding leds info from WLED."""
 
+    cct: bool
     count: int
     fps: int | None
     max_power: int
@@ -210,6 +211,7 @@ class Leds:
         """
         leds = data.get("leds", {})
         return Leds(
+            cct=leds.get("cct", False),
             count=leds.get("count", 0),
             fps=leds.get("fps", None),
             max_power=leds.get("maxpwr", 0),
