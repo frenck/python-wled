@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any
 
-from awesomeversion import AwesomeVersion, AwesomeVersionStrategy
+from awesomeversion import AwesomeVersion
 
 from .exceptions import WLEDError
 
@@ -339,8 +339,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
 
         if version := data.get("ver"):
             version = AwesomeVersion(version)
-            # If version straight is unknown, ditch it.
-            if version.strategy == AwesomeVersionStrategy.UNKNOWN:
+            if not version.valid:
                 version = None
 
         if version_latest_stable := data.get("version_latest_stable"):
