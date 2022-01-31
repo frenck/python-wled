@@ -584,12 +584,7 @@ class WLED:
 
         # Filter out not set values
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
-
-        state: dict[str, Any] = {"nl": nightlight}
-        if on:
-            state["on"] = True
-
-        await self.request("/json/state", method="POST", data=state)
+        await self.request("/json/state", method="POST", data={"nl": nightlight})
 
     async def upgrade(self, *, version: str | AwesomeVersion) -> None:
         """Upgrades WLED device to the specified version.
