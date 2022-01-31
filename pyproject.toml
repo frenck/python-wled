@@ -15,7 +15,6 @@ classifiers = [
   "Framework :: AsyncIO",
   "Intended Audience :: Developers",
   "Natural Language :: English",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3",
@@ -26,7 +25,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8"
+python = "^3.9"
 aiohttp = ">=3.0.0"
 yarl = ">=1.6.0"
 backoff = ">=1.9.0"
@@ -69,7 +68,7 @@ types-cachetools = "^4.2.9"
 Changelog = "https://github.com/frenck/python-wled/releases"
 
 [tool.black]
-target-version = ['py37']
+target-version = ['py39']
 
 [tool.coverage.paths]
 source = ["src"]
@@ -85,6 +84,43 @@ source = ["wled"]
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+
+[tool.mypy]
+# Specify the target platform details in config, so your developers are
+# free to run mypy on Windows, Linux, or macOS and get consistent
+# results.
+platform = "linux"
+python_version = 3.9
+
+# flake8-mypy expects the two following for sensible formatting
+show_column_numbers = true
+
+# show error messages from unrelated files
+follow_imports = "normal"
+
+# suppress errors about unsatisfied imports
+ignore_missing_imports = true
+
+# be strict
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_untyped_decorators = false # thanks backoff :(
+no_implicit_optional = true
+no_implicit_reexport = true
+strict_optional = true
+warn_incomplete_stub = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+
+# No incremental mode
+cache_dir = "/dev/null"
 
 [tool.pylint.MASTER]
 load-plugins = [

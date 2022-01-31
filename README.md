@@ -36,7 +36,7 @@ import asyncio
 from wled import WLED
 
 
-async def main():
+async def main() -> None:
     """Show example on controlling your WLED device."""
     async with WLED("wled-frenck.local") as led:
         device = await led.update()
@@ -81,7 +81,7 @@ development.
 
 You need at least:
 
-- Python 3.8+
+- Python 3.9+
 - [Poetry][poetry-install]
 - NodeJS 12+ (including NPM)
 

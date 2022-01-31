@@ -615,7 +615,7 @@ class Device:
     presets: list[Preset] = []
     state: State
 
-    def __init__(self, data: dict) -> None:
+    def __init__(self, data: dict[str, Any]) -> None:
         """Initialize an empty WLED device class.
 
         Args:
@@ -633,7 +633,7 @@ class Device:
             raise WLEDError("WLED data is incomplete, cannot construct device object")
         self.update_from_dict(data)
 
-    def update_from_dict(self, data: dict) -> Device:
+    def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
 
         Args:

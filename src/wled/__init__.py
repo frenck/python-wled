@@ -1,5 +1,12 @@
 """Asynchronous Python client for WLED."""
 
+from .exceptions import (
+    WLEDConnectionClosed,
+    WLEDConnectionError,
+    WLEDConnectionTimeoutError,
+    WLEDError,
+    WLEDUpgradeError,
+)
 from .models import (  # noqa
     Device,
     Effect,
@@ -15,14 +22,7 @@ from .models import (  # noqa
     State,
     Sync,
 )
-from .wled import (
-    WLED,
-    WLEDConnectionClosed,
-    WLEDConnectionError,
-    WLEDConnectionTimeoutError,
-    WLEDError,
-    WLEDUpgradeError,
-)
+from .wled import WLED
 
 __all__ = [
     "Device",

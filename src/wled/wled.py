@@ -11,7 +11,7 @@ from typing import Any
 
 import aiohttp
 import async_timeout
-import backoff  # type: ignore
+import backoff
 from awesomeversion import AwesomeVersion, AwesomeVersionException
 from cachetools import TTLCache
 from yarl import URL
@@ -26,7 +26,7 @@ from .exceptions import (
 )
 from .models import Device, Live, Playlist, Preset
 
-VERSION_CACHE: TTLCache = TTLCache(maxsize=16, ttl=7200)
+VERSION_CACHE: TTLCache[str, str | None] = TTLCache(maxsize=16, ttl=7200)
 
 
 @dataclass
@@ -136,7 +136,7 @@ class WLED:
         self,
         uri: str = "",
         method: str = "GET",
-        data: dict | None = None,
+        data: dict[str, Any] | None = None,
     ) -> Any:
         """Handle a request to a WLED device.
 
@@ -319,7 +319,7 @@ class WLED:
         brightness: int | None = None,
         on: bool | None = None,
         transition: int | None = None,
-    ):
+    ) -> None:
         """Change master state of a WLED Light device.
 
         Args:
@@ -756,7 +756,7 @@ class WLED:
         """
         return self
 
-    async def __aexit__(self, *_exc_info) -> None:
+    async def __aexit__(self, *_exc_info: Any) -> None:
         """Async exit.
 
         Args:
