@@ -6,7 +6,7 @@ import asyncio
 from wled import WLED
 
 
-async def main():
+async def main() -> None:
     """Show example on upgrade your WLED device."""
     async with WLED("10.10.11.54") as led:
         device = await led.update()

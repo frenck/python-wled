@@ -1,16 +1,18 @@
 """Tests for `wled.WLED`."""
 import asyncio
+from collections.abc import Generator
 from unittest.mock import patch
 
 import aiohttp
 import pytest
+from aresponses import Response, ResponsesMockServer
 
 from wled import WLED
 from wled.exceptions import WLEDConnectionError, WLEDError
 
 
 @pytest.fixture(autouse=True)
-def mock_get_version_from_github():
+def mock_get_version_from_github() -> Generator[None, None, None]:
     """Patch out connection to GitHub."""
     with patch(
         "wled.WLED.get_wled_versions_from_github",
@@ -20,7 +22,7 @@ def mock_get_version_from_github():
 
 
 @pytest.mark.asyncio
-async def test_json_request(aresponses):
+async def test_json_request(aresponses: ResponsesMockServer) -> None:
     """Test JSON response is handled correctly."""
     aresponses.add(
         "example.com",
@@ -39,7 +41,7 @@ async def test_json_request(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_text_request(aresponses):
+async def test_text_request(aresponses: ResponsesMockServer) -> None:
     """Test non JSON response is handled correctly."""
     aresponses.add(
         "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
@@ -51,7 +53,7 @@ async def test_text_request(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_internal_session(aresponses):
+async def test_internal_session(aresponses: ResponsesMockServer) -> None:
     """Test JSON response is handled correctly."""
     aresponses.add(
         "example.com",
@@ -69,7 +71,7 @@ async def test_internal_session(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_post_request(aresponses):
+async def test_post_request(aresponses: ResponsesMockServer) -> None:
     """Test POST requests are handled correctly."""
     aresponses.add(
         "example.com", "/", "POST", aresponses.Response(status=200, text="OK")
@@ -81,10 +83,11 @@ async def test_post_request(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_backoff(aresponses):
+async def test_backoff(aresponses: ResponsesMockServer) -> None:
     """Test requests are handled with retries."""
 
-    async def response_handler(_):
+    async def response_handler(_: aiohttp.ClientResponse) -> Response:
+        """Response handler for this test."""
         await asyncio.sleep(0.2)
         return aresponses.Response(body="Goodmorning!")
 
@@ -106,10 +109,11 @@ async def test_backoff(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_timeout(aresponses):
+async def test_timeout(aresponses: ResponsesMockServer) -> None:
     """Test request timeout from WLED."""
     # Faking a timeout by sleeping
-    async def response_handler(_):
+    async def response_handler(_: aiohttp.ClientResponse) -> Response:
+        """Response handler for this test."""
         await asyncio.sleep(0.2)
         return aresponses.Response(body="Goodmorning!")
 
@@ -125,7 +129,7 @@ async def test_timeout(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_http_error400(aresponses):
+async def test_http_error400(aresponses: ResponsesMockServer) -> None:
     """Test HTTP 404 response handling."""
     aresponses.add(
         "example.com", "/", "GET", aresponses.Response(text="OMG PUPPIES!", status=404)
@@ -138,7 +142,7 @@ async def test_http_error400(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_http_error500(aresponses):
+async def test_http_error500(aresponses: ResponsesMockServer) -> None:
     """Test HTTP 500 response handling."""
     aresponses.add(
         "example.com",
@@ -158,7 +162,7 @@ async def test_http_error500(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_state_on(aresponses):
+async def test_state_on(aresponses: ResponsesMockServer) -> None:
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
@@ -203,7 +207,7 @@ async def test_state_on(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_state_on_si_request(aresponses):
+async def test_state_on_si_request(aresponses: ResponsesMockServer) -> None:
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
@@ -238,7 +242,7 @@ async def test_state_on_si_request(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_empty_responses(aresponses):
+async def test_empty_responses(aresponses: ResponsesMockServer) -> None:
     """Test empty responses for WLED device state."""
     aresponses.add(
         "example.com",
@@ -311,7 +315,7 @@ async def test_empty_responses(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_empty_si_responses(aresponses):
+async def test_empty_si_responses(aresponses: ResponsesMockServer) -> None:
     """Test request of current WLED device state."""
     aresponses.add(
         "example.com",
@@ -354,7 +358,7 @@ async def test_empty_si_responses(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_empty_full_responses(aresponses):
+async def test_empty_full_responses(aresponses: ResponsesMockServer) -> None:
     """Test failure handling of full data request WLED device state."""
     aresponses.add(
         "example.com",
@@ -386,7 +390,7 @@ async def test_empty_full_responses(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_si_request_version_based(aresponses):
+async def test_si_request_version_based(aresponses: ResponsesMockServer) -> None:
     """Test for supporting SI requests based on version data."""
     aresponses.add(
         "example.com",
@@ -410,7 +414,9 @@ async def test_si_request_version_based(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_not_supporting_si_request_version_based(aresponses):
+async def test_not_supporting_si_request_version_based(
+    aresponses: ResponsesMockServer,
+) -> None:
     """Test for supporting SI requests based on version data."""
     aresponses.add(
         "example.com",
@@ -434,7 +440,7 @@ async def test_not_supporting_si_request_version_based(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_si_request_probing_based(aresponses):
+async def test_si_request_probing_based(aresponses: ResponsesMockServer) -> None:
     """Test for supporting SI requests based on probing."""
     aresponses.add(
         "example.com",
@@ -469,7 +475,9 @@ async def test_si_request_probing_based(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_not_supporting_si_request_probing_based(aresponses):
+async def test_not_supporting_si_request_probing_based(
+    aresponses: ResponsesMockServer,
+) -> None:
     """Test for supporting SI requests based on probing."""
     aresponses.add(
         "example.com",
@@ -493,7 +501,7 @@ async def test_not_supporting_si_request_probing_based(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_info_contains_wv_true(aresponses):
+async def test_info_contains_wv_true(aresponses: ResponsesMockServer) -> None:
     """Test for determining if wv is used and set to true."""
     aresponses.add(
         "example.com",
@@ -523,7 +531,7 @@ async def test_info_contains_wv_true(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_info_contains_wv_false(aresponses):
+async def test_info_contains_wv_false(aresponses: ResponsesMockServer) -> None:
     """Test for determining if wv is used and set to false."""
     aresponses.add(
         "example.com",
@@ -553,7 +561,7 @@ async def test_info_contains_wv_false(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_info_contains_no_wv(aresponses):
+async def test_info_contains_no_wv(aresponses: ResponsesMockServer) -> None:
     """Test for determining if wv is used and set to false."""
     aresponses.add(
         "example.com",
@@ -582,7 +590,7 @@ async def test_info_contains_no_wv(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_live_override_state_off(aresponses):
+async def test_live_override_state_off(aresponses: ResponsesMockServer) -> None:
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
@@ -606,7 +614,7 @@ async def test_live_override_state_off(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_live_override_state_on(aresponses):
+async def test_live_override_state_on(aresponses: ResponsesMockServer) -> None:
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
@@ -630,7 +638,9 @@ async def test_live_override_state_on(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_live_override_state_off_until_reboot(aresponses):
+async def test_live_override_state_off_until_reboot(
+    aresponses: ResponsesMockServer,
+) -> None:
     """Test request of current WLED live override mode."""
     aresponses.add(
         "example.com",
@@ -654,7 +664,7 @@ async def test_live_override_state_off_until_reboot(aresponses):
 
 
 @pytest.mark.asyncio
-async def test_reset(aresponses):
+async def test_reset(aresponses: ResponsesMockServer) -> None:
     """Test rebooting WLED device works."""
     aresponses.add(
         "example.com",
