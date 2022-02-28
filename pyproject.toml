@@ -60,7 +60,7 @@ flake8-markdown = "^0.3.0"
 darglint = "^1.8.1"
 safety = "^1.10.3"
 codespell = "^2.1.0"
-bandit = "^1.7.2"
+bandit = "^1.7.3"
 types-cachetools = "^4.2.9"
 
 [tool.poetry.urls]
