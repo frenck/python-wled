@@ -249,8 +249,9 @@ class WLED:
             except WLEDError:
                 self._supports_presets = False
 
-            versions = await self.get_wled_versions_from_github()
-            data["info"].update(versions)
+            with suppress(WLEDError):
+                versions = await self.get_wled_versions_from_github()
+                data["info"].update(versions)
 
             self._device = Device(data)
 
