@@ -17,7 +17,7 @@ def mock_get_version_from_github() -> Generator[None, None, None]:
     with patch(
         "wled.WLED.get_wled_versions_from_github",
         return_value={"version_latest_stable": None, "version_latest_beta": None},
-        side_effect=WLEDConnectionError
+        side_effect=WLEDConnectionError,
     ):
         yield
 
