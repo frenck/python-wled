@@ -350,13 +350,24 @@ class Info:  # pylint: disable=too-many-instance-attributes
         if version_latest_beta := data.get("version_latest_beta"):
             version_latest_beta = AwesomeVersion(version_latest_beta)
 
+        arch = data.get("arch", "Unknown")
+        if (
+            (filesystem := Filesystem.from_dict(data)) is not None
+            and arch == "esp8266"
+            and filesystem.total
+        ):
+            if filesystem.total <= 256:
+                arch = "esp01"
+            elif filesystem.total <= 512:
+                arch = "esp02"
+
         return Info(
-            architecture=data.get("arch", "Unknown"),
+            architecture=arch,
             arduino_core_version=data.get("core", "Unknown").replace("_", "."),
             brand=data.get("brand", "WLED"),
             build_type=data.get("btype", "Unknown"),
             effect_count=data.get("fxcount", 0),
-            filesystem=Filesystem.from_dict(data),
+            filesystem=filesystem,
             free_heap=data.get("freeheap", 0),
             leds=Leds.from_dict(data),
             live_ip=data.get("lip", "Unknown"),
