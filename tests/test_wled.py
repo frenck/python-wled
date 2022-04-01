@@ -681,3 +681,73 @@ async def test_reset(aresponses: ResponsesMockServer) -> None:
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
         await wled.reset()
+
+
+@pytest.mark.asyncio
+async def test_detect_esp01(
+    aresponses: ResponsesMockServer,
+) -> None:
+    """Test if the ESP01 is detected correctly."""
+    aresponses.add(
+        "example.com",
+        "/json",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="""
+                {
+                    "state": {"on": true},
+                    "effects": [],
+                    "palettes": [],
+                    "info": {
+                        "ver": "0.10.0",
+                        "arch": "esp8266",
+                        "fs": {
+                            "t": 256
+                        }
+                    }
+                }
+            """,
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.info.architecture == "esp01"
+
+
+@pytest.mark.asyncio
+async def test_detect_esp02(
+    aresponses: ResponsesMockServer,
+) -> None:
+    """Test if the ESP01 is detected correctly."""
+    aresponses.add(
+        "example.com",
+        "/json",
+        "GET",
+        aresponses.Response(
+            status=200,
+            headers={"Content-Type": "application/json"},
+            text="""
+                {
+                    "state": {"on": true},
+                    "effects": [],
+                    "palettes": [],
+                    "info": {
+                        "ver": "0.10.0",
+                        "arch": "esp8266",
+                        "fs": {
+                            "t": 512
+                        }
+                    }
+                }
+            """,
+        ),
+    )
+
+    async with aiohttp.ClientSession() as session:
+        wled = WLED("example.com", session=session)
+        device = await wled.update()
+        assert device.info.architecture == "esp02"

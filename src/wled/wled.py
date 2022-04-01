@@ -604,8 +604,15 @@ class WLED:
         if self.session is None or self._device is None:
             raise WLEDUpgradeError("Unexpected upgrade error; No session or device")
 
-        if self._device.info.architecture not in {"esp8266", "esp32"}:
-            raise WLEDUpgradeError("Upgrade is only supported on ESP8266 and ESP32")
+        if self._device.info.architecture not in {
+            "esp01",
+            "esp02",
+            "esp32",
+            "esp8266",
+        }:
+            raise WLEDUpgradeError(
+                "Upgrade is only supported on ESP01, ESP02, ESP32 and ESP8266 devices"
+            )
 
         if not self._device.info.version:
             raise WLEDUpgradeError("Current version is unknown, cannot perform upgrade")
