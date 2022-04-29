@@ -94,7 +94,7 @@ tests_no_zope = ["coverage[toml] (>=5.0.2)", "hypothesis", "pympler", "pytest (>
 
 [[package]]
 name = "awesomeversion"
-version = "22.4.1"
+version = "22.4.2"
 description = "One version package to rule them all, One version package to find them, One version package to bring them all, and in the darkness bind them."
 category = "main"
 optional = false
@@ -1089,8 +1089,8 @@ attrs = [
     {file = "attrs-21.4.0.tar.gz", hash = "sha256:626ba8234211db98e869df76230a137c4c40a12d72445c45d5f5b716f076e2fd"},
 ]
 awesomeversion = [
-    {file = "awesomeversion-22.4.1-py3-none-any.whl", hash = "sha256:1d3f6998665e507a0ddf8ce8469f3072d1426a8cdeccd52a0a8198d8c881636e"},
-    {file = "awesomeversion-22.4.1.tar.gz", hash = "sha256:46c08ddb5b0cc0a68b0d568729e5c9db8042a1b0bcd32f307094db410bf0ed6b"},
+    {file = "awesomeversion-22.4.2-py3-none-any.whl", hash = "sha256:2f6edf15ca19a59f2741cef6350d265af6122631c4f48d95cc11d7a944b6425e"},
+    {file = "awesomeversion-22.4.2.tar.gz", hash = "sha256:2aa3d42a15b984542b1b9c61cf1220879face4298a4cc894678a1d79a3618182"},
 ]
 backoff = [
     {file = "backoff-2.0.1-py3-none-any.whl", hash = "sha256:8700797e5f45e41ee3bf357137f074a174797016dc9ad3c2b974a955bab92b50"},
