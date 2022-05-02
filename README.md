@@ -142,7 +142,7 @@ SOFTWARE.
 [code-quality-shield]: https://img.shields.io/lgtm/grade/python/g/frenck/python-wled.svg?logo=lgtm&logoWidth=18
 [code-quality]: https://lgtm.com/projects/g/frenck/python-wled/context:python
 [codecov-shield]: https://codecov.io/gh/frenck/python-wled/branch/master/graph/badge.svg
-[codecov]: https://codecov.io/gh/frenck/python-wled
+[codecov]: https://app.codecov.io/gh/frenck/python-wled
 [contributors]: https://github.com/frenck/python-wled/graphs/contributors
 [frenck]: https://github.com/frenck
 [github-sponsors-shield]: https://frenck.dev/wp-content/uploads/2019/12/github_sponsor.png
