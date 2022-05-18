@@ -9,11 +9,10 @@ on:
 
 jobs:
   pytest:
-    name: Python ${{ matrix.python }} on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}-latest
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu, windows, macos]
         python: ["3.9", "3.10"]
     steps:
       - name: ⤵️ Check out code from GitHub
@@ -31,9 +30,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
           restore-keys: |
-            pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+            pip-${{ steps.python.outputs.python-version }}-
       - name: 🏗 Install workflow dependencies
         run: |
           pip install -r .github/workflows/requirements.txt
@@ -44,7 +43,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+          key: venv-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
           restore-keys: |
             venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
       - name: 🏗 Install dependencies
@@ -54,7 +53,7 @@ jobs:
       - name: ⬆️ Upload coverage artifact
         uses: actions/upload-artifact@v3
         with:
-          name: coverage-${{ matrix.python }}-${{ matrix.os }}
+          name: coverage-${{ matrix.python }}
           path: .coverage
 
   coverage:
@@ -78,9 +77,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
-          key: pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
+          key: pip-${{ steps.python.outputs.python-version }}-${{ hashFiles('.github/workflows/requirements.txt') }}
           restore-keys: |
-            pip-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+            pip-${{ steps.python.outputs.python-version }}-
       - name: 🏗 Install workflow dependencies
         run: |
           pip install -r .github/workflows/requirements.txt
@@ -92,8 +91,8 @@ jobs:
         with:
           path: .venv
           key: >-
-            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
-            venv-${{ runner.os }}-${{ steps.python.outputs.python-version }}-
+            venv-${{ steps.python.outputs.python-version }}-${{ hashFiles('poetry.lock') }}
+            venv-${{ steps.python.outputs.python-version }}-
       - name: 🏗 Install dependencies
         run: poetry install --no-interaction
       - name: 🚀 Process coverage results
