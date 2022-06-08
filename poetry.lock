@@ -102,7 +102,7 @@ python-versions = ">=3.7,<4.0"
 
 [[package]]
 name = "backoff"
-version = "2.0.1"
+version = "2.1.0"
 description = "Function decoration for backoff and retry"
 category = "main"
 optional = false
@@ -1103,8 +1103,8 @@ awesomeversion = [
     {file = "awesomeversion-22.5.2.tar.gz", hash = "sha256:051f89efd8ba0b157fb516bda5e1dad4d63f87e8f9c0c148930023d984fce62f"},
 ]
 backoff = [
-    {file = "backoff-2.0.1-py3-none-any.whl", hash = "sha256:8700797e5f45e41ee3bf357137f074a174797016dc9ad3c2b974a955bab92b50"},
-    {file = "backoff-2.0.1.tar.gz", hash = "sha256:bd6f32d4aff2607a578e847bf5bdb978a0eb1911fe5c0b0a73325328881bb31c"},
+    {file = "backoff-2.1.0-py3-none-any.whl", hash = "sha256:140c1deee9387519df5e9bc08eee85836f53b270769ecec32d8fbaceca12eec6"},
+    {file = "backoff-2.1.0.tar.gz", hash = "sha256:7b5a6111f4ff1fc96fa9f017e0d2af0e7ce0f8354354aa7ce341741f1e7482a4"},
 ]
 bandit = [
     {file = "bandit-1.7.4-py3-none-any.whl", hash = "sha256:412d3f259dab4077d0e7f0c11f50f650cc7d10db905d98f6520a95a18049658a"},
