@@ -902,7 +902,7 @@ python-versions = ">=3.6,<4.0"
 
 [[package]]
 name = "types-cachetools"
-version = "5.0.2"
+version = "5.2.0"
 description = "Typing stubs for cachetools"
 category = "dev"
 optional = false
@@ -993,7 +993,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "657aaacccd00e49359d2e5c1fcbf5da2d29cbb6e68a834f7a2287fe1240e6aad"
+content-hash = "b198e5a0fa6084978a7f0abec30eab69516caa2c5dbcb2f3e8cc8cb17fb26291"
 
 [metadata.files]
 aiohttp = [
@@ -1672,8 +1672,8 @@ tomlkit = [
     {file = "tomlkit-0.11.0.tar.gz", hash = "sha256:71ceb10c0eefd8b8f11fe34e8a51ad07812cb1dc3de23247425fbc9ddc47b9dd"},
 ]
 types-cachetools = [
-    {file = "types-cachetools-5.0.2.tar.gz", hash = "sha256:bf22b2e9f9243983914f6510e43a1873f012afb8c3fc5e09a59b0ccbe3ab0f35"},
-    {file = "types_cachetools-5.0.2-py3-none-any.whl", hash = "sha256:4291c3b6ae10e7b0d7ae3c4cb7d9daa6b21d4b7deb64d193e44bcec7ca5c4095"},
+    {file = "types-cachetools-5.2.0.tar.gz", hash = "sha256:f8ae68aa6502c5c93bbf6ae51ca60fefa9f6a5896846baf7981067809977a61a"},
+    {file = "types_cachetools-5.2.0-py3-none-any.whl", hash = "sha256:ccbcc5e72084c015e2405cb629d769116f7c10f918e3f02d409a94d0167ffaae"},
 ]
 typing-extensions = [
     {file = "typing_extensions-4.2.0-py3-none-any.whl", hash = "sha256:6657594ee297170d19f67d55c05852a874e7eb634f4f753dbd667855e07c1708"},
