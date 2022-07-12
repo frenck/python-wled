@@ -69,7 +69,7 @@ jobs:
         id: nvm
         run: echo "##[set-output name=nvmrc;]$(cat .nvmrc)"
       - name: 🏗 Set up Node.js ${{ steps.nvm.outputs.nvmrc }}
-        uses: actions/setup-node@v3.3.0
+        uses: actions/setup-node@v3.4.0
         with:
           node-version: "${{ steps.nvm.outputs.nvmrc }}"
       - name: 🏗 Get pip cache directory
