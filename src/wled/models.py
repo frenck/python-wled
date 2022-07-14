@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import IntEnum, IntFlag
 from typing import Any
 
 from awesomeversion import AwesomeVersion
@@ -193,11 +193,13 @@ class Leds:
     cct: bool
     count: int
     fps: int | None
+    light_capabilities: LightCapability | None
     max_power: int
     max_segments: int
     power: int
     rgbw: bool
     wv: bool
+    segment_light_capabilities: list[LightCapability] | None
 
     @staticmethod
     def from_dict(data: dict[str, Any]) -> Leds:
@@ -210,15 +212,26 @@ class Leds:
             A Leds object.
         """
         leds = data.get("leds", {})
+
+        light_capabilities = None
+        segment_light_capabilities = None
+        if "lc" in leds and "seglc" in leds:
+            light_capabilities = LightCapability(leds["lc"])
+            segment_light_capabilities = [
+                LightCapability(item) for item in leds["seglc"]
+            ]
+
         return Leds(
-            cct=leds.get("cct", False),
+            cct=bool(leds.get("cct")),
             count=leds.get("count", 0),
             fps=leds.get("fps", None),
+            light_capabilities=light_capabilities,
             max_power=leds.get("maxpwr", 0),
             max_segments=leds.get("maxseg", 0),
             power=leds.get("pwr", 0),
             rgbw=leds.get("rgbw", False),
-            wv=leds.get("wv", True),
+            segment_light_capabilities=segment_light_capabilities,
+            wv=bool(leds.get("wv", True)),
         )
 
 
@@ -705,6 +718,24 @@ class Device:
             )
 
         return self
+
+
+class LightCapability(IntFlag):
+    """Enumeration representing the capabilities of a light in WLED."""
+
+    NONE = 0
+    RGB_COLOR = 1
+    WHITE_CHANNEL = 2
+    COLOR_TEMPERATURE = 4
+
+    # These are not used, but are resevered for future use.
+    # WLED specifications documents we should expect them,
+    # therefore, we include them here.
+    RESERVED_1 = 8
+    RESERVED_2 = 16
+    RESERVED_3 = 32
+    RESERVED_4 = 64
+    RESERVED_5 = 128
 
 
 class Live(IntEnum):
