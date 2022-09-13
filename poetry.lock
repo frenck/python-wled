@@ -978,7 +978,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 
 [[package]]
 name = "yamllint"
-version = "1.27.1"
+version = "1.28.0"
 description = "A linter for YAML files."
 category = "dev"
 optional = false
@@ -1004,7 +1004,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "942befb8877a3e6cc4d20a409f5e221fa92e8122369c9e17fcabccbb8ba2864c"
+content-hash = "1bb9134d30522544095258318e1b536a2f12bd6589141aa8990936819fa4f6a3"
 
 [metadata.files]
 aiohttp = [
@@ -1782,7 +1782,7 @@ wrapt = [
     {file = "wrapt-1.14.1.tar.gz", hash = "sha256:380a85cf89e0e69b7cfbe2ea9f765f004ff419f34194018a6827ac0e3edfed4d"},
 ]
 yamllint = [
-    {file = "yamllint-1.27.1.tar.gz", hash = "sha256:e688324b58560ab68a1a3cff2c0a474e3fed371dfe8da5d1b9817b7df55039ce"},
+    {file = "yamllint-1.28.0.tar.gz", hash = "sha256:9e3d8ddd16d0583214c5fdffe806c9344086721f107435f68bad990e5a88826b"},
 ]
 yarl = [
     {file = "yarl-1.8.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:abc06b97407868ef38f3d172762f4069323de52f2b70d133d096a48d72215d28"},
