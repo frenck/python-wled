@@ -760,7 +760,7 @@ testing = ["fields", "hunter", "process-tests", "pytest-xdist", "six", "virtuale
 
 [[package]]
 name = "pyupgrade"
-version = "3.2.1"
+version = "3.2.2"
 description = "A tool to automatically upgrade syntax for newer versions."
 category = "dev"
 optional = false
@@ -1012,7 +1012,7 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "0c466a90d976f7fc24f3c4636ade4538070bab73d30e4ad4b3e2346f9885d2b3"
+content-hash = "11ca4a4ee61a0f1369045d3aa4bf9d742a6f37df2b88d61519fe05c14ee827a3"
 
 [metadata.files]
 aiohttp = [
@@ -1618,8 +1618,8 @@ pytest-cov = [
     {file = "pytest_cov-4.0.0-py3-none-any.whl", hash = "sha256:2feb1b751d66a8bd934e5edfa2e961d11309dc37b73b0eabe73b5945fee20f6b"},
 ]
 pyupgrade = [
-    {file = "pyupgrade-3.2.1-py2.py3-none-any.whl", hash = "sha256:a33650cc912253076dd99b7725c826d579d3b069f352ae10e34de6e46194f566"},
-    {file = "pyupgrade-3.2.1.tar.gz", hash = "sha256:61b69c0e89fca476082f5df04f72d48bdb49a662a0d74b19269e95b750b80ebe"},
+    {file = "pyupgrade-3.2.2-py2.py3-none-any.whl", hash = "sha256:16c0e3a6ac2d83cd0fd30c138af5504918c59d584344f60a15d5f8009b11a0ed"},
+    {file = "pyupgrade-3.2.2.tar.gz", hash = "sha256:6bfa246fb9d94e490fad37980bcfc05b9494183ff29d9100ef4f7f22a952ce67"},
 ]
 pyyaml = [
     {file = "PyYAML-6.0-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d4db7c7aef085872ef65a8fd7d6d09a14ae91f691dec3e87ee5ee0539d516f53"},
