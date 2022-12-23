@@ -153,7 +153,7 @@ class WLED:
             WLED device.
 
         Raises:
-            WLEDConnectionError: An error occurred while communitcation with
+            WLEDConnectionError: An error occurred while communication with
                 the WLED device.
             WLEDConnectionTimeoutError: A timeout occurred while communicating
                 with the WLED device.
