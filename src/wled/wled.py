@@ -183,7 +183,7 @@ class WLED:
                 )
 
             content_type = response.headers.get("Content-Type", "")
-            if (response.status // 100) in [4, 5]:
+            if response.status // 100 in [4, 5]:
                 contents = await response.read()
                 response.close()
 
@@ -702,7 +702,7 @@ class WLED:
             ) from exception
 
         content_type = response.headers.get("Content-Type", "")
-        if (response.status // 100) in [4, 5]:
+        if response.status // 100 in [4, 5]:
             contents = await response.read()
             response.close()
 
