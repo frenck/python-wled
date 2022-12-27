@@ -727,11 +727,11 @@ class LightCapability(IntFlag):
     RGB_COLOR = 1
     WHITE_CHANNEL = 2
     COLOR_TEMPERATURE = 4
+    MANUAL_WHITE = 8
 
     # These are not used, but are reserved for future use.
     # WLED specifications documents we should expect them,
     # therefore, we include them here.
-    RESERVED_1 = 8
     RESERVED_2 = 16
     RESERVED_3 = 32
     RESERVED_4 = 64
