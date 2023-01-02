@@ -602,15 +602,17 @@ class Playlist:
         entries_presets = playlist.get("ps", [])
         entries_transitions = playlist.get("transition", [])
 
+        if not isinstance(entries_durations, list):
+            entries_durations = [entries_durations] * len(entries_presets)
+
+        if not isinstance(entries_transitions, list):
+            entries_transitions = [entries_transitions] * len(entries_presets)
+
         entries = [
             PlaylistEntry(
                 entry_id=entry_id,
-                duration=entries_durations[entry_id]
-                if isinstance(entries_durations, list)
-                else entries_durations,
-                transition=entries_transitions[entry_id]
-                if isinstance(entries_transitions, list)
-                else entries_transitions,
+                duration=entries_durations[entry_id],
+                transition=entries_transitions[entry_id],
                 preset=next(
                     (item for item in presets if item.preset_id == preset_id), None
                 ),
