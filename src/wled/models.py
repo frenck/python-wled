@@ -605,8 +605,12 @@ class Playlist:
         entries = [
             PlaylistEntry(
                 entry_id=entry_id,
-                duration=entries_durations[entry_id],
-                transition=entries_transitions[entry_id],
+                duration=entries_durations[entry_id]
+                if isinstance(entries_durations, list)
+                else entries_durations,
+                transition=entries_transitions[entry_id]
+                if isinstance(entries_transitions, list)
+                else entries_transitions,
                 preset=next(
                     (item for item in presets if item.preset_id == preset_id), None
                 ),
