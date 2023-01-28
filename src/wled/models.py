@@ -322,6 +322,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
     effect_count: int
     filesystem: Filesystem | None
     free_heap: int
+    ip: str
     leds: Leds
     live_ip: str
     live_mode: str
@@ -382,6 +383,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
             effect_count=data.get("fxcount", 0),
             filesystem=filesystem,
             free_heap=data.get("freeheap", 0),
+            ip=data.get("ip", "Unknown"),
             leds=Leds.from_dict(data),
             live_ip=data.get("lip", "Unknown"),
             live_mode=data.get("lm", "Unknown"),
