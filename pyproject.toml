@@ -40,7 +40,7 @@ blacken-docs = "^1.13.0"
 coverage = {version = "^7.1", extras = ["toml"]}
 flake8 = "^4.0.1"
 flake8-docstrings = "^1.7.0"
-isort = "^5.11.4"
+isort = "^5.12.0"
 mypy = "^0.991"
 pre-commit = "^3.0.1"
 pre-commit-hooks = "^4.4.0"
