@@ -37,7 +37,7 @@ cachetools = ">=4.0.0"
 aresponses = "^2.1.6"
 black = "^22.12"
 blacken-docs = "^1.13.0"
-coverage = {version = "^7.1", extras = ["toml"]}
+coverage = {version = "^7.2", extras = ["toml"]}
 flake8 = "^4.0.1"
 flake8-docstrings = "^1.7.0"
 isort = "^5.12.0"
