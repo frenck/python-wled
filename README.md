@@ -8,7 +8,7 @@
 
 [![Build Status][build-shield]][build]
 [![Code Coverage][codecov-shield]][codecov]
-[![Code Quality][code-quality-shield]][code-quality]
+[![Quality Gate Status][sonarcloud-shield]][sonarcloud]
 
 [![Sponsor Frenck via GitHub Sponsors][github-sponsors-shield]][github-sponsors]
 
@@ -139,8 +139,6 @@ SOFTWARE.
 
 [build-shield]: https://github.com/frenck/python-wled/actions/workflows/tests.yaml/badge.svg
 [build]: https://github.com/frenck/python-wled/actions/workflows/tests.yaml
-[code-quality-shield]: https://img.shields.io/lgtm/grade/python/g/frenck/python-wled.svg?logo=lgtm&logoWidth=18
-[code-quality]: https://lgtm.com/projects/g/frenck/python-wled/context:python
 [codecov-shield]: https://codecov.io/gh/frenck/python-wled/branch/master/graph/badge.svg
 [codecov]: https://codecov.io/gh/frenck/python-wled
 [contributors]: https://github.com/frenck/python-wled/graphs/contributors
@@ -160,3 +158,5 @@ SOFTWARE.
 [releases-shield]: https://img.shields.io/github/release/frenck/python-wled.svg
 [releases]: https://github.com/frenck/python-wled/releases
 [semver]: http://semver.org/spec/v2.0.0.html
+[sonarcloud-shield]: https://sonarcloud.io/api/project_badges/measure?project=frenck_python-wled&metric=alert_status
+[sonarcloud]: https://sonarcloud.io/summary/new_code?id=frenck_python-wled

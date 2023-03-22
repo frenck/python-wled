@@ -91,6 +91,9 @@ ENV/
 # mypy
 .mypy_cache/
 
+# ruff
+.ruff_cache
+
 # Visual Studio Code
 .vscode
 
