@@ -2,13 +2,13 @@
 repos:
   - repo: local
     hooks:
-      - id: bandit
-        name: 🎰 Checking using bandit
+      - id: ruff
+        name: 🐶 Ruff
         language: system
         types: [python]
-        entry: poetry run bandit
-        files: ^src/
+        entry: poetry run ruff --fix
         require_serial: true
+        stages: [commit, push, manual]
       - id: black
         name: ☕️ Format using black
         language: system
@@ -61,6 +61,11 @@ repos:
         language: system
         types: [toml]
         entry: poetry run check-toml
+      - id: check-xml
+        name: ✅ Check XML files
+        entry: check-xml
+        language: system
+        types: [xml]
       - id: check-yaml
         name: ✅ Check YAML files
         language: system
@@ -72,11 +77,6 @@ repos:
         types: [text]
         exclude: ^poetry\.lock$
         entry: poetry run codespell
-      - id: debug-statements
-        name: 🪵  Debug Statements and imports (Python)
-        language: system
-        types: [python]
-        entry: poetry run debug-statement-hook
       - id: detect-private-key
         name: 🕵️  Detect Private Keys
         language: system
@@ -88,22 +88,6 @@ repos:
         types: [text]
         entry: poetry run end-of-file-fixer
         stages: [commit, push, manual]
-      - id: fix-byte-order-marker
-        name: 🚏 Fix UTF-8 byte order marker
-        language: system
-        types: [text]
-        entry: poetry run fix-byte-order-marker
-      - id: flake8
-        name: 👔 Enforcing style guide with flake8
-        language: system
-        types: [python]
-        entry: poetry run flake8
-        require_serial: true
-      - id: isort
-        name: 🔀 Sort all imports with isort
-        language: system
-        types: [python]
-        entry: poetry run isort
       - id: mypy
         name: 🆎 Static type checking using mypy
         language: system
@@ -127,7 +111,7 @@ repos:
       - id: prettier
         name: 💄 Ensuring files are prettier
         language: system
-        types: [text]
+        types: [yaml, json, markdown]
         entry: npm run prettier
         pass_filenames: false
       - id: pylint
@@ -135,37 +119,18 @@ repos:
         language: system
         types: [python]
         entry: poetry run pylint
-      - id: pyright
-        name: 🆎 Static type checking using pyright
-        language: system
-        types: [python]
-        entry: npm run pyright
-        pass_filenames: false
       - id: pytest
         name: 🧪 Running tests and test coverage with pytest
         language: system
         types: [python]
         entry: poetry run pytest
         pass_filenames: false
-      - id: pyupgrade
-        name: 🆙 Checking for upgradable syntax with pyupgrade
-        language: system
-        types: [python]
-        entry: poetry run pyupgrade
-        args: [--py36-plus]
       - id: trailing-whitespace
         name: ✄  Trim Trailing Whitespace
         language: system
         types: [text]
         entry: poetry run trailing-whitespace-fixer
         stages: [commit, push, manual]
-      - id: vulture
-        name: 🔍 Find unused Python code with Vulture
-        language: system
-        types: [python]
-        entry: poetry run vulture
-        pass_filenames: false
-        require_serial: true
       - id: yamllint
         name: 🎗  Check YAML files with yamllint
         language: system

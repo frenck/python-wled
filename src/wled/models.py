@@ -25,9 +25,11 @@ class Nightlight:
         """Return Nightlight object from WLED API response.
 
         Args:
+        ----
             data: The data from the WLED device API.
 
         Returns:
+        -------
             A Nightlight object.
         """
         nightlight = data.get("nl", {})
@@ -61,9 +63,11 @@ class Sync:
         """Return Sync object from WLED API response.
 
         Args:
+        ----
             data: The data from the WLED device API.
 
         Returns:
+        -------
             A sync object.
         """
         sync = data.get("udpn", {})
@@ -83,9 +87,11 @@ class Palette:
     """Object holding an palette in WLED.
 
     Args:
+    ----
         data: The data from the WLED device API.
 
     Returns:
+    -------
         A palette object.
     """
 
@@ -98,9 +104,11 @@ class Segment:
     """Object holding segment state in WLED.
 
     Args:
+    ----
         data: The data from the WLED device API.
 
     Returns:
+    -------
         A segment object.
     """
 
@@ -134,6 +142,7 @@ class Segment:
         """Return Segment object from WLED API response.
 
         Args:
+        ----
             segment_id: The ID of the LED strip segment.
             data: The segment data received from the WLED device.
             effects: A list of Effect objects.
@@ -142,6 +151,7 @@ class Segment:
             state_brightness: The brightness level of this segment.
 
         Returns:
+        -------
             An Segment object.
         """
         start = data.get("start", 0)
@@ -151,9 +161,9 @@ class Segment:
         colors = data.get("col", [])
         primary_color, secondary_color, tertiary_color = (0, 0, 0)
         try:
-            primary_color = tuple(colors.pop(0))  # type: ignore
-            secondary_color = tuple(colors.pop(0))  # type: ignore
-            tertiary_color = tuple(colors.pop(0))  # type: ignore
+            primary_color = tuple(colors.pop(0))  # type: ignore[assignment]
+            secondary_color = tuple(colors.pop(0))  # type: ignore[assignment]
+            tertiary_color = tuple(colors.pop(0))  # type: ignore[assignment]
         except IndexError:
             pass
 
@@ -169,9 +179,9 @@ class Segment:
         return Segment(
             brightness=data.get("bri", state_brightness),
             clones=data.get("cln", -1),
-            color_primary=primary_color,  # type: ignore
-            color_secondary=secondary_color,  # type: ignore
-            color_tertiary=tertiary_color,  # type: ignore
+            color_primary=primary_color,  # type: ignore[arg-type]
+            color_secondary=secondary_color,  # type: ignore[arg-type]
+            color_tertiary=tertiary_color,  # type: ignore[arg-type]
             effect=effect,
             intensity=data.get("ix", 0),
             length=length,
@@ -206,9 +216,11 @@ class Leds:
         """Return Leds object from WLED API response.
 
         Args:
+        ----
             data: The data from the WLED device API.
 
         Returns:
+        -------
             A Leds object.
         """
         leds = data.get("leds", {})
@@ -240,9 +252,11 @@ class Wifi:
     """Object holding Wi-Fi information from WLED.
 
     Args:
+    ----
         data: The data from the WLED device API.
 
     Returns:
+    -------
         A Wi-Fi object.
     """
 
@@ -256,9 +270,11 @@ class Wifi:
         """Return Wifi object form WLED API response.
 
         Args:
+        ----
             data: The response from the WLED API.
 
         Returns:
+        -------
             An Wifi object.
         """
         if "wifi" not in data:
@@ -277,9 +293,11 @@ class Filesystem:
     """Object holding Filesystem information from WLED.
 
     Args:
+    ----
         data: The data from the WLED device API.
 
     Returns:
+    -------
         A Filesystem object.
     """
 
@@ -293,9 +311,11 @@ class Filesystem:
         """Return Filesystem object form WLED API response.
 
         Args:
+        ----
             data: The response from the WLED API.
 
         Returns:
+        -------
             An Filesystem object.
         """
         if "fs" not in data:
@@ -322,7 +342,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
     effect_count: int
     filesystem: Filesystem | None
     free_heap: int
-    ip: str
+    ip: str  # pylint: disable=invalid-name
     leds: Leds
     live_ip: str
     live_mode: str
@@ -345,9 +365,11 @@ class Info:  # pylint: disable=too-many-instance-attributes
         """Return Info object from WLED API response.
 
         Args:
+        ----
             data: The data from the WLED device API.
 
         Returns:
+        -------
             A info object.
         """
         if (websocket := data.get("ws")) == -1:
@@ -421,7 +443,8 @@ class State:
     def playlist_active(self) -> bool:
         """Return if a playlist is currently active.
 
-        Returns:
+        Returns
+        -------
             True if there is currently a playlist active, False otherwise.
         """
         return self.playlist == -1
@@ -430,7 +453,8 @@ class State:
     def preset_active(self) -> bool:
         """Return if a preset is currently active.
 
-        Returns:
+        Returns
+        -------
             True is a preset is currently active, False otherwise.
         """
         return self.preset == -1
@@ -446,6 +470,7 @@ class State:
         """Return State object from WLED API response.
 
         Args:
+        ----
             data: The state response received from the WLED device API.
             effects: A list of effect objects.
             palettes: A list of palette objects.
@@ -453,6 +478,7 @@ class State:
             playlists: A list of playlist objects.
 
         Returns:
+        -------
             A State object.
         """
         brightness = data.get("bri", 1)
@@ -520,12 +546,14 @@ class Preset:
         """Return Preset object from WLED API response.
 
         Args:
+        ----
             preset_id: The ID of the preset.
             data: The data from the WLED device API.
             effects: A list of effect objects.
             palettes: A list of palette object.
 
         Returns:
+        -------
             A Preset object.
         """
         segment_data = data.get("seg", [])
@@ -592,11 +620,13 @@ class Playlist:
         """Return Playlist object from WLED API response.
 
         Args:
+        ----
             playlist_id: The ID of the playlist.
             data: The data from the WLED device API.
             presets: A list of preset objects.
 
         Returns:
+        -------
             A Playlist object.
         """
         playlist = data.get("playlist", {})
@@ -610,7 +640,8 @@ class Playlist:
                 duration=entries_durations[entry_id],
                 transition=entries_transitions[entry_id],
                 preset=next(
-                    (item for item in presets if item.preset_id == preset_id), None
+                    (item for item in presets if item.preset_id == preset_id),
+                    None,
                 ),
             )
             for entry_id, preset_id in enumerate(entries_presets)
@@ -645,9 +676,11 @@ class Device:
         """Initialize an empty WLED device class.
 
         Args:
+        ----
             data: The full API response from a WLED device.
 
         Raises:
+        ------
             WLEDError: In case the given API response is incomplete in a way
                 that a Device object cannot be constructed from it.
         """
@@ -656,17 +689,20 @@ class Device:
             k not in data and data[k] is not None
             for k in ("effects", "palettes", "info", "state")
         ):
-            raise WLEDError("WLED data is incomplete, cannot construct device object")
+            msg = "WLED data is incomplete, cannot construct device object"
+            raise WLEDError(msg)
         self.update_from_dict(data)
 
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
 
         Args:
+        ----
             data: Update the device object with the data received from a
                 WLED device API.
 
         Returns:
+        -------
             The updated Device object.
         """
         if _effects := data.get("effects"):
@@ -716,7 +752,11 @@ class Device:
 
         if _state := data.get("state"):
             self.state = State.from_dict(
-                _state, self.effects, self.palettes, self.presets, self.playlists
+                _state,
+                self.effects,
+                self.palettes,
+                self.presets,
+                self.playlists,
             )
 
         return self

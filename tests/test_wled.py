@@ -12,7 +12,7 @@ from wled.exceptions import WLEDConnectionError, WLEDError
 
 
 @pytest.fixture(autouse=True)
-def mock_get_version_from_github() -> Generator[None, None, None]:
+def _mock_get_version_from_github() -> Generator[None, None, None]:
     """Patch out connection to GitHub."""
     with patch(
         "wled.WLED.get_wled_versions_from_github",
@@ -45,7 +45,10 @@ async def test_json_request(aresponses: ResponsesMockServer) -> None:
 async def test_text_request(aresponses: ResponsesMockServer) -> None:
     """Test non JSON response is handled correctly."""
     aresponses.add(
-        "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
+        "example.com",
+        "/",
+        "GET",
+        aresponses.Response(status=200, text="OK"),
     )
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
@@ -75,7 +78,10 @@ async def test_internal_session(aresponses: ResponsesMockServer) -> None:
 async def test_post_request(aresponses: ResponsesMockServer) -> None:
     """Test POST requests are handled correctly."""
     aresponses.add(
-        "example.com", "/", "POST", aresponses.Response(status=200, text="OK")
+        "example.com",
+        "/",
+        "POST",
+        aresponses.Response(status=200, text="OK"),
     )
     async with aiohttp.ClientSession() as session:
         wled = WLED("example.com", session=session)
@@ -100,7 +106,10 @@ async def test_backoff(aresponses: ResponsesMockServer) -> None:
         repeat=2,
     )
     aresponses.add(
-        "example.com", "/", "GET", aresponses.Response(status=200, text="OK")
+        "example.com",
+        "/",
+        "GET",
+        aresponses.Response(status=200, text="OK"),
     )
 
     async with aiohttp.ClientSession() as session:
@@ -112,6 +121,7 @@ async def test_backoff(aresponses: ResponsesMockServer) -> None:
 @pytest.mark.asyncio
 async def test_timeout(aresponses: ResponsesMockServer) -> None:
     """Test request timeout from WLED."""
+
     # Faking a timeout by sleeping
     async def response_handler(_: aiohttp.ClientResponse) -> Response:
         """Response handler for this test."""
@@ -133,7 +143,10 @@ async def test_timeout(aresponses: ResponsesMockServer) -> None:
 async def test_http_error400(aresponses: ResponsesMockServer) -> None:
     """Test HTTP 404 response handling."""
     aresponses.add(
-        "example.com", "/", "GET", aresponses.Response(text="OMG PUPPIES!", status=404)
+        "example.com",
+        "/",
+        "GET",
+        aresponses.Response(text="OMG PUPPIES!", status=404),
     )
 
     async with aiohttp.ClientSession() as session:

@@ -4,10 +4,9 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
-from collections.abc import Callable, Sequence
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 import async_timeout
@@ -17,7 +16,7 @@ from cachetools import TTLCache
 from yarl import URL
 
 from .exceptions import (
-    WLEDConnectionClosed,
+    WLEDConnectionClosedError,
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
     WLEDEmptyResponseError,
@@ -25,6 +24,10 @@ from .exceptions import (
     WLEDUpgradeError,
 )
 from .models import Device, Live, Playlist, Preset
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
 
 VERSION_CACHE: TTLCache[str, str | None] = TTLCache(maxsize=16, ttl=7200)
 
@@ -47,7 +50,8 @@ class WLED:
     def connected(self) -> bool:
         """Return if we are connect to the WebSocket of a WLED device.
 
-        Returns:
+        Returns
+        -------
             True if we are connected to the WebSocket of a WLED device,
             False otherwise.
         """
@@ -56,7 +60,8 @@ class WLED:
     async def connect(self) -> None:
         """Connect to the WebSocket of a WLED device.
 
-        Raises:
+        Raises
+        ------
             WLEDError: The configured WLED device, does not support WebSocket
                 communications.
             WLEDConnectionError: Error occurred while communicating with
@@ -69,9 +74,8 @@ class WLED:
             await self.update()
 
         if not self.session or not self._device or self._device.info.websocket is None:
-            raise WLEDError(
-                "The WLED device at {self.host} does not support WebSockets"
-            )
+            msg = "The WLED device at {self.host} does not support WebSockets"
+            raise WLEDError(msg)
 
         url = URL.build(scheme="ws", host=self.host, port=80, path="/ws")
 
@@ -82,27 +86,31 @@ class WLED:
             aiohttp.ClientConnectionError,
             socket.gaierror,
         ) as exception:
-            raise WLEDConnectionError(
+            msg = (
                 "Error occurred while communicating with WLED device"
                 f" on WebSocket at {self.host}"
-            ) from exception
+            )
+            raise WLEDConnectionError(msg) from exception
 
     async def listen(self, callback: Callable[[Device], None]) -> None:
         """Listen for events on the WLED WebSocket.
 
         Args:
+        ----
             callback: Method to call when a state update is received from
                 the WLED device.
 
         Raises:
+        ------
             WLEDError: Not connected to a WebSocket.
             WLEDConnectionError: An connection error occurred while connected
                 to the WLED device.
-            WLEDConnectionClosed: The WebSocket connection to the remote WLED
+            WLEDConnectionClosedError: The WebSocket connection to the remote WLED
                 has been closed.
         """
         if not self._client or not self.connected or not self._device:
-            raise WLEDError("Not connected to a WLED WebSocket")
+            msg = "Not connected to a WLED WebSocket"
+            raise WLEDError(msg)
 
         while not self._client.closed:
             message = await self._client.receive()
@@ -120,9 +128,8 @@ class WLED:
                 aiohttp.WSMsgType.CLOSED,
                 aiohttp.WSMsgType.CLOSING,
             ):
-                raise WLEDConnectionClosed(
-                    f"Connection to the WLED WebSocket on {self.host} has been closed"
-                )
+                msg = f"Connection to the WLED WebSocket on {self.host} has been closed"
+                raise WLEDConnectionClosedError(msg)
 
     async def disconnect(self) -> None:
         """Disconnect from the WebSocket of a WLED device."""
@@ -144,15 +151,18 @@ class WLED:
         the WLED device.
 
         Args:
+        ----
             uri: Request URI, for example `/json/si`.
             method: HTTP method to use for the request.E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
 
         Returns:
+        -------
             A Python dictionary (JSON decoded) with the response from the
             WLED device.
 
         Raises:
+        ------
             WLEDConnectionError: An error occurred while communication with
                 the WLED device.
             WLEDConnectionTimeoutError: A timeout occurred while communicating
@@ -188,10 +198,14 @@ class WLED:
                 response.close()
 
                 if content_type == "application/json":
-                    raise WLEDError(
-                        response.status, json.loads(contents.decode("utf8"))
+                    raise WLEDError(  # noqa: TRY301
+                        response.status,
+                        json.loads(contents.decode("utf8")),
                     )
-                raise WLEDError(response.status, {"message": contents.decode("utf8")})
+                raise WLEDError(  # noqa: TRY301
+                    response.status,
+                    {"message": contents.decode("utf8")},
+                )
 
             if "application/json" in content_type:
                 response_data = await response.json()
@@ -206,40 +220,45 @@ class WLED:
                 response_data = await response.text()
 
         except asyncio.TimeoutError as exception:
-            raise WLEDConnectionTimeoutError(
-                f"Timeout occurred while connecting to WLED device at {self.host}"
-            ) from exception
+            msg = f"Timeout occurred while connecting to WLED device at {self.host}"
+            raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            raise WLEDConnectionError(
-                f"Error occurred while communicating with WLED device at {self.host}"
-            ) from exception
+            msg = f"Error occurred while communicating with WLED device at {self.host}"
+            raise WLEDConnectionError(msg) from exception
 
         return response_data
 
     @backoff.on_exception(
-        backoff.expo, WLEDEmptyResponseError, max_tries=3, logger=None
+        backoff.expo,
+        WLEDEmptyResponseError,
+        max_tries=3,
+        logger=None,
     )
-    async def update(self, full_update: bool = False) -> Device:
+    async def update(self, *, full_update: bool = False) -> Device:  # noqa: PLR0912
         """Get all information about the device in a single call.
 
         This method updates all WLED information available with a single API
         call.
 
         Args:
+        ----
             full_update: Force a full update from the WLED Device.
 
         Returns:
+        -------
             WLED Device data.
 
         Raises:
+        ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
         """
         if self._device is None or full_update:
             if not (data := await self.request("/json")):
-                raise WLEDEmptyResponseError(
+                msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on full update"
+                    " response on full update",
                 )
+                raise WLEDEmptyResponseError(msg)
 
             # Try to get presets, introduced in WLED 0.11
             try:
@@ -259,7 +278,7 @@ class WLED:
             # a single info and state call
             try:
                 self._supports_si_request = self._device.info.version >= AwesomeVersion(
-                    "0.10.0"
+                    "0.10.0",
                 )
             except AwesomeVersionException:
                 # Could be a manual build one? Lets poll for it
@@ -273,25 +292,28 @@ class WLED:
 
         if self._supports_presets:
             if not (presets := await self.request("/presets.json")):
-                raise WLEDEmptyResponseError(
+                msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update"
+                    " response on presets update",
                 )
+                raise WLEDEmptyResponseError(msg)
             self._device.update_from_dict({"presets": presets})
 
         # Handle legacy state and update in separate requests
         if not self._supports_si_request:
             if not (info := await self.request("/json/info")):
-                raise WLEDEmptyResponseError(
+                msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on info update"
+                    " response on info update",
                 )
+                raise WLEDEmptyResponseError(msg)
 
             if not (state := await self.request("/json/state")):
-                raise WLEDEmptyResponseError(
+                msg = (
                     f"WLED device {self.host} returned an empty API"
-                    " response on state update"
+                    " response on state update",
                 )
+                raise WLEDEmptyResponseError(msg)
 
             with suppress(WLEDError):
                 versions = await self.get_wled_versions_from_github()
@@ -301,10 +323,11 @@ class WLED:
             return self._device
 
         if not (state_info := await self.request("/json/si")):
-            raise WLEDEmptyResponseError(
+            msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on state & info update"
+                " response on state & info update",
             )
+            raise WLEDEmptyResponseError(msg)
 
         with suppress(WLEDError):
             versions = await self.get_wled_versions_from_github()
@@ -324,6 +347,7 @@ class WLED:
         """Change master state of a WLED Light device.
 
         Args:
+        ----
             brightness: The brightness of the light master, between 0 and 255.
             on: A boolean, true to turn the master light on, false otherwise.
             transition: Duration of the crossfade between different
@@ -343,7 +367,8 @@ class WLED:
 
         await self.request("/json/state", method="POST", data=state)
 
-    async def segment(  # pylint: disable=too-many-locals, too-many-branches
+    # pylint: disable=too-many-locals, too-many-branches
+    async def segment(  # noqa: PLR0912
         self,
         segment_id: int,
         *,
@@ -371,6 +396,7 @@ class WLED:
         """Change state of a WLED Light segment.
 
         Args:
+        ----
             segment_id: The ID of the segment to adjust.
             brightness: The brightness of the segment, between 0 and 255.
             clones: Deprecated.
@@ -396,13 +422,15 @@ class WLED:
                 results in a transition of 400ms.
 
         Raises:
+        ------
             WLEDError: Something went wrong setting the segment state.
         """
         if self._device is None:
             await self.update()
 
         if self._device is None:
-            raise WLEDError("Unable to communicate with WLED to get the current state")
+            msg = "Unable to communicate with WLED to get the current state"
+            raise WLEDError(msg)
 
         state = {}
         segment = {
@@ -479,7 +507,7 @@ class WLED:
 
         if segment:
             segment["id"] = segment_id
-            state["seg"] = [segment]  # type: ignore
+            state["seg"] = [segment]  # type: ignore[assignment]
 
         if transition is not None:
             state["tt"] = transition
@@ -490,18 +518,22 @@ class WLED:
         """Set the default transition time for manual control.
 
         Args:
+        ----
             transition: Duration of the default crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
         """
         await self.request(
-            "/json/state", method="POST", data={"transition": transition}
+            "/json/state",
+            method="POST",
+            data={"transition": transition},
         )
 
     async def preset(self, preset: int | str | Preset) -> None:
         """Set a preset on a WLED device.
 
         Args:
+        ----
             preset: The preset to activate on this WLED device.
         """
         # Find preset if it was based on a name
@@ -524,9 +556,9 @@ class WLED:
         """Set a playlist on a WLED device.
 
         Args:
+        ----
             playlist: The playlist to activate on this WLED device.
         """
-
         # Find playlist if it was based on a name
         if self._device and self._device.playlists and isinstance(playlist, str):
             playlist = next(
@@ -547,16 +579,21 @@ class WLED:
         """Set the live override mode on a WLED device.
 
         Args:
+        ----
             live: The live override mode to set on this WLED device.
         """
         await self.request("/json/state", method="POST", data={"lor": live.value})
 
     async def sync(
-        self, *, send: bool | None = None, receive: bool | None = None
+        self,
+        *,
+        send: bool | None = None,
+        receive: bool | None = None,
     ) -> None:
         """Set the sync status of the WLED device.
 
         Args:
+        ----
             send: Send WLED broadcast (UDP sync) packet on state change.
             receive: Receive broadcast packets.
         """
@@ -575,6 +612,7 @@ class WLED:
         """Control the nightlight function of a WLED device.
 
         Args:
+        ----
             duration: Duration of nightlight in minutes.
             fade: If true, the light will gradually dim over the course of the
                 nightlight duration. If false, it will instantly turn to the
@@ -597,9 +635,11 @@ class WLED:
         """Upgrades WLED device to the specified version.
 
         Args:
+        ----
             version: The version to upgrade to.
 
         Raises:
+        ------
             WLEDUpgradeError: If the upgrade has failed.
             WLEDConnectionTimeoutError: When a connection timeout occurs.
             WLEDConnectionError: When a connection error occurs.
@@ -608,7 +648,8 @@ class WLED:
             await self.update()
 
         if self.session is None or self._device is None:
-            raise WLEDUpgradeError("Unexpected upgrade error; No session or device")
+            msg = "Unexpected upgrade error; No session or device"
+            raise WLEDUpgradeError(msg)
 
         if self._device.info.architecture not in {
             "esp01",
@@ -616,15 +657,16 @@ class WLED:
             "esp32",
             "esp8266",
         }:
-            raise WLEDUpgradeError(
-                "Upgrade is only supported on ESP01, ESP02, ESP32 and ESP8266 devices"
-            )
+            msg = "Upgrade is only supported on ESP01, ESP02, ESP32 and ESP8266 devices"
+            raise WLEDUpgradeError(msg)
 
         if not self._device.info.version:
-            raise WLEDUpgradeError("Current version is unknown, cannot perform upgrade")
+            msg = "Current version is unknown, cannot perform upgrade"
+            raise WLEDUpgradeError(msg)
 
         if self._device.info.version == version:
-            raise WLEDUpgradeError("Device already running the requested version")
+            msg = "Device already running the requested version"
+            raise WLEDUpgradeError(msg)
 
         # Determine if this is an Ethernet board
         ethernet = ""
@@ -641,41 +683,49 @@ class WLED:
         update_file = (
             f"WLED_{version}_{self._device.info.architecture.upper()}{ethernet}.bin"
         )
-        download_url = f"https://github.com/Aircoookie/WLED/releases/download/v{version}/{update_file}"
+        download_url = (
+            "https://github.com/Aircoookie/WLED/releases/download"
+            f"/v{version}/{update_file}"
+        )
 
         try:
             async with async_timeout.timeout(self.request_timeout * 10):
                 async with self.session.get(
-                    download_url, raise_for_status=True
+                    download_url,
+                    raise_for_status=True,
                 ) as download:
                     form = aiohttp.FormData()
                     form.add_field("file", await download.read(), filename=update_file)
                     await self.session.post(url, data=form)
         except asyncio.TimeoutError as exception:
-            raise WLEDConnectionTimeoutError(
-                "Timeout occurred while fetching WLED version information from GitHub"
-            ) from exception
+            msg = "Timeout occurred while fetching WLED version information from GitHub"
+            raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                raise WLEDUpgradeError(
-                    f"Requested WLED version '{version}' does not exists"
-                ) from exception
-            raise WLEDUpgradeError(
-                f"Could not download requested WLED version '{version}' from {download_url}"
-            ) from exception
+                msg = f"Requested WLED version '{version}' does not exists"
+                raise WLEDUpgradeError(msg) from exception
+            msg = (
+                f"Could not download requested WLED version '{version}'"
+                f" from {download_url}"
+            )
+            raise WLEDUpgradeError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            raise WLEDConnectionError(
-                "Timeout occurred while communicating with GitHub for WLED version information"
-            ) from exception
+            msg = (
+                "Timeout occurred while communicating with GitHub"
+                " for WLED version information"
+            )
+            raise WLEDConnectionError(msg) from exception
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
     async def get_wled_versions_from_github(self) -> dict[str, str | None]:
         """Fetch WLED version information from GitHub.
 
-        Returns:
+        Returns
+        -------
             A dictionary of WLED versions, with the key being the version type.
 
-        Raises:
+        Raises
+        ------
             WLEDConnectionTimeoutError: Timeout occurred while fetching WLED
                 version information from GitHub.
             WLEDConnectionError: Timeout occurred while communicating with
@@ -699,13 +749,11 @@ class WLED:
                     headers={"Accept": "application/json"},
                 )
         except asyncio.TimeoutError as exception:
-            raise WLEDConnectionTimeoutError(
-                "Timeout occurred while fetching WLED version information from GitHub"
-            ) from exception
+            msg = "Timeout occurred while fetching WLED version information from GitHub"
+            raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            raise WLEDConnectionError(
-                "Timeout occurred while communicating with GitHub for WLED version"
-            ) from exception
+            msg = "Timeout occurred while communicating with GitHub for WLED version"
+            raise WLEDConnectionError(msg) from exception
 
         content_type = response.headers.get("Content-Type", "")
         if response.status // 100 in [4, 5]:
@@ -717,9 +765,8 @@ class WLED:
             raise WLEDError(response.status, {"message": contents.decode("utf8")})
 
         if "application/json" not in content_type:
-            raise WLEDError(
-                "Didn't get a JSON response from GitHub while retrieving version information"
-            )
+            msg = "No JSON response from GitHub while retrieving version information"
+            raise WLEDError(msg)
 
         releases = await response.json()
         version_latest = None
@@ -760,7 +807,8 @@ class WLED:
     async def __aenter__(self) -> WLED:
         """Async enter.
 
-        Returns:
+        Returns
+        -------
             The WLED object.
         """
         return self
@@ -769,6 +817,7 @@ class WLED:
         """Async exit.
 
         Args:
+        ----
             _exc_info: Exec type.
         """
         await self.close()
