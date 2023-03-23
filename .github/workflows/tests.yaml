@@ -19,15 +19,15 @@ jobs:
         python: ["3.10", "3.11"]
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
+        uses: actions/checkout@v3.4.0
       - name: 🏗 Set up Poetry
         run: pipx install poetry
       - name: 🏗 Set up Python ${{ matrix.python }}
         id: python
-        uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4
+        uses: actions/setup-python@v4.5.0
         with:
           python-version: ${{ matrix.python }}
-          cache: 'poetry'
+          cache: "poetry"
       - name: 🏗 Install workflow dependencies
         run: |
           poetry config virtualenvs.create true
@@ -37,7 +37,7 @@ jobs:
       - name: 🚀 Run pytest
         run: poetry run pytest --cov wled tests
       - name: ⬆️ Upload coverage artifact
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3
+        uses: actions/upload-artifact@v3.1.2
         with:
           name: coverage-${{ matrix.python }}
           path: .coverage
@@ -47,19 +47,19 @@ jobs:
     needs: pytest
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3
+        uses: actions/checkout@v3.4.0
         with:
           fetch-depth: 0
       - name: ⬇️ Download coverage data
-        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3
+        uses: actions/download-artifact@v3.0.2
       - name: 🏗 Set up Poetry
         run: pipx install poetry
       - name: 🏗 Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
-        uses: actions/setup-python@d27e3f3d7c64b4bbf8e4abfb9b63b83e846e0435 # v4
+        uses: actions/setup-python@v4.5.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
-          cache: 'poetry'
+          cache: "poetry"
       - name: 🏗 Install workflow dependencies
         run: |
           poetry config virtualenvs.create true
@@ -71,10 +71,10 @@ jobs:
           poetry run coverage combine coverage*/.coverage*
           poetry run coverage xml -i
       - name: 🚀 Upload coverage report
-        uses: codecov/codecov-action@d9f34f8cd5cb3b3eb79b3e4b5dae3a16df499a70 # v3
+        uses: codecov/codecov-action@v3.1.1
       - name: SonarCloud Scan
         if: github.repository_owner == 'frenck'
-        uses: SonarSource/sonarcloud-github-action@db501078e936e4b4c8773d1bb949ba9ddb7b6b6a # v1.9
+        uses: SonarSource/sonarcloud-github-action@v1.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
