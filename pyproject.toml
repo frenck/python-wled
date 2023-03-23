@@ -1,15 +1,5 @@
 [tool.poetry]
-name = "wled"
-version = "0.0.0"
-description = "Asynchronous Python client for WLED."
 authors = ["Franck Nijhof <opensource@frenck.dev>"]
-maintainers = ["Franck Nijhof <opensource@frenck.dev>"]
-license = "MIT"
-readme = "README.md"
-homepage = "https://github.com/frenck/python-wled"
-repository = "https://github.com/frenck/python-wled"
-documentation = "https://github.com/frenck/python-wled"
-keywords = ["wled", "api", "async", "client"]
 classifiers = [
   "Development Status :: 4 - Beta",
   "Framework :: AsyncIO",
@@ -20,17 +10,27 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+description = "Asynchronous Python client for WLED."
+documentation = "https://github.com/frenck/python-wled"
+homepage = "https://github.com/frenck/python-wled"
+keywords = ["wled", "api", "async", "client"]
+license = "MIT"
+maintainers = ["Franck Nijhof <opensource@frenck.dev>"]
+name = "wled"
 packages = [
-    { include = "wled", from = "src" },
+  {include = "wled", from = "src"},
 ]
+readme = "README.md"
+repository = "https://github.com/frenck/python-wled"
+version = "0.0.0"
 
 [tool.poetry.dependencies]
-python = "^3.10"
 aiohttp = ">=3.0.0"
-yarl = ">=1.6.0"
-backoff = ">=2.2.0"
 awesomeversion = ">=22.1.0"
+backoff = ">=2.2.0"
 cachetools = ">=4.0.0"
+python = "^3.10"
+yarl = ">=1.6.0"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/frenck/python-wled/issues"
@@ -60,8 +60,8 @@ plugins = ["covdefaults"]
 source = ["wled"]
 
 [tool.coverage.report]
-show_missing = true
 fail_under = 53
+show_missing = true
 
 [tool.mypy]
 # Specify the target platform details in config, so your developers are
@@ -82,8 +82,8 @@ disallow_any_generics = true
 disallow_incomplete_defs = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true
-disallow_untyped_defs = true
 disallow_untyped_decorators = true
+disallow_untyped_defs = true
 no_implicit_optional = true
 no_implicit_reexport = true
 strict_optional = true
@@ -95,48 +95,47 @@ warn_unused_configs = true
 warn_unused_ignores = true
 
 [tool.pylint.MASTER]
-ignore= [
-  "tests"
+ignore = [
+  "tests",
 ]
 
 [tool.pylint.BASIC]
 good-names = [
-    "_",
-    "ex",
-    "fp",
-    "i",
-    "id",
-    "j",
-    "k",
-    "on",
-    "Run",
-    "T",
-    "wv",
+  "_",
+  "ex",
+  "fp",
+  "i",
+  "id",
+  "j",
+  "k",
+  "on",
+  "Run",
+  "T",
+  "wv",
 ]
 
 [tool.pylint."MESSAGES CONTROL"]
-disable= [
-    "too-few-public-methods",
-    "duplicate-code",
-    "format",
-    "unsubscriptable-object",
+disable = [
+  "too-few-public-methods",
+  "duplicate-code",
+  "format",
+  "unsubscriptable-object",
 ]
 
 [tool.pylint.SIMILARITIES]
 ignore-imports = true
 
 [tool.pylint.FORMAT]
-max-line-length=88
+max-line-length = 88
 
 [tool.pylint.DESIGN]
-max-attributes=20
+max-attributes = 20
 
 [tool.pytest.ini_options]
 addopts = "--cov"
 asyncio_mode = "auto"
 
 [tool.ruff]
-select = ["ALL"]
 ignore = [
   "ANN101", # Self... explanatory
   "ANN401", # Opinioated warning on disallowing dynamically typed expressions
@@ -145,10 +144,11 @@ ignore = [
   "D417", # False positives in some occasions
   "PLR2004", # Just annoying, not really useful
 ]
+select = ["ALL"]
 
 [tool.ruff.flake8-pytest-style]
-mark-parentheses = false
 fixture-parentheses = false
+mark-parentheses = false
 
 [tool.ruff.isort]
 known-first-party = ["wled"]
@@ -157,5 +157,5 @@ known-first-party = ["wled"]
 max-complexity = 25
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]
