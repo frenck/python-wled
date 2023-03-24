@@ -73,7 +73,7 @@ jobs:
       - name: 🚀 Upload coverage report
         uses: codecov/codecov-action@v3.1.1
       - name: SonarCloud Scan
-        if: github.repository_owner == 'frenck'
+        if: github.event.pull_request.head.repo.fork == false
         uses: SonarSource/sonarcloud-github-action@v1.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
