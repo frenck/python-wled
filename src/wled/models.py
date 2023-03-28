@@ -120,6 +120,7 @@ class Segment:
     effect: Effect
     intensity: int
     length: int
+    name: str
     on: bool
     palette: Palette
     reverse: bool
@@ -130,7 +131,7 @@ class Segment:
     stop: int
 
     @staticmethod
-    def from_dict(
+    def from_dict(  # pylint: disable=R0914
         segment_id: int,
         data: dict[str, Any],
         *,
@@ -157,7 +158,7 @@ class Segment:
         start = data.get("start", 0)
         stop = data.get("stop", 0)
         length = data.get("len", (stop - start))
-
+        name = data.get("n", "")
         colors = data.get("col", [])
         primary_color, secondary_color, tertiary_color = (0, 0, 0)
         try:
@@ -185,6 +186,7 @@ class Segment:
             effect=effect,
             intensity=data.get("ix", 0),
             length=length,
+            name=name,
             on=data.get("on", state_on),
             palette=palette,
             reverse=data.get("rev", False),
