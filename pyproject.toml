@@ -42,7 +42,7 @@ black = "23.3.0"
 blacken-docs = "1.13.0"
 codespell = "2.2.4"
 covdefaults = "2.3.0"
-coverage = {version = "7.2.2", extras = ["toml"]}
+coverage = {version = "7.2.3", extras = ["toml"]}
 mypy = "1.1.1"
 pre-commit = "3.2.1"
 pre-commit-hooks = "4.4.0"
