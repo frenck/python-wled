@@ -1,4 +1,6 @@
 ---
+ignore:
+  - .venv
 rules:
   braces:
     level: error
