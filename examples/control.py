@@ -3,23 +3,26 @@
 
 import asyncio
 
-from wled import WLED, Playlist, Preset
+from wled import WLED
 
 
 async def main() -> None:
     """Show example on controlling your WLED device."""
-    async with WLED("10.10.11.135") as led:
+    async with WLED("10.10.11.61") as led:
         device = await led.update()
         print(device.info.version)
 
-        if isinstance(device.state.preset, Preset):
-            print(f"Preset active! Name: {device.state.preset.name}")
+        print(device.info.leds)
+        print(device.state.segments[0])
+        # await led.segment(
+        #     0,
+        # await led.segment(
 
-        if isinstance(device.state.playlist, Playlist):
-            print(f"Playlist active! Name: {device.state.playlist.name}")
+        # if isinstance(device.state.preset, Preset):
+
+        # if isinstance(device.state.playlist, Playlist):
 
         # Turn strip on, full brightness
-        await led.master(on=True, brightness=255)
 
 
 if __name__ == "__main__":

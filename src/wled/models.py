@@ -130,7 +130,7 @@ class Segment:
     stop: int
 
     @staticmethod
-    def from_dict(
+    def from_dict(  # noqa: PLR0913
         segment_id: int,
         data: dict[str, Any],
         *,
