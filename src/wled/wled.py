@@ -368,7 +368,7 @@ class WLED:
         await self.request("/json/state", method="POST", data=state)
 
     # pylint: disable=too-many-locals, too-many-branches
-    async def segment(  # noqa: PLR0912
+    async def segment(  # noqa: PLR0912, PLR0913
         self,
         segment_id: int,
         *,
