@@ -193,14 +193,14 @@ tests-no-zope = ["cloudpickle", "hypothesis", "mypy (>=1.1.1)", "pympler", "pyte
 
 [[package]]
 name = "awesomeversion"
-version = "22.9.0"
+version = "23.5.0"
 description = "One version package to rule them all, One version package to find them, One version package to bring them all, and in the darkness bind them."
 category = "main"
 optional = false
 python-versions = ">=3.7,<4.0"
 files = [
-    {file = "awesomeversion-22.9.0-py3-none-any.whl", hash = "sha256:f4716e1e65ea1194be03f312f2b2643a8b76326c59538ddc5353642616ead82a"},
-    {file = "awesomeversion-22.9.0.tar.gz", hash = "sha256:2f4190d333e81e10b2a4e156150ddb3596f5f11da67e9d51ba39057aa7a17f7e"},
+    {file = "awesomeversion-23.5.0-py3-none-any.whl", hash = "sha256:b47e640627f134e625ea47c55d41908ee0254c77d81d634308405578de1153c9"},
+    {file = "awesomeversion-23.5.0.tar.gz", hash = "sha256:a505558316010d2d10d487226f79c1157204af00fa462fdcf948e347011dd491"},
 ]
 
 [[package]]
