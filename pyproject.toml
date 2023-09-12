@@ -38,7 +38,7 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 
 [tool.poetry.dev-dependencies]
 aresponses = "2.1.6"
-black = "23.9.0"
+black = "23.9.1"
 blacken-docs = "1.16.0"
 codespell = "2.2.5"
 covdefaults = "2.3.0"
