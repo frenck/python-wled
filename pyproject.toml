@@ -40,7 +40,7 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 aresponses = "2.1.6"
 black = "23.9.1"
 blacken-docs = "1.16.0"
-codespell = "2.2.5"
+codespell = "2.2.6"
 covdefaults = "2.3.0"
 coverage = {version = "7.3.1", extras = ["toml"]}
 mypy = "1.5.1"
