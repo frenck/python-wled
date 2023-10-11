@@ -43,7 +43,7 @@ blacken-docs = "1.16.0"
 codespell = "2.2.6"
 covdefaults = "2.3.0"
 coverage = {version = "7.3.2", extras = ["toml"]}
-mypy = "1.5.1"
+mypy = "1.6.0"
 pre-commit = "3.4.0"
 pre-commit-hooks = "4.5.0"
 pylint = "3.0.1"
