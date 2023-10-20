@@ -5,8 +5,8 @@ classifiers = [
   "Framework :: AsyncIO",
   "Intended Audience :: Developers",
   "Natural Language :: English",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3",
   "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -29,7 +29,7 @@ aiohttp = ">=3.0.0"
 awesomeversion = ">=22.1.0"
 backoff = ">=2.2.0"
 cachetools = ">=4.0.0"
-python = "^3.10"
+python = "^3.11"
 yarl = ">=1.6.0"
 
 [tool.poetry.urls]
@@ -68,7 +68,7 @@ show_missing = true
 # free to run mypy on Windows, Linux, or macOS and get consistent
 # results.
 platform = "linux"
-python_version = "3.10"
+python_version = "3.11"
 
 # show error messages from unrelated files
 follow_imports = "normal"

@@ -130,6 +130,7 @@ class Segment:
     stop: int
 
     @staticmethod
+    # pylint: disable-next=too-many-arguments
     def from_dict(  # noqa: PLR0913
         segment_id: int,
         data: dict[str, Any],
@@ -665,11 +666,11 @@ class Playlist:
 class Device:
     """Object holding all information of WLED."""
 
-    effects: list[Effect] = []
+    effects: list[Effect]
     info: Info
-    palettes: list[Palette] = []
-    playlists: list[Playlist] = []
-    presets: list[Preset] = []
+    palettes: list[Palette]
+    playlists: list[Playlist]
+    presets: list[Preset]
     state: State
 
     def __init__(self, data: dict[str, Any]) -> None:
@@ -684,6 +685,11 @@ class Device:
             WLEDError: In case the given API response is incomplete in a way
                 that a Device object cannot be constructed from it.
         """
+        self.effects = []
+        self.palettes = []
+        self.playlists = []
+        self.presets = []
+
         # Check if all elements are in the passed dict, else raise an Error
         if any(
             k not in data and data[k] is not None
