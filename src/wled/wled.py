@@ -6,7 +6,7 @@ import json
 import socket
 from contextlib import suppress
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 import async_timeout
@@ -198,11 +198,11 @@ class WLED:
                 response.close()
 
                 if content_type == "application/json":
-                    raise WLEDError(  # noqa: TRY301
+                    raise WLEDError(
                         response.status,
                         json.loads(contents.decode("utf8")),
                     )
-                raise WLEDError(  # noqa: TRY301
+                raise WLEDError(
                     response.status,
                     {"message": contents.decode("utf8")},
                 )
@@ -367,7 +367,7 @@ class WLED:
 
         await self.request("/json/state", method="POST", data=state)
 
-    # pylint: disable=too-many-locals, too-many-branches
+    # pylint: disable=too-many-locals, too-many-branches, too-many-arguments
     async def segment(  # noqa: PLR0912, PLR0913
         self,
         segment_id: int,
@@ -689,14 +689,15 @@ class WLED:
         )
 
         try:
-            async with async_timeout.timeout(self.request_timeout * 10):
-                async with self.session.get(
-                    download_url,
-                    raise_for_status=True,
-                ) as download:
-                    form = aiohttp.FormData()
-                    form.add_field("file", await download.read(), filename=update_file)
-                    await self.session.post(url, data=form)
+            async with async_timeout.timeout(
+                self.request_timeout * 10,
+            ), self.session.get(
+                download_url,
+                raise_for_status=True,
+            ) as download:
+                form = aiohttp.FormData()
+                form.add_field("file", await download.read(), filename=update_file)
+                await self.session.post(url, data=form)
         except asyncio.TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
@@ -804,7 +805,7 @@ class WLED:
         if self.session and self._close_session:
             await self.session.close()
 
-    async def __aenter__(self) -> WLED:
+    async def __aenter__(self) -> Self:
         """Async enter.
 
         Returns
@@ -813,7 +814,7 @@ class WLED:
         """
         return self
 
-    async def __aexit__(self, *_exc_info: Any) -> None:
+    async def __aexit__(self, *_exc_info: object) -> None:
         """Async exit.
 
         Args:
