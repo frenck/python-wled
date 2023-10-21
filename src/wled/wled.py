@@ -343,6 +343,7 @@ class WLED:
         brightness: int | None = None,
         on: bool | None = None,
         transition: int | None = None,
+        cct: int | None = None
     ) -> None:
         """Change master state of a WLED Light device.
 
@@ -353,6 +354,7 @@ class WLED:
             transition: Duration of the crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
+            cct:
         """
         state: dict[str, bool | int] = {}
 
@@ -364,6 +366,9 @@ class WLED:
 
         if transition is not None:
             state["tt"] = transition
+
+        if cct is not None:
+            state["cct"] = cct
 
         await self.request("/json/state", method="POST", data=state)
 
@@ -392,6 +397,7 @@ class WLED:
         start: int | None = None,
         stop: int | None = None,
         transition: int | None = None,
+        cct: int | None = None
     ) -> None:
         """Change state of a WLED Light segment.
 
@@ -420,6 +426,7 @@ class WLED:
             transition:  Duration of the crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
+            cct: The white spectrum color temperature.
 
         Raises:
         ------
@@ -447,6 +454,7 @@ class WLED:
             "start": start,
             "stop": stop,
             "sx": speed,
+            "cct": cct
         }
 
         # > WLED 0.10.0, does not support segment control on/bri.

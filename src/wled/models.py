@@ -117,6 +117,7 @@ class Segment:
     color_primary: tuple[int, int, int, int] | tuple[int, int, int]
     color_secondary: tuple[int, int, int, int] | tuple[int, int, int]
     color_tertiary: tuple[int, int, int, int] | tuple[int, int, int]
+    cct: int
     effect: Effect
     intensity: int
     length: int
@@ -183,6 +184,7 @@ class Segment:
             color_primary=primary_color,  # type: ignore[arg-type]
             color_secondary=secondary_color,  # type: ignore[arg-type]
             color_tertiary=tertiary_color,  # type: ignore[arg-type]
+            cct=data.get("cct", 0),
             effect=effect,
             intensity=data.get("ix", 0),
             length=length,
