@@ -196,7 +196,7 @@ jobs:
       - name: 🏗 Install Python dependencies
         run: poetry install --no-interaction
       - name: 🏗 Set up Node.js
-        uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec7 # v3
+        uses: actions/setup-node@v4.0.0
         with:
           node-version-file: ".nvmrc"
           cache: "npm"
