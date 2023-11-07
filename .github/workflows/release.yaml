@@ -14,6 +14,12 @@ jobs:
   release:
     name: Releasing to PyPi
     runs-on: ubuntu-latest
+    environment:
+      name: release
+      url: https://pypi.org/p/wled
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: ⤵️ Check out code from GitHub
         uses: actions/checkout@v4.1.1
@@ -40,8 +46,12 @@ jobs:
       - name: 🏗 Build package
         run: poetry build --no-interaction
       - name: 🚀 Publish to PyPi
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          poetry config pypi-token.pypi "${PYPI_TOKEN}"
-          poetry publish --no-interaction
+        uses: pypa/gh-action-pypi-publish@v1.8.10
+        with:
+          verbose: true
+          print-hash: true
+      - name: ✍️ Sign published artifacts
+        uses: sigstore/gh-action-sigstore-python@v2.1.0
+        with:
+          inputs: ./dist/*.tar.gz ./dist/*.whl
+          release-signing-artifacts: true
