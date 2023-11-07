@@ -38,8 +38,6 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 
 [tool.poetry.dev-dependencies]
 aresponses = "2.1.6"
-black = "23.10.1"
-blacken-docs = "1.16.0"
 codespell = "2.2.6"
 covdefaults = "2.3.0"
 coverage = {version = "7.3.2", extras = ["toml"]}
@@ -143,6 +141,10 @@ ignore = [
   "D213", # Conflicts with other rules
   "D417", # False positives in some occasions
   "PLR2004", # Just annoying, not really useful
+
+  # Conflicts with the Ruff formatter
+  "COM812",
+  "ISC001",
 ]
 select = ["ALL"]
 
