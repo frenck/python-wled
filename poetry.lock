@@ -1256,13 +1256,13 @@ files = [
 
 [[package]]
 name = "safety"
-version = "2.4.0b1"
+version = "2.4.0b2"
 description = "Checks installed dependencies for known vulnerabilities and licenses."
 optional = false
 python-versions = "*"
 files = [
-    {file = "safety-2.4.0b1-py3-none-any.whl", hash = "sha256:95570bfdb0ca17bb2acdf34963966ce8f8b26bffeb76722d98251cee2f81b215"},
-    {file = "safety-2.4.0b1.tar.gz", hash = "sha256:26b3000eec09f64fdd323db29c44c0446607b0c9b4ce65c3f8f9570e2c640958"},
+    {file = "safety-2.4.0b2-py3-none-any.whl", hash = "sha256:63773ce92e17f5f80e7dff4c8a25d8abb7d62d375897b5f3bb4afe9313b100ff"},
+    {file = "safety-2.4.0b2.tar.gz", hash = "sha256:9907010c6ca7720861ca7fa1496bdb80449b0619ca136eb7ac7e02bd3516cd4f"},
 ]
 
 [package.dependencies]
@@ -1270,7 +1270,7 @@ Click = ">=8.0.2"
 dparse = ">=0.6.2"
 jinja2 = {version = ">=3.1.0", markers = "python_version >= \"3.7\""}
 marshmallow = {version = ">=3.15.0", markers = "python_version >= \"3.7\""}
-packaging = ">=21.0,<=23.0"
+packaging = ">=21.0"
 requests = "*"
 "ruamel.yaml" = ">=0.17.21"
 setuptools = {version = ">=65.5.1", markers = "python_version >= \"3.7\""}
@@ -1474,4 +1474,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "498d4bbb61e282b0522a89b8138e82235e04a1b2ae4205dae32d1e9ed73d8703"
+content-hash = "5490b2fa89a3fd47df08669c7edc684688d779b3383ab7deb7a20581977ffacb"
