@@ -9,7 +9,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
-import async_timeout
 import backoff
 from awesomeversion import AwesomeVersion, AwesomeVersionException
 from cachetools import TTLCache
@@ -184,7 +183,7 @@ class WLED:
             data["v"] = True
 
         try:
-            async with async_timeout.timeout(self.request_timeout):
+            async with asyncio.timeout(self.request_timeout):
                 response = await self.session.request(
                     method,
                     url,
@@ -689,7 +688,7 @@ class WLED:
         )
 
         try:
-            async with async_timeout.timeout(
+            async with asyncio.timeout(
                 self.request_timeout * 10,
             ), self.session.get(
                 download_url,
@@ -744,7 +743,7 @@ class WLED:
             return {"version_latest_stable": None, "version_latest_beta": None}
 
         try:
-            async with async_timeout.timeout(self.request_timeout):
+            async with asyncio.timeout(self.request_timeout):
                 response = await self.session.get(
                     "https://api.github.com/repos/Aircoookie/WLED/releases",
                     headers={"Accept": "application/json"},
