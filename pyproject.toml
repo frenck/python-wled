@@ -42,7 +42,7 @@ codespell = "2.2.6"
 covdefaults = "2.3.0"
 coverage = {version = "7.3.2", extras = ["toml"]}
 mypy = "1.7.1"
-pre-commit = "3.5.0"
+pre-commit = "3.6.0"
 pre-commit-hooks = "4.5.0"
 pylint = "3.0.2"
 pytest = "7.4.3"
