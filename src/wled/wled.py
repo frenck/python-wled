@@ -693,9 +693,15 @@ class WLED:
         ):
             ethernet = "_Ethernet"
 
+        # Determine if this is a 2M ESP8266 board.
+        # See issue `https://github.com/Aircoookie/WLED/issues/3257`
+        gzip = ""
+        if self._device.info.architecture == "esp02":
+            gzip = ".gz"
+
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
         update_file = (
-            f"WLED_{version}_{self._device.info.architecture.upper()}{ethernet}.bin"
+            f"WLED_{version}_{self._device.info.architecture.upper()}{ethernet}.bin{gzip}"
         )
         download_url = (
             "https://github.com/Aircoookie/WLED/releases/download"
