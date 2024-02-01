@@ -53,6 +53,7 @@ class WLED:
         -------
             True if we are connected to the WebSocket of a WLED device,
             False otherwise.
+
         """
         return self._client is not None and not self._client.closed
 
@@ -65,6 +66,7 @@ class WLED:
                 communications.
             WLEDConnectionError: Error occurred while communicating with
                 the WLED device via the WebSocket.
+
         """
         if self.connected:
             return
@@ -106,6 +108,7 @@ class WLED:
                 to the WLED device.
             WLEDConnectionClosedError: The WebSocket connection to the remote WLED
                 has been closed.
+
         """
         if not self._client or not self.connected or not self._device:
             msg = "Not connected to a WLED WebSocket"
@@ -167,6 +170,7 @@ class WLED:
             WLEDConnectionTimeoutError: A timeout occurred while communicating
                 with the WLED device.
             WLEDError: Received an unexpected response from the WLED device.
+
         """
         url = URL.build(scheme="http", host=self.host, port=80, path=uri)
 
@@ -250,6 +254,7 @@ class WLED:
         Raises:
         ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
+
         """
         if self._device is None or full_update:
             if not (data := await self.request("/json")):
@@ -352,6 +357,7 @@ class WLED:
             transition: Duration of the crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
+
         """
         state: dict[str, bool | int] = {}
 
@@ -423,6 +429,7 @@ class WLED:
         Raises:
         ------
             WLEDError: Something went wrong setting the segment state.
+
         """
         if self._device is None:
             await self.update()
@@ -521,6 +528,7 @@ class WLED:
             transition: Duration of the default crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
+
         """
         await self.request(
             "/json/state",
@@ -534,6 +542,7 @@ class WLED:
         Args:
         ----
             preset: The preset to activate on this WLED device.
+
         """
         # Find preset if it was based on a name
         if self._device and self._device.presets and isinstance(preset, str):
@@ -557,6 +566,7 @@ class WLED:
         Args:
         ----
             playlist: The playlist to activate on this WLED device.
+
         """
         # Find playlist if it was based on a name
         if self._device and self._device.playlists and isinstance(playlist, str):
@@ -580,6 +590,7 @@ class WLED:
         Args:
         ----
             live: The live override mode to set on this WLED device.
+
         """
         await self.request("/json/state", method="POST", data={"lor": live.value})
 
@@ -595,6 +606,7 @@ class WLED:
         ----
             send: Send WLED broadcast (UDP sync) packet on state change.
             receive: Receive broadcast packets.
+
         """
         sync = {"send": send, "recv": receive}
         sync = {k: v for k, v in sync.items() if v is not None}
@@ -618,6 +630,7 @@ class WLED:
                 target brightness once the duration has elapsed.
             on: A boolean, true to turn the nightlight on, false otherwise.
             target_brightness: Target brightness of nightlight, between 0 and 255.
+
         """
         nightlight = {
             "dur": duration,
@@ -642,6 +655,7 @@ class WLED:
             WLEDUpgradeError: If the upgrade has failed.
             WLEDConnectionTimeoutError: When a connection timeout occurs.
             WLEDConnectionError: When a connection error occurs.
+
         """
         if self._device is None:
             await self.update()
@@ -732,6 +746,7 @@ class WLED:
                 GitHub for WLED version information.
             WLEDError: Didn't get a JSON response from GitHub while retrieving
                 version information.
+
         """
         with suppress(KeyError):
             return {
@@ -810,6 +825,7 @@ class WLED:
         Returns
         -------
             The WLED object.
+
         """
         return self
 
@@ -819,5 +835,6 @@ class WLED:
         Args:
         ----
             _exc_info: Exec type.
+
         """
         await self.close()

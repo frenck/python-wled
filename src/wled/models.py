@@ -31,6 +31,7 @@ class Nightlight:
         Returns:
         -------
             A Nightlight object.
+
         """
         nightlight = data.get("nl", {})
 
@@ -69,6 +70,7 @@ class Sync:
         Returns:
         -------
             A sync object.
+
         """
         sync = data.get("udpn", {})
         return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
@@ -93,6 +95,7 @@ class Palette:
     Returns:
     -------
         A palette object.
+
     """
 
     name: str
@@ -110,6 +113,7 @@ class Segment:
     Returns:
     -------
         A segment object.
+
     """
 
     brightness: int
@@ -154,6 +158,7 @@ class Segment:
         Returns:
         -------
             An Segment object.
+
         """
         start = data.get("start", 0)
         stop = data.get("stop", 0)
@@ -223,6 +228,7 @@ class Leds:
         Returns:
         -------
             A Leds object.
+
         """
         leds = data.get("leds", {})
 
@@ -259,6 +265,7 @@ class Wifi:
     Returns:
     -------
         A Wi-Fi object.
+
     """
 
     bssid: str
@@ -277,6 +284,7 @@ class Wifi:
         Returns:
         -------
             An Wifi object.
+
         """
         if "wifi" not in data:
             return None
@@ -300,6 +308,7 @@ class Filesystem:
     Returns:
     -------
         A Filesystem object.
+
     """
 
     total: int
@@ -318,6 +327,7 @@ class Filesystem:
         Returns:
         -------
             An Filesystem object.
+
         """
         if "fs" not in data:
             return None
@@ -372,6 +382,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
         Returns:
         -------
             A info object.
+
         """
         if (websocket := data.get("ws")) == -1:
             websocket = None
@@ -447,6 +458,7 @@ class State:
         Returns
         -------
             True if there is currently a playlist active, False otherwise.
+
         """
         return self.playlist == -1
 
@@ -457,6 +469,7 @@ class State:
         Returns
         -------
             True is a preset is currently active, False otherwise.
+
         """
         return self.preset == -1
 
@@ -481,6 +494,7 @@ class State:
         Returns:
         -------
             A State object.
+
         """
         brightness = data.get("bri", 1)
         on = data.get("on", False)
@@ -556,6 +570,7 @@ class Preset:
         Returns:
         -------
             A Preset object.
+
         """
         segment_data = data.get("seg", [])
         if not isinstance(segment_data, list):
@@ -629,6 +644,7 @@ class Playlist:
         Returns:
         -------
             A Playlist object.
+
         """
         playlist = data.get("playlist", {})
         entries_durations = playlist.get("dur", [])
@@ -684,6 +700,7 @@ class Device:
         ------
             WLEDError: In case the given API response is incomplete in a way
                 that a Device object cannot be constructed from it.
+
         """
         self.effects = []
         self.palettes = []
@@ -710,6 +727,7 @@ class Device:
         Returns:
         -------
             The updated Device object.
+
         """
         if _effects := data.get("effects"):
             effects = [
