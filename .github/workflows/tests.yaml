@@ -37,7 +37,7 @@ jobs:
       - name: 🚀 Run pytest
         run: poetry run pytest --cov wled tests
       - name: ⬆️ Upload coverage artifact
-        uses: actions/upload-artifact@v4.3.0
+        uses: actions/upload-artifact@v4.3.1
         with:
           name: coverage-${{ matrix.python }}
           path: .coverage
