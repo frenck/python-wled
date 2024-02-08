@@ -173,13 +173,13 @@ cryptography = ">=3.2"
 
 [[package]]
 name = "awesomeversion"
-version = "23.11.0"
+version = "24.2.0"
 description = "One version package to rule them all, One version package to find them, One version package to bring them all, and in the darkness bind them."
 optional = false
 python-versions = ">=3.8,<4.0"
 files = [
-    {file = "awesomeversion-23.11.0-py3-none-any.whl", hash = "sha256:16907305c091637e296966a70731345e70825fef1664fd1a72155ce83f2b6dc7"},
-    {file = "awesomeversion-23.11.0.tar.gz", hash = "sha256:9146329196f0f045887de6c195730750f8f7a9302d1c149378db73ab5dc468f0"},
+    {file = "awesomeversion-24.2.0-py3-none-any.whl", hash = "sha256:ba365d1ad4e42aa5afdbc46b639f349e52db2d859d7c46a34744ca15ebf1430a"},
+    {file = "awesomeversion-24.2.0.tar.gz", hash = "sha256:47a6dcbbe2921b725f75106a66ab30f26f1f33dbc5e07bc8e1e39d8eb921f53c"},
 ]
 
 [[package]]
