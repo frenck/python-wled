@@ -710,7 +710,7 @@ class Device:
 
         # Check if all elements are in the passed dict, else raise an Error
         if any(
-            k not in data and data[k] is not None
+            k not in data or data[k] is None
             for k in ("effects", "palettes", "info", "state")
         ):
             msg = "WLED data is incomplete, cannot construct device object"
