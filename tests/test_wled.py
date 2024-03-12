@@ -1,4 +1,5 @@
 """Tests for `wled.WLED`."""
+
 import asyncio
 from collections.abc import Generator
 from unittest.mock import patch

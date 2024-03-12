@@ -1,6 +1,6 @@
 # This extend our general Ruff rules specifically for the examples
 extend = "../pyproject.toml"
 
-extend-ignore = [
+lint.extend-ignore = [
   "T201", # Allow the use of print() in examples
 ]

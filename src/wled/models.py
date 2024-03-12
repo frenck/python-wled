@@ -1,4 +1,5 @@
 """Models for WLED."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
