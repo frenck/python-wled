@@ -1,4 +1,5 @@
 """Asynchronous Python client for WLED."""
+
 from __future__ import annotations
 
 import asyncio
