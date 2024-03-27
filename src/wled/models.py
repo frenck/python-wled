@@ -4,11 +4,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import IntEnum, IntFlag
+from functools import lru_cache
+from operator import attrgetter
 from typing import Any
 
 from awesomeversion import AwesomeVersion
 
 from .exceptions import WLEDError
+
+NAME_GETTER = attrgetter("name")
+
+
+@lru_cache
+def get_awesome_version(version: str) -> AwesomeVersion:
+    """Return a cached AwesomeVersion object."""
+    return AwesomeVersion(version)
 
 
 @dataclass
@@ -140,8 +150,8 @@ class Segment:
         segment_id: int,
         data: dict[str, Any],
         *,
-        effects: list[Effect],
-        palettes: list[Palette],
+        effects: dict[int, Effect],
+        palettes: dict[int, Palette],
         state_on: bool,
         state_brightness: int,
     ) -> Segment:
@@ -151,8 +161,8 @@ class Segment:
         ----
             segment_id: The ID of the LED strip segment.
             data: The segment data received from the WLED device.
-            effects: A list of Effect objects.
-            palettes: A list of Palette objects.
+            effects: An indexed dict of Effect objects.
+            palettes: An indexed dict of Palette objects.
             state_on: Boolean the represents the on/off state of this segment.
             state_brightness: The brightness level of this segment.
 
@@ -174,13 +184,9 @@ class Segment:
         except IndexError:
             pass
 
-        effect = next(
-            (item for item in effects if item.effect_id == data.get("fx", 0)),
-            Effect(effect_id=0, name="Unknown"),
-        )
-        palette = next(
-            (item for item in palettes if item.palette_id == data.get("pal", 0)),
-            Palette(palette_id=0, name="Unknown"),
+        effect = effects.get(data.get("fx", 0)) or Effect(effect_id=0, name="Unknown")
+        palette = palettes.get(data.get("pal", 0)) or Palette(
+            palette_id=0, name="Unknown"
         )
 
         return Segment(
@@ -389,15 +395,15 @@ class Info:  # pylint: disable=too-many-instance-attributes
             websocket = None
 
         if version := data.get("ver"):
-            version = AwesomeVersion(version)
+            version = get_awesome_version(version)
             if not version.valid:
                 version = None
 
         if version_latest_stable := data.get("version_latest_stable"):
-            version_latest_stable = AwesomeVersion(version_latest_stable)
+            version_latest_stable = get_awesome_version(version_latest_stable)
 
         if version_latest_beta := data.get("version_latest_beta"):
-            version_latest_beta = AwesomeVersion(version_latest_beta)
+            version_latest_beta = get_awesome_version(version_latest_beta)
 
         arch = data.get("arch", "Unknown")
         if (
@@ -477,20 +483,20 @@ class State:
     @staticmethod
     def from_dict(
         data: dict[str, Any],
-        effects: list[Effect],
-        palettes: list[Palette],
-        presets: list[Preset],
-        playlists: list[Playlist],
+        effects: dict[int, Effect],
+        palettes: dict[int, Palette],
+        presets: dict[int, Preset],
+        playlists: dict[int, Playlist],
     ) -> State:
         """Return State object from WLED API response.
 
         Args:
         ----
             data: The state response received from the WLED device API.
-            effects: A list of effect objects.
-            palettes: A list of palette objects.
-            presets: A list of preset objects.
-            playlists: A list of playlist objects.
+            effects: A dict index of effect objects.
+            palettes: A dict index of palette objects.
+            presets: A dict index of preset objects.
+            playlists: A dict index of playlist objects.
 
         Returns:
         -------
@@ -516,15 +522,8 @@ class State:
         playlist = data.get("pl", -1)
         preset = data.get("ps", -1)
         if presets:
-            preset = next(
-                (item for item in presets if item.preset_id == data.get("ps")),
-                None,
-            )
-
-            playlist = next(
-                (item for item in playlists if item.playlist_id == data.get("pl")),
-                None,
-            )
+            playlist = playlists.get(playlist)
+            preset = presets.get(preset)
 
         return State(
             brightness=brightness,
@@ -556,8 +555,8 @@ class Preset:
     def from_dict(
         preset_id: int,
         data: dict[str, Any],
-        effects: list[Effect],
-        palettes: list[Palette],
+        effects: dict[int, Effect],
+        palettes: dict[int, Palette],
     ) -> Preset:
         """Return Preset object from WLED API response.
 
@@ -565,8 +564,8 @@ class Preset:
         ----
             preset_id: The ID of the preset.
             data: The data from the WLED device API.
-            effects: A list of effect objects.
-            palettes: A list of palette object.
+            effects: A indexed dict of effect objects.
+            palettes: A indexed dict of palette object.
 
         Returns:
         -------
@@ -591,10 +590,10 @@ class Preset:
             for segment_id, segment in enumerate(segment_data)
         ]
 
-        main_segment = next(
-            (item for item in segments if item.segment_id == data.get("mainseg", 0)),
-            None,
-        )
+        try:
+            main_segment = segments[data.get("mainseg", 0)]
+        except IndexError:
+            main_segment = None
 
         return Preset(
             main_segment=main_segment,
@@ -632,7 +631,7 @@ class Playlist:
     def from_dict(
         playlist_id: int,
         data: dict[str, Any],
-        presets: list[Preset],
+        presets: dict[int, Preset],
     ) -> Playlist:
         """Return Playlist object from WLED API response.
 
@@ -657,18 +656,12 @@ class Playlist:
                 entry_id=entry_id,
                 duration=entries_durations[entry_id],
                 transition=entries_transitions[entry_id],
-                preset=next(
-                    (item for item in presets if item.preset_id == preset_id),
-                    None,
-                ),
+                preset=presets.get(preset_id),
             )
             for entry_id, preset_id in enumerate(entries_presets)
         ]
 
-        end = next(
-            (item for item in presets if item.preset_id == playlist.get("end")),
-            None,
-        )
+        end = presets.get(playlist.get("end"))
 
         return Playlist(
             playlist_id=playlist_id,
@@ -703,6 +696,11 @@ class Device:
                 that a Device object cannot be constructed from it.
 
         """
+        self._indexed_effects: dict[int, Effect] = {}
+        self._indexed_palettes: dict[int, Palette] = {}
+        self._indexed_presets: dict[int, Preset] = {}
+        self._indexed_playlists: dict[int, Playlist] = {}
+
         self.effects = []
         self.palettes = []
         self.playlists = []
@@ -731,46 +729,49 @@ class Device:
 
         """
         if _effects := data.get("effects"):
-            effects = [
-                Effect(effect_id=effect_id, name=effect)
+            self._indexed_effects = {
+                effect_id: Effect(effect_id=effect_id, name=effect)
                 for effect_id, effect in enumerate(_effects)
-            ]
-            effects.sort(key=lambda x: x.name)
-            self.effects = effects
+            }
+            self.effects = sorted(self._indexed_effects.values(), key=NAME_GETTER)
 
         if _palettes := data.get("palettes"):
-            palettes = [
-                Palette(palette_id=palette_id, name=palette)
+            self._indexed_palettes = {
+                palette_id: Palette(palette_id=palette_id, name=palette)
                 for palette_id, palette in enumerate(_palettes)
-            ]
-            palettes.sort(key=lambda x: x.name)
-            self.palettes = palettes
+            }
+            self.palettes = sorted(self._indexed_palettes.values(), key=NAME_GETTER)
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
             # we split those out, so we can handle those correctly.
-
-            # Nobody cares about 0.
-            _presets.pop("0", None)
-
-            presets = [
-                Preset.from_dict(int(preset_id), preset, self.effects, self.palettes)
+            self._indexed_presets = {
+                int(preset_id): Preset.from_dict(
+                    int(preset_id),
+                    preset,
+                    self._indexed_effects,
+                    self._indexed_palettes,
+                )
                 for preset_id, preset in _presets.items()
                 if "playlist" not in preset
                 or not ("ps" in preset["playlist"] and preset["playlist"]["ps"])
-            ]
-            presets.sort(key=lambda x: x.name)
-            self.presets = presets
+            }
+            # Nobody cares about 0.
+            self._indexed_presets.pop(0, None)
+            self.presets = sorted(self._indexed_presets.values(), key=NAME_GETTER)
 
-            playlists = [
-                Playlist.from_dict(int(playlist_id), playlist, self.presets)
+            self._indexed_playlists = {
+                int(playlist_id): Playlist.from_dict(
+                    int(playlist_id), playlist, self._indexed_presets
+                )
                 for playlist_id, playlist in _presets.items()
                 if "playlist" in playlist
                 and "ps" in playlist["playlist"]
                 and playlist["playlist"]["ps"]
-            ]
-            playlists.sort(key=lambda x: x.name)
-            self.playlists = playlists
+            }
+            # Nobody cares about 0.
+            self._indexed_playlists.pop(0, None)
+            self.playlists = sorted(self._indexed_playlists.values(), key=NAME_GETTER)
 
         if _info := data.get("info"):
             self.info = Info.from_dict(_info)
@@ -778,10 +779,10 @@ class Device:
         if _state := data.get("state"):
             self.state = State.from_dict(
                 _state,
-                self.effects,
-                self.palettes,
-                self.presets,
-                self.playlists,
+                self._indexed_effects,
+                self._indexed_palettes,
+                self._indexed_presets,
+                self._indexed_playlists,
             )
 
         return self
