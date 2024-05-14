@@ -700,9 +700,8 @@ class WLED:
             gzip = ".gz"
 
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-        update_file = (
-            f"WLED_{version}_{self._device.info.architecture.upper()}{ethernet}.bin{gzip}"
-        )
+        architecture = self._device.info.architecture.upper()
+        update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
         download_url = (
             "https://github.com/Aircoookie/WLED/releases/download"
             f"/v{version}/{update_file}"
