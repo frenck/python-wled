@@ -31,6 +31,14 @@ backoff = ">=2.2.0"
 cachetools = ">=4.0.0"
 python = "^3.11"
 yarl = ">=1.6.0"
+typer = {version = "^0.12.3", optional = true, extras = ["all"]}
+zeroconf = {version = "^0.132.2", optional = true, extras = ["all"]}
+
+[tool.poetry.extras]
+cli = ["typer", "zeroconf"]
+
+[tool.poetry.scripts]
+wled = "wled.cli:cli"
 
 [tool.poetry.urls]
 "Bug Tracker" = "https://github.com/frenck/python-wled/issues"
@@ -60,6 +68,7 @@ source = ["wled"]
 [tool.coverage.report]
 fail_under = 53
 show_missing = true
+omit = ["src/wled/cli/*"]
 
 [tool.mypy]
 # Specify the target platform details in config, so your developers are

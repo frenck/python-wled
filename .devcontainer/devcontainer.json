@@ -53,5 +53,5 @@
   },
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "name": "Asynchronous Python client for WLED",
-  "updateContentCommand": ". ${NVM_DIR}/nvm.sh && nvm install && nvm use && npm install && poetry install && poetry run pre-commit install"
+  "updateContentCommand": ". ${NVM_DIR}/nvm.sh && nvm install && nvm use && npm install && poetry install --extras cli && poetry run pre-commit install"
 }

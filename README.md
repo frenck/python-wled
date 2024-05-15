@@ -95,7 +95,7 @@ To install all packages, including all development requirements:
 
 ```bash
 npm install
-poetry install
+poetry install --extras cli
 ```
 
 As this repository uses the [pre-commit][pre-commit] framework, all changes
