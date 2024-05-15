@@ -33,7 +33,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Run pytest
         run: poetry run pytest --cov wled tests
       - name: ⬆️ Upload coverage artifact
@@ -65,7 +65,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Process coverage results
         run: |
           poetry run coverage combine coverage*/.coverage*
