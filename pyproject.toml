@@ -29,9 +29,11 @@ aiohttp = ">=3.0.0"
 awesomeversion = ">=22.1.0"
 backoff = ">=2.2.0"
 cachetools = ">=4.0.0"
+mashumaro = "^3.13"
+orjson = ">=3.9.8"
 python = "^3.11"
-yarl = ">=1.6.0"
 typer = {version = "^0.12.3", optional = true, extras = ["all"]}
+yarl = ">=1.6.0"
 zeroconf = {version = "^0.132.2", optional = true, extras = ["all"]}
 
 [tool.poetry.extras]
@@ -163,6 +165,9 @@ mark-parentheses = false
 
 [tool.ruff.lint.isort]
 known-first-party = ["wled"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["mashumaro.mixins.orjson.DataClassORJSONMixin"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
