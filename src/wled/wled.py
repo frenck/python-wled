@@ -674,7 +674,10 @@ class WLED:
             "esp32-s2",
             "esp32-s3",
         }:
-            msg = "Upgrade is only supported on ESP01, ESP02, ESP32, ESP8266, ESP32-C3, ESP32-S2, and ESP32-S3 devices"
+            msg = (
+                "Upgrade is only supported on ESP01, ESP02, ESP32, ESP8266, "
+                "ESP32-C3, ESP32-S2, and ESP32-S3 devices"
+            )
             raise WLEDUpgradeError(msg)
 
         if not self._device.info.version:
