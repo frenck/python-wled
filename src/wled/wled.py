@@ -238,7 +238,7 @@ class WLED:
         max_tries=3,
         logger=None,
     )
-    async def update(self, *, full_update: bool = False) -> Device:  # noqa: PLR0912
+    async def update(self, *, full_update: bool = False) -> Device:
         """Get all information about the device in a single call.
 
         This method updates all WLED information available with a single API
