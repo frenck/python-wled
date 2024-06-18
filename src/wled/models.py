@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from functools import cached_property
 from operator import attrgetter
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
+from awesomeversion import AwesomeVersion
 from mashumaro import field_options
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
@@ -17,10 +18,36 @@ from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
 from .exceptions import WLEDError
 from .utils import get_awesome_version
 
-if TYPE_CHECKING:
-    from awesomeversion import AwesomeVersion
-
 NAME_GETTER = attrgetter("name")
+
+
+class AwesomeVersionSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for AwesomeVersion objects."""
+
+    def serialize(self, value: AwesomeVersion | None) -> str:
+        """Serialize AwesomeVersion object to string."""
+        if value is None:
+            return ""
+        return str(value)
+
+    def deserialize(self, value: str) -> AwesomeVersion | None:
+        """Deserialize string to AwesomeVersion object."""
+        version = get_awesome_version(value)
+        if not version.valid:
+            return None
+        return version
+
+
+class TimedeltaSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for timedelta objects."""
+
+    def serialize(self, value: timedelta) -> int:
+        """Serialize timedelta object to seconds."""
+        return int(value.total_seconds())
+
+    def deserialize(self, value: int) -> timedelta:
+        """Deserialize integer to timedelta object."""
+        return timedelta(seconds=value)
 
 
 class TimestampSerializationStrategy(SerializationStrategy, use_annotations=True):
@@ -43,7 +70,11 @@ class BaseModel(DataClassORJSONMixin):
         """Mashumaro configuration."""
 
         omit_none = True
-        serialization_strategy = {datetime: TimestampSerializationStrategy()}  # noqa: RUF012
+        serialization_strategy = {  # noqa: RUF012
+            AwesomeVersion: AwesomeVersionSerializationStrategy(),
+            datetime: TimestampSerializationStrategy(),
+            timedelta: TimedeltaSerializationStrategy(),
+        }
         serialize_by_alias = True
 
 
@@ -212,56 +243,37 @@ class Segment:
         )
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""
 
-    cct: bool
-    count: int
-    fps: int | None
-    light_capabilities: LightCapability | None
-    max_power: int
-    max_segments: int
-    power: int
-    rgbw: bool
-    wv: bool
-    segment_light_capabilities: list[LightCapability] | None
+    count: int = 0
+    """Total LED count."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Leds:
-        """Return Leds object from WLED API response.
+    fps: int = 0
+    """Current frames per second."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    light_capabilities: LightCapability = field(
+        default=LightCapability.NONE, metadata=field_options(alias="lc")
+    )
+    """Capabilities of the light."""
 
-        Returns:
-        -------
-            A Leds object.
+    max_power: int = field(default=0, metadata=field_options(alias="maxpwr"))
+    """Maximum power budget in milliamps for the ABL. 0 if ABL is disabled."""
 
-        """
-        leds = data.get("leds", {})
+    max_segments: int = field(default=0, metadata=field_options(alias="maxseg"))
+    """Maximum number of segments supported by this version."""
 
-        light_capabilities = None
-        segment_light_capabilities = None
-        if "lc" in leds and "seglc" in leds:
-            light_capabilities = LightCapability(leds["lc"])
-            segment_light_capabilities = [
-                LightCapability(item) for item in leds["seglc"]
-            ]
+    power: int = field(default=0, metadata=field_options(alias="pwr"))
+    """
+    Current LED power usage in milliamps as determined by the ABL.
+    0 if ABL is disabled.
+    """
 
-        return Leds(
-            cct=bool(leds.get("cct")),
-            count=leds.get("count", 0),
-            fps=leds.get("fps", None),
-            light_capabilities=light_capabilities,
-            max_power=leds.get("maxpwr", 0),
-            max_segments=leds.get("maxseg", 0),
-            power=leds.get("pwr", 0),
-            rgbw=leds.get("rgbw", False),
-            segment_light_capabilities=segment_light_capabilities,
-            wv=bool(leds.get("wv", True)),
-        )
+    segment_light_capabilities: list[LightCapability] = field(
+        default_factory=list, metadata=field_options(alias="seglc")
+    )
+    """Capabilities of each segment."""
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -346,99 +358,107 @@ class Filesystem(BaseModel):
         return round((self.used / self.total) * 100)
 
 
-@dataclass
-class Info:  # pylint: disable=too-many-instance-attributes
+@dataclass(kw_only=True)
+class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
-    architecture: str
-    arduino_core_version: str
-    brand: str
-    build_type: str
-    effect_count: int
-    filesystem: Filesystem | None
-    free_heap: int
-    ip: str  # pylint: disable=invalid-name
-    leds: Leds
-    live_ip: str
-    live_mode: str
-    live: bool
-    mac_address: str
-    name: str
-    pallet_count: int
-    product: str
-    udp_port: int
-    uptime: int
-    version_id: str
-    version: AwesomeVersion | None
-    version_latest_beta: AwesomeVersion | None
-    version_latest_stable: AwesomeVersion | None
-    websocket: int | None
-    wifi: Wifi | None
+    architecture: str = field(default="Unknown", metadata=field_options(alias="arch"))
+    """Name of the platform."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Info:
-        """Return Info object from WLED API response.
+    arduino_core_version: str = field(
+        default="Unknown", metadata=field_options(alias="core")
+    )
+    """Version of the underlying (Arduino core) SDK."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    brand: str = "WLED"
+    """The producer/vendor of the light. Always WLED for standard installations."""
 
-        Returns:
-        -------
-            A info object.
+    build: str = field(default="Unknown", metadata=field_options(alias="vid"))
+    """Build ID (YYMMDDB, B = daily build index)."""
 
-        """
-        if (websocket := data.get("ws")) == -1:
-            websocket = None
+    effect_count: int = field(default=0, metadata=field_options(alias="fxcount"))
+    """Number of effects included."""
 
-        if version := data.get("ver"):
-            version = get_awesome_version(version)
-            if not version.valid:
-                version = None
+    filesystem: Filesystem | None = field(
+        default=None, metadata=field_options(alias="fs")
+    )
+    """Info about the embedded LittleFS filesystem."""
 
-        if version_latest_stable := data.get("version_latest_stable"):
-            version_latest_stable = get_awesome_version(version_latest_stable)
+    free_heap: int = field(default=0, metadata=field_options(alias="freeheap"))
+    """Bytes of heap memory (RAM) currently available. Problematic if <10k."""
 
-        if version_latest_beta := data.get("version_latest_beta"):
-            version_latest_beta = get_awesome_version(version_latest_beta)
+    ip: str = ""  # pylint: disable=invalid-name
+    """The IP address of this instance. Empty string if not connected."""
 
-        filesystem = None
-        if "fs" in data:
-            filesystem = Filesystem.from_dict(data["fs"])
+    leds: Leds = field(default=Leds())
+    """Contains info about the LED setup."""
 
-        arch = data.get("arch", "Unknown")
-        if filesystem is not None and arch == "esp8266" and filesystem.total:
-            if filesystem.total <= 256:
-                arch = "esp01"
-            elif filesystem.total <= 512:
-                arch = "esp02"
+    live_ip: str = field(default="Unknown", metadata=field_options(alias="lip"))
+    """Realtime data source IP address."""
 
-        return Info(
-            architecture=arch,
-            arduino_core_version=data.get("core", "Unknown").replace("_", "."),
-            brand=data.get("brand", "WLED"),
-            build_type=data.get("btype", "Unknown"),
-            effect_count=data.get("fxcount", 0),
-            filesystem=filesystem,
-            free_heap=data.get("freeheap", 0),
-            ip=data.get("ip", "Unknown"),
-            leds=Leds.from_dict(data),
-            live_ip=data.get("lip", "Unknown"),
-            live_mode=data.get("lm", "Unknown"),
-            live=data.get("live", False),
-            mac_address=data.get("mac", ""),
-            name=data.get("name", "WLED Light"),
-            pallet_count=data.get("palcount", 0),
-            product=data.get("product", "DIY Light"),
-            udp_port=data.get("udpport", 0),
-            uptime=data.get("uptime", 0),
-            version_id=data.get("vid", "Unknown"),
-            version=version,
-            version_latest_beta=version_latest_beta,
-            version_latest_stable=version_latest_stable,
-            websocket=websocket,
-            wifi=Wifi.from_dict(data["wifi"]) if "wifi" in data else None,
-        )
+    live_mode: str = field(default="Unknown", metadata=field_options(alias="lm"))
+    """Info about the realtime data source."""
+
+    live: bool = False
+    """Realtime data source active via UDP or E1.31."""
+
+    mac_address: str = ""
+    """
+    The hexadecimal hardware MAC address of the light,
+    lowercase and without colons.
+    """
+
+    name: str = "WLED Light"
+    """Friendly name of the light. Intended for display in lists and titles."""
+
+    pallet_count: int = 0
+    """Number of palettes configured."""
+
+    product: str = "DIY Light"
+    """The product name. Always FOSS for standard installations."""
+
+    udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
+    """The UDP port for realtime packets and WLED broadcast."""
+
+    uptime: timedelta = timedelta(0)
+    """Uptime of the device."""
+
+    version: AwesomeVersion | None = field(
+        default=None, metadata=field_options(alias="ver")
+    )
+    """Version of the WLED software."""
+
+    version_latest_beta: AwesomeVersion | None = None
+    """Latest beta version available."""
+
+    version_latest_stable: AwesomeVersion | None = None
+    """Latest stable version available."""
+
+    websocket: int | None = field(default=None, metadata=field_options(alias="ws"))
+    """
+    Number of currently connected WebSockets clients.
+    `None` indicates that WebSockets are unsupported in this build.
+    """
+
+    wifi: Wifi | None = None
+    """Info about the Wi-Fi connection."""
+
+    @classmethod
+    def __post_deserialize__(cls, obj: Info) -> Info:
+        """Post deserialize hook for Info object."""
+        # If the websocket is disabled in this build, the value will be -1.
+        # We want to represent this as None.
+        if obj.websocket == -1:
+            obj.websocket = None
+
+        # We can tweak the architecture name based on the filesystem size.
+        if obj.filesystem is not None and obj.architecture == "esp8266":
+            if obj.filesystem.total <= 256:
+                obj.architecture = "esp01"
+            elif obj.filesystem.total <= 512:
+                obj.architecture = "esp02"
+
+        return obj
 
 
 @dataclass
