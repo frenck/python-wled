@@ -10,7 +10,7 @@ from mashumaro import field_options
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 
-from .const import LightCapability, LiveDataOverride, NightlightMode
+from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
 from .exceptions import WLEDError
 from .utils import get_awesome_version
 
@@ -48,28 +48,30 @@ class Nightlight(BaseModel):
     """Target brightness of nightlight feature."""
 
 
-@dataclass
-class Sync:
-    """Object holding sync state in WLED."""
+@dataclass(kw_only=True)
+class UDPSync(BaseModel):
+    """Object holding UDP sync state in WLED.
 
-    receive: bool
-    send: bool
+    Missing at this point, is the `nn` field. This field allows to skip
+    sending a broadcast packet for the current API request; However, this field
+    is only used for requests and not part of the state responses.
+    """
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Sync:
-        """Return Sync object from WLED API response.
+    receive: bool = field(default=False, metadata=field_options(alias="recv"))
+    """Receive broadcast packets."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    receive_groups: SyncGroup = field(
+        default=SyncGroup.NONE, metadata=field_options(alias="rgrp")
+    )
+    """Groups to receive WLED broadcast packets from."""
 
-        Returns:
-        -------
-            A sync object.
+    send: bool = field(default=False, metadata=field_options(alias="send"))
+    """Send WLED broadcast (UDP sync) packet on state change."""
 
-        """
-        sync = data.get("udpn", {})
-        return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
+    send_groups: SyncGroup = field(
+        default=SyncGroup.NONE, metadata=field_options(alias="sgrp")
+    )
+    """Groups to send WLED broadcast packets to."""
 
 
 @dataclass
@@ -439,7 +441,7 @@ class State:
     playlist: Playlist | int | None
     preset: Preset | int | None
     segments: list[Segment]
-    sync: Sync
+    sync: UDPSync
     transition: int
     lor: LiveDataOverride
 
@@ -517,7 +519,7 @@ class State:
             playlist=playlist,
             preset=preset,
             segments=segments,
-            sync=Sync.from_dict(data),
+            sync=UDPSync.from_dict(data.get("udpn", {})),
             transition=data.get("transition", 0),
             lor=LiveDataOverride(lor),
         )

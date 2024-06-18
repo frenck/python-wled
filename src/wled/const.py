@@ -36,3 +36,17 @@ class NightlightMode(IntEnum):
     FADE = 1
     COLOR_FADE = 2
     SUNRISE = 3
+
+
+class SyncGroup(IntFlag):
+    """Bitfield for udp sync groups 1-8."""
+
+    NONE = 0
+    GROUP1 = 1
+    GROUP2 = 2
+    GROUP3 = 4
+    GROUP4 = 8
+    GROUP5 = 16
+    GROUP6 = 32
+    GROUP7 = 64
+    GROUP8 = 128
