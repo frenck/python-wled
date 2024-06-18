@@ -248,8 +248,8 @@ class Leds:
         )
 
 
-@dataclass
-class Wifi:
+@dataclass(frozen=True, kw_only=True)
+class Wifi(BaseModel):
     """Object holding Wi-Fi information from WLED.
 
     Args:
@@ -262,33 +262,10 @@ class Wifi:
 
     """
 
-    bssid: str
-    channel: int
-    rssi: int
-    signal: int
-
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Wifi | None:
-        """Return Wifi object form WLED API response.
-
-        Args:
-        ----
-            data: The response from the WLED API.
-
-        Returns:
-        -------
-            An Wifi object.
-
-        """
-        if "wifi" not in data:
-            return None
-        wifi = data.get("wifi", {})
-        return Wifi(
-            bssid=wifi.get("bssid", "00:00:00:00:00:00"),
-            channel=wifi.get("channel", 0),
-            rssi=wifi.get("rssi", 0),
-            signal=wifi.get("signal", 0),
-        )
+    bssid: str = "00:00:00:00:00:00"
+    channel: int = 0
+    rssi: int = 0
+    signal: int = 0
 
 
 @dataclass
@@ -427,7 +404,7 @@ class Info:  # pylint: disable=too-many-instance-attributes
             version_latest_beta=version_latest_beta,
             version_latest_stable=version_latest_stable,
             websocket=websocket,
-            wifi=Wifi.from_dict(data),
+            wifi=Wifi.from_dict(data["wifi"]) if "wifi" in data else None,
         )
 
 
