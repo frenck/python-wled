@@ -1,5 +1,6 @@
 """Asynchronous Python client for WLED."""
 
+from .const import LightCapability, LiveDataOverride, NightlightMode
 from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -12,7 +13,6 @@ from .models import (
     Effect,
     Info,
     Leds,
-    LightCapability,
     Live,
     Nightlight,
     Palette,
@@ -32,7 +32,9 @@ __all__ = [
     "Leds",
     "LightCapability",
     "Live",
+    "LiveDataOverride",
     "Nightlight",
+    "NightlightMode",
     "Palette",
     "Playlist",
     "PlaylistEntry",
