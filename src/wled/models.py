@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum, IntFlag
 from functools import lru_cache
 from operator import attrgetter
 from typing import Any
 
 from awesomeversion import AwesomeVersion
 
+from .const import LightCapability, LiveDataOverride, NightlightMode
 from .exceptions import WLEDError
 
 NAME_GETTER = attrgetter("name")
@@ -456,7 +456,7 @@ class State:
     segments: list[Segment]
     sync: Sync
     transition: int
-    lor: Live
+    lor: LiveDataOverride
 
     @property
     def playlist_active(self) -> bool:
@@ -534,7 +534,7 @@ class State:
             segments=segments,
             sync=Sync.from_dict(data),
             transition=data.get("transition", 0),
-            lor=Live(lor),
+            lor=LiveDataOverride(lor),
         )
 
 
@@ -786,38 +786,3 @@ class Device:
             )
 
         return self
-
-
-class LightCapability(IntFlag):
-    """Enumeration representing the capabilities of a light in WLED."""
-
-    NONE = 0
-    RGB_COLOR = 1
-    WHITE_CHANNEL = 2
-    COLOR_TEMPERATURE = 4
-    MANUAL_WHITE = 8
-
-    # These are not used, but are reserved for future use.
-    # WLED specifications documents we should expect them,
-    # therefore, we include them here.
-    RESERVED_2 = 16
-    RESERVED_3 = 32
-    RESERVED_4 = 64
-    RESERVED_5 = 128
-
-
-class Live(IntEnum):
-    """Enumeration representing live override mode from WLED."""
-
-    OFF = 0
-    ON = 1
-    OFF_UNTIL_REBOOT = 2
-
-
-class NightlightMode(IntEnum):
-    """Enumeration representing nightlight mode from WLED."""
-
-    INSTANT = 0
-    FADE = 1
-    COLOR_FADE = 2
-    SUNRISE = 3

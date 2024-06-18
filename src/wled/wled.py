@@ -23,10 +23,12 @@ from .exceptions import (
     WLEDError,
     WLEDUpgradeError,
 )
-from .models import Device, Live, Playlist, Preset
+from .models import Device, Playlist, Preset
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from .const import LiveDataOverride
 
 
 VERSION_CACHE: TTLCache[str, str | None] = TTLCache(maxsize=16, ttl=7200)
@@ -585,7 +587,7 @@ class WLED:
 
         await self.request("/json/state", method="POST", data={"ps": playlist})
 
-    async def live(self, live: Live) -> None:
+    async def live(self, live: LiveDataOverride) -> None:
         """Set the live override mode on a WLED device.
 
         Args:
