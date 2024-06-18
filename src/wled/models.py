@@ -74,16 +74,16 @@ class UDPSync(BaseModel):
     """Groups to send WLED broadcast packets to."""
 
 
-@dataclass
-class Effect:
+@dataclass(frozen=True, kw_only=True)
+class Effect(BaseModel):
     """Object holding an effect in WLED."""
 
     effect_id: int
     name: str
 
 
-@dataclass
-class Palette:
+@dataclass(frozen=True, kw_only=True)
+class Palette(BaseModel):
     """Object holding an palette in WLED.
 
     Args:
