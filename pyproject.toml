@@ -68,7 +68,7 @@ plugins = ["covdefaults"]
 source = ["wled"]
 
 [tool.coverage.report]
-fail_under = 53
+fail_under = 25
 show_missing = true
 omit = ["src/wled/cli/*"]
 

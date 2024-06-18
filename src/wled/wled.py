@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 import backoff
-from awesomeversion import AwesomeVersion, AwesomeVersionException
 from cachetools import TTLCache
 from yarl import URL
 
@@ -27,6 +26,8 @@ from .models import Device, Playlist, Preset
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
 
@@ -45,8 +46,6 @@ class WLED:
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
-    _supports_si_request: bool | None = None
-    _supports_presets: bool | None = None
 
     @property
     def connected(self) -> bool:
@@ -267,67 +266,27 @@ class WLED:
                 )
                 raise WLEDEmptyResponseError(msg)
 
-            # Try to get presets, introduced in WLED 0.11
-            try:
-                presets = await self.request("/presets.json")
-                data["presets"] = presets
-                self._supports_presets = True
-            except WLEDError:
-                self._supports_presets = False
-
-            with suppress(WLEDError):
-                versions = await self.get_wled_versions_from_github()
-                data["info"].update(versions)
-
-            self._device = Device(data)
-
-            # Try to figure out if this version supports
-            # a single info and state call
-            try:
-                self._supports_si_request = self._device.info.version >= AwesomeVersion(
-                    "0.10.0",
-                )
-            except AwesomeVersionException:
-                # Could be a manual build one? Lets poll for it
-                try:
-                    await self.request("/json/si")
-                    self._supports_si_request = True
-                except WLEDError:
-                    self._supports_si_request = False
-
-            return self._device
-
-        if self._supports_presets:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
                     " response on presets update",
                 )
                 raise WLEDEmptyResponseError(msg)
-            self._device.update_from_dict({"presets": presets})
-
-        # Handle legacy state and update in separate requests
-        if not self._supports_si_request:
-            if not (info := await self.request("/json/info")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on info update",
-                )
-                raise WLEDEmptyResponseError(msg)
-
-            if not (state := await self.request("/json/state")):
-                msg = (
-                    f"WLED device {self.host} returned an empty API"
-                    " response on state update",
-                )
-                raise WLEDEmptyResponseError(msg)
+            data["presets"] = presets
 
             with suppress(WLEDError):
                 versions = await self.get_wled_versions_from_github()
-                info.update(versions)
+                data["info"].update(versions)
 
-            self._device.update_from_dict({"info": info, "state": state})
-            return self._device
+            return Device(data)
+
+        if not (presets := await self.request("/presets.json")):
+            msg = (
+                f"WLED device at {self.host} returned an empty API"
+                " response on presets update",
+            )
+            raise WLEDEmptyResponseError(msg)
+        self._device.update_from_dict({"presets": presets})
 
         if not (state_info := await self.request("/json/si")):
             msg = (
@@ -376,7 +335,7 @@ class WLED:
         await self.request("/json/state", method="POST", data=state)
 
     # pylint: disable=too-many-locals, too-many-branches, too-many-arguments
-    async def segment(  # noqa: PLR0912, PLR0913
+    async def segment(  # noqa: PLR0913
         self,
         segment_id: int,
         *,
@@ -441,7 +400,7 @@ class WLED:
             msg = "Unable to communicate with WLED to get the current state"
             raise WLEDError(msg)
 
-        state = {}
+        state = {}  # type: ignore[var-annotated]
         segment = {
             "bri": brightness,
             "cln": clones,
@@ -457,18 +416,6 @@ class WLED:
             "stop": stop,
             "sx": speed,
         }
-
-        # > WLED 0.10.0, does not support segment control on/bri.
-        # Luckily, the same release introduced si requests.
-        # Therefore, we can use that capability check to decide.
-        if not self._supports_si_request:
-            # This device does not support on/bri in the segment
-            del segment["on"]
-            del segment["bri"]
-            state = {
-                "bri": brightness,
-                "on": on,
-            }
 
         # Find effect if it was based on a name
         if effect is not None and isinstance(effect, str):
@@ -516,7 +463,7 @@ class WLED:
 
         if segment:
             segment["id"] = segment_id
-            state["seg"] = [segment]  # type: ignore[assignment]
+            state["seg"] = [segment]
 
         if transition is not None:
             state["tt"] = transition
