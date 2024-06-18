@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
+
+from mashumaro import field_options
+from mashumaro.config import BaseConfig
+from mashumaro.mixins.orjson import DataClassORJSONMixin
 
 from .const import LightCapability, LiveDataOverride, NightlightMode
 from .exceptions import WLEDError
@@ -16,46 +20,32 @@ if TYPE_CHECKING:
 NAME_GETTER = attrgetter("name")
 
 
-@dataclass
-class Nightlight:
+class BaseModel(DataClassORJSONMixin):
+    """Base model for all WLED models."""
+
+    # pylint: disable-next=too-few-public-methods
+    class Config(BaseConfig):
+        """Mashumaro configuration."""
+
+        omit_none = True
+        serialize_by_alias = True
+
+
+@dataclass(kw_only=True)
+class Nightlight(BaseModel):
     """Object holding nightlight state in WLED."""
 
-    duration: int
-    fade: bool
-    on: bool
-    mode: NightlightMode
-    target_brightness: int
+    duration: int = field(default=1, metadata=field_options(alias="dur"))
+    """Duration of nightlight in minutes."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Nightlight:
-        """Return Nightlight object from WLED API response.
+    mode: NightlightMode = field(default=NightlightMode.INSTANT)
+    """Nightlight mode (available since 0.10.2)."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    on: bool = field(default=False)
+    """Nightlight currently active."""
 
-        Returns:
-        -------
-            A Nightlight object.
-
-        """
-        nightlight = data.get("nl", {})
-
-        # Handle deprecated fade property for Nightlight
-        mode = nightlight.get("mode")
-        fade = nightlight.get("fade", False)
-        if mode is not None:
-            fade = mode != NightlightMode.INSTANT
-        if mode is None:
-            mode = NightlightMode.FADE if fade else NightlightMode.INSTANT
-
-        return Nightlight(
-            duration=nightlight.get("dur", 1),
-            fade=fade,
-            mode=NightlightMode(mode),
-            on=nightlight.get("on", False),
-            target_brightness=nightlight.get("tbri", 0),
-        )
+    target_brightness: int = field(default=0, metadata=field_options(alias="tbri"))
+    """Target brightness of nightlight feature."""
 
 
 @dataclass
@@ -522,7 +512,7 @@ class State:
 
         return State(
             brightness=brightness,
-            nightlight=Nightlight.from_dict(data),
+            nightlight=Nightlight.from_dict(data.get("nl", {})),
             on=on,
             playlist=playlist,
             preset=preset,
