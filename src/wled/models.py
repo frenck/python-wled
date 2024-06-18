@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from functools import cached_property
 from operator import attrgetter
 from typing import TYPE_CHECKING, Any
 
 from mashumaro import field_options
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
+from mashumaro.types import SerializationStrategy
 
 from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
 from .exceptions import WLEDError
@@ -20,6 +23,18 @@ if TYPE_CHECKING:
 NAME_GETTER = attrgetter("name")
 
 
+class TimestampSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for datetime objects."""
+
+    def serialize(self, value: datetime) -> float:
+        """Serialize datetime object to timestamp."""
+        return value.timestamp()
+
+    def deserialize(self, value: float) -> datetime:
+        """Deserialize timestamp to datetime object."""
+        return datetime.fromtimestamp(value, tz=UTC)
+
+
 class BaseModel(DataClassORJSONMixin):
     """Base model for all WLED models."""
 
@@ -28,6 +43,7 @@ class BaseModel(DataClassORJSONMixin):
         """Mashumaro configuration."""
 
         omit_none = True
+        serialization_strategy = {datetime: TimestampSerializationStrategy()}  # noqa: RUF012
         serialize_by_alias = True
 
 
@@ -268,8 +284,8 @@ class Wifi(BaseModel):
     signal: int = 0
 
 
-@dataclass
-class Filesystem:
+@dataclass(frozen=True, kw_only=True)
+class Filesystem(BaseModel):
     """Object holding Filesystem information from WLED.
 
     Args:
@@ -282,35 +298,52 @@ class Filesystem:
 
     """
 
-    total: int
-    used: int
-    free: int
-    percentage: int
+    last_modified: datetime | None = field(
+        default=None, metadata=field_options(alias="pmt")
+    )
+    """
+    Last modification of the presets.json file. Not accurate after boot or
+    after using /edit.
+    """
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Filesystem | None:
-        """Return Filesystem object form WLED API response.
+    total: int = field(default=1, metadata=field_options(alias="t"))
+    """Total space of the filesystem in kilobytes."""
 
-        Args:
-        ----
-            data: The response from the WLED API.
+    used: int = field(default=1, metadata=field_options(alias="u"))
+    """Used space of the filesystem in kilobytes."""
 
-        Returns:
+    @cached_property
+    def free(self) -> int:
+        """Return the free space of the filesystem in kilobytes.
+
+        Returns
         -------
-            An Filesystem object.
+            The free space of the filesystem.
 
         """
-        if "fs" not in data:
-            return None
-        filesystem = data.get("fs", {})
-        total = filesystem.get("t", 1)
-        used = filesystem.get("u", 1)
-        return Filesystem(
-            total=total,
-            used=used,
-            free=(total - used),
-            percentage=round((used / total) * 100),
-        )
+        return self.total - self.used
+
+    @cached_property
+    def free_percentage(self) -> int:
+        """Return the free percentage of the filesystem.
+
+        Returns
+        -------
+            The free percentage of the filesystem.
+
+        """
+        return round((self.free / self.total) * 100)
+
+    @cached_property
+    def used_percentage(self) -> int:
+        """Return the used percentage of the filesystem.
+
+        Returns
+        -------
+            The used percentage of the filesystem.
+
+        """
+        return round((self.used / self.total) * 100)
 
 
 @dataclass
@@ -369,12 +402,12 @@ class Info:  # pylint: disable=too-many-instance-attributes
         if version_latest_beta := data.get("version_latest_beta"):
             version_latest_beta = get_awesome_version(version_latest_beta)
 
+        filesystem = None
+        if "fs" in data:
+            filesystem = Filesystem.from_dict(data["fs"])
+
         arch = data.get("arch", "Unknown")
-        if (
-            (filesystem := Filesystem.from_dict(data)) is not None
-            and arch == "esp8266"
-            and filesystem.total
-        ):
+        if filesystem is not None and arch == "esp8266" and filesystem.total:
             if filesystem.total <= 256:
                 arch = "esp01"
             elif filesystem.total <= 512:
