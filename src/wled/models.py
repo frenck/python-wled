@@ -3,22 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
 from operator import attrgetter
-from typing import Any
-
-from awesomeversion import AwesomeVersion
+from typing import TYPE_CHECKING, Any
 
 from .const import LightCapability, LiveDataOverride, NightlightMode
 from .exceptions import WLEDError
+from .utils import get_awesome_version
+
+if TYPE_CHECKING:
+    from awesomeversion import AwesomeVersion
 
 NAME_GETTER = attrgetter("name")
-
-
-@lru_cache
-def get_awesome_version(version: str) -> AwesomeVersion:
-    """Return a cached AwesomeVersion object."""
-    return AwesomeVersion(version)
 
 
 @dataclass
