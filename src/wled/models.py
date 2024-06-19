@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
-from operator import attrgetter
 from typing import Any
 
 from awesomeversion import AwesomeVersion
@@ -17,8 +16,6 @@ from mashumaro.types import SerializableType, SerializationStrategy
 from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
 from .exceptions import WLEDError
 from .utils import get_awesome_version
-
-NAME_GETTER = attrgetter("name")
 
 
 class AwesomeVersionSerializationStrategy(SerializationStrategy, use_annotations=True):
@@ -569,72 +566,55 @@ class State(BaseModel):
         return obj
 
 
-@dataclass
-class Preset:
+@dataclass(kw_only=True)
+class Preset(BaseModel):
     """Object representing a WLED preset."""
 
     preset_id: int
-    name: str
-    quick_label: str | None
+    """The ID of the preset."""
 
-    on: bool
-    transition: int
-    main_segment: Segment | None
-    segments: list[Segment]
+    name: str = field(default="", metadata=field_options(alias="n"))
+    """The name of the preset."""
 
-    @staticmethod
-    def from_dict(
-        preset_id: int,
-        data: dict[str, Any],
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-    ) -> Preset:
-        """Return Preset object from WLED API response.
+    quick_label: str | None = field(default=None, metadata=field_options(alias="ql"))
+    """The quick label of the preset."""
 
-        Args:
-        ----
-            preset_id: The ID of the preset.
-            data: The data from the WLED device API.
-            effects: A indexed dict of effect objects.
-            palettes: A indexed dict of palette object.
+    on: bool = False
+    """The on/off state of the preset."""
 
-        Returns:
-        -------
-            A Preset object.
+    transition: int = 0
+    """Duration of the crossfade between different colors/brightness levels.
 
-        """
-        segment_data = data.get("seg", [])
-        if not isinstance(segment_data, list):
-            # Some older versions of WLED have an single segment
-            # instead of a list.
-            segment_data = [segment_data]
+    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    """
 
-        segments = [
-            Segment.from_dict(
-                segment_id=segment_id,
-                data=segment,
-                effects=effects,
-                palettes=palettes,
-                state_on=False,
-                state_brightness=0,
-            )
-            for segment_id, segment in enumerate(segment_data)
-        ]
+    main_segment_id: int = field(default=0, metadata=field_options(alias="mainseg"))
+    """The main segment of the preset."""
 
-        try:
-            main_segment = segments[data.get("mainseg", 0)]
-        except IndexError:
-            main_segment = None
+    segments: dict[int, Segment] = field(
+        default_factory=dict, metadata=field_options(alias="seg")
+    )
+    """Segments are individual parts of the LED strip."""
 
-        return Preset(
-            main_segment=main_segment,
-            name=data.get("n", str(preset_id)),
-            on=data.get("on", False),
-            preset_id=preset_id,
-            quick_label=data.get("ql"),
-            segments=segments,
-            transition=data.get("transition", 0),
-        )
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Preset object."""
+        # Segments are not indexes, which is suboptimal for the user.
+        # We will add the segment ID to the segment data and convert
+        # the segments list to an indexed dict.
+        d["seg"] = {
+            segment_id: segment | {"segment_id": segment_id}
+            for segment_id, segment in enumerate(d.get("seg", []))
+        }
+        return d
+
+    @classmethod
+    def __post_deserialize__(cls, obj: Preset) -> Preset:
+        """Post deserialize hook for Preset object."""
+        # If name is empty, we will replace it with the playlist ID.
+        if not obj.name:
+            obj.name = str(obj.preset_id)
+        return obj
 
 
 @dataclass
@@ -647,71 +627,80 @@ class PlaylistEntry:
     transition: int
 
 
-@dataclass
-class Playlist:
+@dataclass(kw_only=True)
+class Playlist(BaseModel):
     """Object representing a WLED playlist."""
 
-    end: Preset | None
+    end_preset_id: int | None = field(default=None, metadata=field_options(alias="end"))
+    """Single preset ID to apply after the playlist finished.
+
+    Has no effect when an indefinite cycle is set. If not provided,
+    the light will stay on the last preset of the playlist.
+    """
+
     entries: list[PlaylistEntry]
-    name: str
+    """List of entries in the playlist."""
+
+    name: str = field(default="", metadata=field_options(alias="n"))
+    """The name of the playlist."""
+
     playlist_id: int
-    repeat: int
-    shuffle: bool
+    """The ID of the playlist."""
 
-    @staticmethod
-    def from_dict(
-        playlist_id: int,
-        data: dict[str, Any],
-        presets: dict[int, Preset],
-    ) -> Playlist:
-        """Return Playlist object from WLED API response.
+    repeat: int = 0
+    """Number of times the playlist should repeat."""
 
-        Args:
-        ----
-            playlist_id: The ID of the playlist.
-            data: The data from the WLED device API.
-            presets: A list of preset objects.
+    shuffle: bool = field(default=False, metadata=field_options(alias="r"))
+    """Shuffle the playlist entries."""
 
-        Returns:
-        -------
-            A Playlist object.
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for State object."""
+        # Duration, presets and transitions values are separate lists stored
+        # in the playlist data. We will combine those into a list of
+        # dictionaries, which will make it easier to work with the data.
+        item_count = len(d.get("ps", []))
 
-        """
-        playlist = data.get("playlist", {})
-        entries_durations = playlist.get("dur", [])
-        entries_presets = playlist.get("ps", [])
-        entries_transitions = playlist.get("transition", [])
+        # If the duration is a single value, we will convert it to a list.
+        # with the same length as the presets list.
+        if not isinstance(d["dur"], list):
+            d["dur"] = [d["dur"]] * item_count
 
-        entries = [
-            PlaylistEntry(
-                entry_id=entry_id,
-                duration=entries_durations[entry_id],
-                transition=entries_transitions[entry_id],
-                preset=presets.get(preset_id),
+        # If the transition value doesn't exists, we will set it to 0.
+        if "transitions" not in d:
+            d["transitions"] = [0] * item_count
+        # If the transition is a single value, we will convert it to a list.
+        # with the same length as the presets list.
+        elif not isinstance(d["transitions"], list):
+            d["transitions"] = [d["transitions"]] * item_count
+
+        # Now we can easily combine the data into a list of dictionaries.
+        d["entries"] = {
+            {"entry_id": entry_id, "ps": ps, "dur": dur, "transition": transition}
+            for entry_id, (ps, dur, transition) in enumerate(
+                zip(d["ps"], d["dur"], d["transitions"])
             )
-            for entry_id, preset_id in enumerate(entries_presets)
-        ]
+        }
 
-        end = presets.get(playlist.get("end"))
+        return d
 
-        return Playlist(
-            playlist_id=playlist_id,
-            shuffle=playlist.get("r", False),
-            name=data.get("n", str(playlist_id)),
-            repeat=playlist.get("repeat", 0),
-            end=end,
-            entries=entries,
-        )
+    @classmethod
+    def __post_deserialize__(cls, obj: Playlist) -> Playlist:
+        """Post deserialize hook for Playlist object."""
+        # If name is empty, we will replace it with the playlist ID.
+        if not obj.name:
+            obj.name = str(obj.playlist_id)
+        return obj
 
 
 class Device:
     """Object holding all information of WLED."""
 
-    effects: list[Effect]
+    effects: dict[int, Effect]
     info: Info
-    palettes: list[Palette]
-    playlists: list[Playlist]
-    presets: list[Preset]
+    palettes: dict[int, Palette]
+    playlists: dict[int, Playlist]
+    presets: dict[int, Preset]
     state: State
 
     def __init__(self, data: dict[str, Any]) -> None:
@@ -727,15 +716,10 @@ class Device:
                 that a Device object cannot be constructed from it.
 
         """
-        self._indexed_effects: dict[int, Effect] = {}
-        self._indexed_palettes: dict[int, Palette] = {}
-        self._indexed_presets: dict[int, Preset] = {}
-        self._indexed_playlists: dict[int, Playlist] = {}
-
-        self.effects = []
-        self.palettes = []
-        self.playlists = []
-        self.presets = []
+        self.effects = {}
+        self.palettes = {}
+        self.playlists = {}
+        self.presets = {}
 
         # Check if all elements are in the passed dict, else raise an Error
         if any(
@@ -760,40 +744,35 @@ class Device:
 
         """
         if _effects := data.get("effects"):
-            self._indexed_effects = {
+            self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=effect)
                 for effect_id, effect in enumerate(_effects)
             }
-            self.effects = sorted(self._indexed_effects.values(), key=NAME_GETTER)
 
         if _palettes := data.get("palettes"):
-            self._indexed_palettes = {
+            self.palettes = {
                 palette_id: Palette(palette_id=palette_id, name=palette)
                 for palette_id, palette in enumerate(_palettes)
             }
-            self.palettes = sorted(self._indexed_palettes.values(), key=NAME_GETTER)
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
             # we split those out, so we can handle those correctly.
-            self._indexed_presets = {
+            self.presets = {
                 int(preset_id): Preset.from_dict(
-                    int(preset_id),
-                    preset,
-                    self._indexed_effects,
-                    self._indexed_palettes,
+                    preset | {"preset_id": int(preset_id)},
                 )
                 for preset_id, preset in _presets.items()
                 if "playlist" not in preset
-                or not ("ps" in preset["playlist"] and preset["playlist"]["ps"])
+                or "ps" not in preset["playlist"]
+                or not preset["playlist"]["ps"]
             }
             # Nobody cares about 0.
-            self._indexed_presets.pop(0, None)
-            self.presets = sorted(self._indexed_presets.values(), key=NAME_GETTER)
+            self.presets.pop(0, None)
 
-            self._indexed_playlists = {
+            self.playlists = {
                 int(playlist_id): Playlist.from_dict(
-                    int(playlist_id), playlist, self._indexed_presets
+                    playlist | {"playlist_id": int(playlist_id)}
                 )
                 for playlist_id, playlist in _presets.items()
                 if "playlist" in playlist
@@ -801,8 +780,7 @@ class Device:
                 and playlist["playlist"]["ps"]
             }
             # Nobody cares about 0.
-            self._indexed_playlists.pop(0, None)
-            self.playlists = sorted(self._indexed_playlists.values(), key=NAME_GETTER)
+            self.playlists.pop(0, None)
 
         if _info := data.get("info"):
             self.info = Info.from_dict(_info)

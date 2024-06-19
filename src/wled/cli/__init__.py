@@ -29,7 +29,7 @@ async def command_info(
         ),
     ],
 ) -> None:
-    """Show the latest release information of WLED."""
+    """Show the information about the WLED device."""
     with console.status(
         "[cyan]Fetching WLED device information...", spinner="toggle12"
     ):
@@ -90,6 +90,96 @@ async def command_info(
     info_table.add_row("LED max power", f"{device.info.leds.max_power} mA")
 
     console.print(info_table)
+
+
+@cli.command("palettes")
+async def command_palettes(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the palettes on the device."""
+    with console.status(
+        "[cyan]Fetching WLED device information...", spinner="toggle12"
+    ):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    table = Table(title="\nPalettes on this WLED device", show_header=False)
+    table.add_column("Palette", style="cyan bold")
+    for palettes in device.palettes.values():
+        table.add_row(palettes.name)
+
+    console.print(table)
+
+
+@cli.command("playlists")
+async def command_playlists(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the playlists on the device."""
+    with console.status(
+        "[cyan]Fetching WLED device information...", spinner="toggle12"
+    ):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    if not device.playlists:
+        console.print("🚫[red] This device has no playlists")
+        return
+
+    table = Table(title="\nPlaylists stored in the WLED device", show_header=False)
+    table.add_column("Playlist", style="cyan bold")
+    for playlist in device.playlists.values():
+        table.add_row(playlist.name)
+
+    console.print(table)
+
+
+@cli.command("presets")
+async def command_presets(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the presets on the device."""
+    with console.status(
+        "[cyan]Fetching WLED device information...", spinner="toggle12"
+    ):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    if not device.presets:
+        console.print("🚫[red] This device has no presets")
+        return
+
+    table = Table(title="\nPresets stored in the WLED device", show_header=False)
+    table.add_column("Preset", style="cyan bold")
+    table.add_column("Quick label", style="cyan bold")
+    table.add_column("Active", style="green")
+    for preset in device.presets.values():
+        table.add_row(preset.name)
+        table.add_row(preset.quick_label)
+        table.add_row("Yes" if preset.on else "No")
+
+    console.print(table)
 
 
 @cli.command("releases")
