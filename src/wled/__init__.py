@@ -18,11 +18,12 @@ from .models import (
     Playlist,
     PlaylistEntry,
     Preset,
+    Releases,
     Segment,
     State,
     UDPSync,
 )
-from .wled import WLED
+from .wled import WLED, WLEDReleases
 
 __all__ = [
     "Device",
@@ -41,10 +42,12 @@ __all__ = [
     "State",
     "SyncGroup",
     "UDPSync",
+    "Releases",
     "WLED",
     "WLEDConnectionClosedError",
     "WLEDConnectionError",
     "WLEDConnectionTimeoutError",
     "WLEDError",
+    "WLEDReleases",
     "WLEDUpgradeError",
 ]

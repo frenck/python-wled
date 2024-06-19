@@ -428,12 +428,6 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """Version of the WLED software."""
 
-    version_latest_beta: AwesomeVersion | None = None
-    """Latest beta version available."""
-
-    version_latest_stable: AwesomeVersion | None = None
-    """Latest stable version available."""
-
     websocket: int | None = field(default=None, metadata=field_options(alias="ws"))
     """
     Number of currently connected WebSockets clients.
@@ -803,3 +797,11 @@ class Device:
             )
 
         return self
+
+
+@dataclass(frozen=True, kw_only=True)
+class Releases(BaseModel):
+    """Object holding WLED releases information."""
+
+    beta: AwesomeVersion | None
+    stable: AwesomeVersion | None

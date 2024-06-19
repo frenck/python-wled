@@ -5,13 +5,11 @@ from __future__ import annotations
 import asyncio
 import json
 import socket
-from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 import backoff
-from cachetools import TTLCache
 from yarl import URL
 
 from .exceptions import (
@@ -22,7 +20,7 @@ from .exceptions import (
     WLEDError,
     WLEDUpgradeError,
 )
-from .models import Device, Playlist, Preset
+from .models import Device, Playlist, Preset, Releases
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -30,9 +28,6 @@ if TYPE_CHECKING:
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
-
-
-VERSION_CACHE: TTLCache[str, str | None] = TTLCache(maxsize=16, ttl=7200)
 
 
 @dataclass
@@ -274,10 +269,6 @@ class WLED:
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
 
-            with suppress(WLEDError):
-                versions = await self.get_wled_versions_from_github()
-                data["info"].update(versions)
-
             return Device(data)
 
         if not (presets := await self.request("/presets.json")):
@@ -294,10 +285,6 @@ class WLED:
                 " response on state & info update",
             )
             raise WLEDEmptyResponseError(msg)
-
-        with suppress(WLEDError):
-            versions = await self.get_wled_versions_from_github()
-            state_info["info"].update(versions)
 
         self._device.update_from_dict(state_info)
 
@@ -691,8 +678,49 @@ class WLED:
             )
             raise WLEDConnectionError(msg) from exception
 
+    async def reset(self) -> None:
+        """Reboot WLED device."""
+        await self.request("/reset")
+
+    async def close(self) -> None:
+        """Close open client (WebSocket) session."""
+        await self.disconnect()
+        if self.session and self._close_session:
+            await self.session.close()
+
+    async def __aenter__(self) -> Self:
+        """Async enter.
+
+        Returns
+        -------
+            The WLED object.
+
+        """
+        return self
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        """Async exit.
+
+        Args:
+        ----
+            _exc_info: Exec type.
+
+        """
+        await self.close()
+
+
+@dataclass
+class WLEDReleases:
+    """Get version information for WLED."""
+
+    request_timeout: float = 8.0
+    session: aiohttp.client.ClientSession | None = None
+
+    _client: aiohttp.ClientWebSocketResponse | None = None
+    _close_session: bool = False
+
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
-    async def get_wled_versions_from_github(self) -> dict[str, str | None]:
+    async def releases(self) -> Releases:
         """Fetch WLED version information from GitHub.
 
         Returns
@@ -709,14 +737,9 @@ class WLED:
                 version information.
 
         """
-        with suppress(KeyError):
-            return {
-                "version_latest_stable": VERSION_CACHE["stable"],
-                "version_latest_beta": VERSION_CACHE["beta"],
-            }
-
         if self.session is None:
-            return {"version_latest_stable": None, "version_latest_beta": None}
+            self.session = aiohttp.ClientSession()
+            self._close_session = True
 
         try:
             async with asyncio.timeout(self.request_timeout):
@@ -725,10 +748,12 @@ class WLED:
                     headers={"Accept": "application/json"},
                 )
         except asyncio.TimeoutError as exception:
-            msg = "Timeout occurred while fetching WLED version information from GitHub"
+            msg = (
+                "Timeout occurred while fetching WLED releases information from GitHub"
+            )
             raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = "Timeout occurred while communicating with GitHub for WLED version"
+            msg = "Timeout occurred while communicating with GitHub for WLED releases"
             raise WLEDConnectionError(msg) from exception
 
         content_type = response.headers.get("Content-Type", "")
@@ -741,7 +766,7 @@ class WLED:
             raise WLEDError(response.status, {"message": contents.decode("utf8")})
 
         if "application/json" not in content_type:
-            msg = "No JSON response from GitHub while retrieving version information"
+            msg = "No JSON response from GitHub while retrieving WLED releases"
             raise WLEDError(msg)
 
         releases = await response.json()
@@ -761,22 +786,13 @@ class WLED:
             if version_latest is not None and version_latest_beta is not None:
                 break
 
-        # Cache results
-        VERSION_CACHE["stable"] = version_latest
-        VERSION_CACHE["beta"] = version_latest_beta
-
-        return {
-            "version_latest_stable": version_latest,
-            "version_latest_beta": version_latest_beta,
-        }
-
-    async def reset(self) -> None:
-        """Reboot WLED device."""
-        await self.request("/reset")
+        return Releases(
+            beta=version_latest_beta,
+            stable=version_latest,
+        )
 
     async def close(self) -> None:
-        """Close open client (WebSocket) session."""
-        await self.disconnect()
+        """Close open client session."""
         if self.session and self._close_session:
             await self.session.close()
 
@@ -785,7 +801,7 @@ class WLED:
 
         Returns
         -------
-            The WLED object.
+            The WLEDReleases object.
 
         """
         return self
