@@ -234,42 +234,27 @@ class WLED:
         max_tries=3,
         logger=None,
     )
-    async def update(self, *, full_update: bool = False) -> Device:
+    async def update(self) -> Device:
         """Get all information about the device in a single call.
 
         This method updates all WLED information available with a single API
         call.
 
-        Args:
-        ----
-            full_update: Force a full update from the WLED Device.
-
-        Returns:
+        Returns
         -------
             WLED Device data.
 
-        Raises:
+        Raises
         ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
 
         """
-        if self._device is None or full_update:
-            if not (data := await self.request("/json")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on full update",
-                )
-                raise WLEDEmptyResponseError(msg)
-
-            if not (presets := await self.request("/presets.json")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
-                )
-                raise WLEDEmptyResponseError(msg)
-            data["presets"] = presets
-
-            return Device(data)
+        if not (data := await self.request("/json")):
+            msg = (
+                f"WLED device at {self.host} returned an empty API"
+                " response on full update",
+            )
+            raise WLEDEmptyResponseError(msg)
 
         if not (presets := await self.request("/presets.json")):
             msg = (
@@ -277,16 +262,12 @@ class WLED:
                 " response on presets update",
             )
             raise WLEDEmptyResponseError(msg)
-        self._device.update_from_dict({"presets": presets})
+        data["presets"] = presets
 
-        if not (state_info := await self.request("/json/si")):
-            msg = (
-                f"WLED device at {self.host} returned an empty API"
-                " response on state & info update",
-            )
-            raise WLEDEmptyResponseError(msg)
-
-        self._device.update_from_dict(state_info)
+        if not self._device:
+            self._device = Device.from_dict(data)
+        else:
+            self._device.update_from_dict(data)
 
         return self._device
 
@@ -322,7 +303,7 @@ class WLED:
         await self.request("/json/state", method="POST", data=state)
 
     # pylint: disable=too-many-locals, too-many-branches, too-many-arguments
-    async def segment(  # noqa: PLR0913
+    async def segment(  # noqa: PLR0912, PLR0913
         self,
         segment_id: int,
         *,
@@ -409,7 +390,7 @@ class WLED:
             segment["fx"] = next(
                 (
                     item.effect_id
-                    for item in self._device.effects
+                    for item in self._device.effects.values()
                     if item.name.lower() == effect.lower()
                 ),
                 None,
@@ -420,7 +401,7 @@ class WLED:
             segment["pal"] = next(
                 (
                     item.palette_id
-                    for item in self._device.palettes
+                    for item in self._device.palettes.values()
                     if item.name.lower() == palette.lower()
                 ),
                 None,
@@ -435,12 +416,15 @@ class WLED:
         if color_primary is not None:
             colors.append(color_primary)
         elif color_secondary is not None or color_tertiary is not None:
-            colors.append(self._device.state.segments[segment_id].color_primary)
+            colors.append(self._device.state.segments[segment_id].color.primary)
 
         if color_secondary is not None:
             colors.append(color_secondary)
         elif color_tertiary is not None:
-            colors.append(self._device.state.segments[segment_id].color_secondary)
+            if secondary := self._device.state.segments[segment_id].color.secondary:
+                colors.append(secondary)
+            else:
+                colors.append((0, 0, 0))
 
         if color_tertiary is not None:
             colors.append(color_tertiary)
@@ -486,7 +470,7 @@ class WLED:
             preset = next(
                 (
                     item.preset_id
-                    for item in self._device.presets
+                    for item in self._device.presets.values()
                     if item.name.lower() == preset.lower()
                 ),
                 preset,
@@ -510,7 +494,7 @@ class WLED:
             playlist = next(
                 (
                     item.playlist_id
-                    for item in self._device.playlists
+                    for item in self._device.playlists.values()
                     if item.name.lower() == playlist.lower()
                 ),
                 playlist,

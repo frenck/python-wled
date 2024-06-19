@@ -14,7 +14,6 @@ from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
-from .exceptions import WLEDError
 from .utils import get_awesome_version
 
 
@@ -693,42 +692,58 @@ class Playlist(BaseModel):
         return obj
 
 
-class Device:
+@dataclass(kw_only=True)
+class Device(BaseModel):
     """Object holding all information of WLED."""
 
-    effects: dict[int, Effect]
     info: Info
-    palettes: dict[int, Palette]
-    playlists: dict[int, Playlist]
-    presets: dict[int, Preset]
     state: State
 
-    def __init__(self, data: dict[str, Any]) -> None:
-        """Initialize an empty WLED device class.
+    effects: dict[int, Effect] = field(default_factory=dict)
+    palettes: dict[int, Palette] = field(default_factory=dict)
+    playlists: dict[int, Playlist] = field(default_factory=dict)
+    presets: dict[int, Preset] = field(default_factory=dict)
 
-        Args:
-        ----
-            data: The full API response from a WLED device.
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Device object."""
+        if _effects := d.get("effects"):
+            d["effects"] = {
+                effect_id: {"effect_id": effect_id, "name": name}
+                for effect_id, name in enumerate(_effects)
+            }
 
-        Raises:
-        ------
-            WLEDError: In case the given API response is incomplete in a way
-                that a Device object cannot be constructed from it.
+        if _palettes := d.get("palettes"):
+            d["palettes"] = {
+                palette_id: {"palette_id": palette_id, "name": name}
+                for palette_id, name in enumerate(_palettes)
+            }
 
-        """
-        self.effects = {}
-        self.palettes = {}
-        self.playlists = {}
-        self.presets = {}
+        if _presets := d.get("presets"):
+            _presets = _presets.copy()
+            # The preset data contains both presets and playlists,
+            # we split those out, so we can handle those correctly.
+            d["presets"] = {
+                int(preset_id): preset | {"preset_id": int(preset_id)}
+                for preset_id, preset in _presets.items()
+                if "playlist" not in preset
+                or "ps" not in preset["playlist"]
+                or not preset["playlist"]["ps"]
+            }
+            # Nobody cares about 0.
+            d["presets"].pop(0, None)
 
-        # Check if all elements are in the passed dict, else raise an Error
-        if any(
-            k not in data and data[k] is not None
-            for k in ("effects", "palettes", "info", "state")
-        ):
-            msg = "WLED data is incomplete, cannot construct device object"
-            raise WLEDError(msg)
-        self.update_from_dict(data)
+            d["playlists"] = {
+                int(playlist_id): playlist | {"playlist_id": int(playlist_id)}
+                for playlist_id, playlist in _presets.items()
+                if "playlist" in playlist
+                and "ps" in playlist["playlist"]
+                and playlist["playlist"]["ps"]
+            }
+            # Nobody cares about 0.
+            d["playlists"].pop(0, None)
+
+        return d
 
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
@@ -745,14 +760,14 @@ class Device:
         """
         if _effects := data.get("effects"):
             self.effects = {
-                effect_id: Effect(effect_id=effect_id, name=effect)
-                for effect_id, effect in enumerate(_effects)
+                effect_id: Effect(effect_id=effect_id, name=name)
+                for effect_id, name in enumerate(_effects)
             }
 
         if _palettes := data.get("palettes"):
             self.palettes = {
-                palette_id: Palette(palette_id=palette_id, name=palette)
-                for palette_id, palette in enumerate(_palettes)
+                palette_id: Palette(palette_id=palette_id, name=name)
+                for palette_id, name in enumerate(_palettes)
             }
 
         if _presets := data.get("presets"):

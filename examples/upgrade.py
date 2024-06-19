@@ -27,7 +27,7 @@ async def main() -> None:
         print("Waiting for WLED to come back....")
         await asyncio.sleep(5)
 
-        device = await led.update(full_update=True)
+        device = await led.update()
         print(f"Current version: {device.info.version}")
 
 
