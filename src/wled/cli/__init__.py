@@ -8,14 +8,47 @@ from rich.table import Table
 from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
+from wled import WLEDReleases
+
 from .async_typer import AsyncTyper
 
 cli = AsyncTyper(help="WLED CLI", no_args_is_help=True, add_completion=False)
 console = Console()
 
 
+@cli.command("releases")
+async def releases() -> None:
+    """Show the latest release information of WLED."""
+    with console.status(
+        "[cyan]Fetching latest release information...", spinner="toggle12"
+    ):
+        async with WLEDReleases() as rel:
+            latest = await rel.releases()
+    console.print("✅[green]Success!")
+
+    table = Table(
+        title="\n\nFound WLED Releases", header_style="cyan bold", show_lines=True
+    )
+    table.add_column("Release channel")
+    table.add_column("Latest version")
+    table.add_column("Release notes")
+
+    table.add_row(
+        "Stable",
+        latest.stable,
+        f"https://github.com/Aircoookie/WLED/releases/v{latest.stable}",
+    )
+    table.add_row(
+        "Beta",
+        latest.beta,
+        f"https://github.com/Aircoookie/WLED/releases/v{latest.beta}",
+    )
+
+    console.print(table)
+
+
 @cli.command("scan")
-async def test() -> None:
+async def scan() -> None:
     """Scan for WLED devices on the network."""
     zeroconf = AsyncZeroconf()
     background_tasks = set()
