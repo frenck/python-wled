@@ -2,6 +2,10 @@
 
 from enum import IntEnum, IntFlag
 
+from awesomeversion import AwesomeVersion
+
+MIN_REQUIRED_VERSION = AwesomeVersion("0.14.0")
+
 
 class LightCapability(IntFlag):
     """Enumeration representing the capabilities of a light in WLED."""

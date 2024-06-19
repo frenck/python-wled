@@ -13,7 +13,14 @@ from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import SerializableType, SerializationStrategy
 
-from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
+from .const import (
+    MIN_REQUIRED_VERSION,
+    LightCapability,
+    LiveDataOverride,
+    NightlightMode,
+    SyncGroup,
+)
+from .exceptions import WLEDUnsupportedVersionError
 from .utils import get_awesome_version
 
 
@@ -707,6 +714,14 @@ class Device(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
+        if (version := d.get("info", {}).get("ver")) and version < MIN_REQUIRED_VERSION:
+            msg = (
+                f"Unsupported firmware version {version}. "
+                f"Minimum required version is {MIN_REQUIRED_VERSION}. "
+                f"Please update your WLED device."
+            )
+            raise WLEDUnsupportedVersionError(msg)
+
         if _effects := d.get("effects"):
             d["effects"] = {
                 effect_id: {"effect_id": effect_id, "name": name}

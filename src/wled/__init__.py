@@ -6,6 +6,7 @@ from .exceptions import (
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
     WLEDError,
+    WLEDUnsupportedVersionError,
     WLEDUpgradeError,
 )
 from .models import (
@@ -38,16 +39,17 @@ __all__ = [
     "Playlist",
     "PlaylistEntry",
     "Preset",
+    "Releases",
     "Segment",
     "State",
     "SyncGroup",
     "UDPSync",
-    "Releases",
     "WLED",
     "WLEDConnectionClosedError",
     "WLEDConnectionError",
     "WLEDConnectionTimeoutError",
     "WLEDError",
     "WLEDReleases",
+    "WLEDUnsupportedVersionError",
     "WLEDUpgradeError",
 ]
