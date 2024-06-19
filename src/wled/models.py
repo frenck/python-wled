@@ -12,7 +12,7 @@ from awesomeversion import AwesomeVersion
 from mashumaro import field_options
 from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
-from mashumaro.types import SerializationStrategy
+from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
 from .exceptions import WLEDError
@@ -60,6 +60,38 @@ class TimestampSerializationStrategy(SerializationStrategy, use_annotations=True
     def deserialize(self, value: float) -> datetime:
         """Deserialize timestamp to datetime object."""
         return datetime.fromtimestamp(value, tz=UTC)
+
+
+@dataclass
+class Color(SerializableType):
+    """Object holding color information in WLED."""
+
+    primary: tuple[int, int, int, int] | tuple[int, int, int]
+    secondary: tuple[int, int, int, int] | tuple[int, int, int] | None = None
+    tertiary: tuple[int, int, int, int] | tuple[int, int, int] | None = None
+
+    def _serialize(self) -> list[tuple[int, int, int, int] | tuple[int, int, int]]:
+        colors = [self.primary]
+        if self.secondary is not None:
+            colors.append(self.secondary)
+            if self.tertiary is not None:
+                colors.append(self.tertiary)
+        return colors
+
+    @classmethod
+    def _deserialize(
+        cls, value: list[tuple[int, int, int, int] | tuple[int, int, int] | str]
+    ) -> Color:
+        # Some values in the list can be strings, which indicates that the
+        # color is a hex color value.
+        return cls(
+            *[
+                tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
+                if isinstance(color, str)
+                else color
+                for color in value
+            ]
+        )
 
 
 class BaseModel(DataClassORJSONMixin):
@@ -147,8 +179,8 @@ class Palette(BaseModel):
     palette_id: int
 
 
-@dataclass
-class Segment:
+@dataclass(kw_only=True)
+class Segment(BaseModel):
     """Object holding segment state in WLED.
 
     Args:
@@ -161,86 +193,96 @@ class Segment:
 
     """
 
-    brightness: int
-    clones: int
-    color_primary: tuple[int, int, int, int] | tuple[int, int, int]
-    color_secondary: tuple[int, int, int, int] | tuple[int, int, int]
-    color_tertiary: tuple[int, int, int, int] | tuple[int, int, int]
-    effect: Effect
-    intensity: int
-    length: int
+    brightness: int = field(default=0, metadata=field_options(alias="bri"))
+    """Brightness of the segment."""
+
+    clones: int = field(default=-1, metadata=field_options(alias="cln"))
+    """The segment this segment clones."""
+
+    color: Color = field(metadata=field_options(alias="col"))
+    """The primary, secondary (background) and tertiary colors of the segment.
+
+    Each color is an tuple of 3 or 4 bytes, which represents a RGB(W) color,
+    i.e. (255,170,0) or (64,64,64,64).
+
+    WLED can also return hex color values as strings, this library will
+    automatically convert those to RGB values to keep the data consistent.
+    """
+
+    effect_id: int | str = field(default=0, metadata=field_options(alias="fx"))
+    """ID of the effect.
+
+    ~ to increment, ~- to decrement, or "r" for random.
+    """
+
+    intensity: int | str = field(default=0, metadata=field_options(alias="ix"))
+    """Intensity of the segment.
+
+    Effect intensity. ~ to increment, ~- to decrement. ~10 to increment by 10,
+    ~-10 to decrement by 10.
+    """
+
+    length: int = field(default=0, metadata=field_options(alias="len"))
+    """Length of the segment (stop - start).
+
+    Stop has preference, so if it is included, length is ignored.
+    """
+
     on: bool
-    palette: Palette
-    reverse: bool
+    """The on/off state of the segment."""
+
+    palette_id: int | str = field(default=0, metadata=field_options(alias="pal"))
+    """ID of the palette.
+
+    ~ to increment, ~- to decrement, or r for random.
+    """
+
+    reverse: bool = field(default=False, metadata=field_options(alias="rev"))
+    """
+    Flips the segment (in horizontal dimension for 2D set-up),
+    causing animations to change direction.
+    """
+
     segment_id: int
-    selected: bool
-    speed: int
-    start: int
-    stop: int
+    """The ID of the segment."""
 
-    @staticmethod
-    # pylint: disable-next=too-many-arguments
-    def from_dict(  # noqa: PLR0913
-        segment_id: int,
-        data: dict[str, Any],
-        *,
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-        state_on: bool,
-        state_brightness: int,
-    ) -> Segment:
-        """Return Segment object from WLED API response.
+    selected: bool = field(default=False, metadata=field_options(alias="sel"))
+    """
+    Indicates if the segment is selected.
 
-        Args:
-        ----
-            segment_id: The ID of the LED strip segment.
-            data: The segment data received from the WLED device.
-            effects: An indexed dict of Effect objects.
-            palettes: An indexed dict of Palette objects.
-            state_on: Boolean the represents the on/off state of this segment.
-            state_brightness: The brightness level of this segment.
+    Selected segments will have their state (color/FX) updated by APIs that
+    don't support segments (e.g. UDP sync, HTTP API). If no segment is selected,
+    the first segment (id:0) will behave as if selected.
 
-        Returns:
-        -------
-            An Segment object.
+    WLED will report the state of the first (lowest id) segment that is selected
+    to APIs (HTTP, MQTT, Blynk...), or mainseg in case no segment is selected
+    and for the UDP API.
 
-        """
-        start = data.get("start", 0)
-        stop = data.get("stop", 0)
-        length = data.get("len", (stop - start))
+    Live data is always applied to all LEDs regardless of segment configuration.
+    """
 
-        colors = data.get("col", [])
-        primary_color, secondary_color, tertiary_color = (0, 0, 0)
-        try:
-            primary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-            secondary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-            tertiary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-        except IndexError:
-            pass
+    speed: int = field(default=0, metadata=field_options(alias="sx"))
+    """Relative effect speed.
 
-        effect = effects.get(data.get("fx", 0)) or Effect(effect_id=0, name="Unknown")
-        palette = palettes.get(data.get("pal", 0)) or Palette(
-            palette_id=0, name="Unknown"
-        )
+    ~ to increment, ~- to decrement. ~10 to increment by 10, ~-10 to decrement by 10.
+    """
 
-        return Segment(
-            brightness=data.get("bri", state_brightness),
-            clones=data.get("cln", -1),
-            color_primary=primary_color,  # type: ignore[arg-type]
-            color_secondary=secondary_color,  # type: ignore[arg-type]
-            color_tertiary=tertiary_color,  # type: ignore[arg-type]
-            effect=effect,
-            intensity=data.get("ix", 0),
-            length=length,
-            on=data.get("on", state_on),
-            palette=palette,
-            reverse=data.get("rev", False),
-            segment_id=segment_id,
-            selected=data.get("sel", False),
-            speed=data.get("sx", 0),
-            start=start,
-            stop=stop,
-        )
+    start: int = 0
+    """LED the segment starts at.
+
+    For 2D set-up it determines column where segment starts,
+    from top-left corner of the matrix.
+    """
+
+    stop: int = 0
+    """LED the segment stops at, not included in range.
+
+    If stop is set to a lower or equal value than start (setting to 0 is
+    recommended), the segment is invalidated and deleted.
+
+    For 2D set-up it determines column where segment stops,
+    from top-left corner of the matrix.
+    """
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -455,98 +497,78 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         return obj
 
 
-@dataclass
-class State:
+@dataclass(kw_only=True)
+class State(BaseModel):
     """Object holding the state of WLED."""
 
-    brightness: int
-    nightlight: Nightlight
-    on: bool
-    playlist: Playlist | int | None
-    preset: Preset | int | None
-    segments: list[Segment]
-    sync: UDPSync
-    transition: int
-    lor: LiveDataOverride
+    brightness: int = field(default=1, metadata=field_options(alias="bri"))
+    """Brightness of the light.
 
-    @property
-    def playlist_active(self) -> bool:
-        """Return if a playlist is currently active.
+    If on is false, contains last brightness when light was on (aka brightness
+    when on is set to true). Setting bri to 0 is supported but it is
+    recommended to use the range 1-255 and use on: false to turn off.
 
-        Returns
-        -------
-            True if there is currently a playlist active, False otherwise.
+    The state response will never have the value 0 for bri.
+    """
 
-        """
-        return self.playlist == -1
+    nightlight: Nightlight = field(metadata=field_options(alias="nl"))
+    """Nightlight state."""
 
-    @property
-    def preset_active(self) -> bool:
-        """Return if a preset is currently active.
+    on: bool = False
+    """The on/off state of the light."""
 
-        Returns
-        -------
-            True is a preset is currently active, False otherwise.
+    playlist_id: int | None = field(default=-1, metadata=field_options(alias="pl"))
+    """ID of currently set playlist.."""
 
-        """
-        return self.preset == -1
+    preset_id: int | None = field(default=-1, metadata=field_options(alias="ps"))
+    """ID of currently set preset."""
 
-    @staticmethod
-    def from_dict(
-        data: dict[str, Any],
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-        presets: dict[int, Preset],
-        playlists: dict[int, Playlist],
-    ) -> State:
-        """Return State object from WLED API response.
+    segments: dict[int, Segment] = field(
+        default_factory=dict, metadata=field_options(alias="seg")
+    )
+    """Segments are individual parts of the LED strip."""
 
-        Args:
-        ----
-            data: The state response received from the WLED device API.
-            effects: A dict index of effect objects.
-            palettes: A dict index of palette objects.
-            presets: A dict index of preset objects.
-            playlists: A dict index of playlist objects.
+    sync: UDPSync = field(metadata=field_options(alias="udpn"))
+    """UDP sync state."""
 
-        Returns:
-        -------
-            A State object.
+    transition: int = 0
+    """Duration of the crossfade between different colors/brightness levels.
 
-        """
-        brightness = data.get("bri", 1)
-        on = data.get("on", False)
-        lor = data.get("lor", 0)
+    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    """
 
-        segments = [
-            Segment.from_dict(
-                segment_id=segment_id,
-                data=segment,
-                effects=effects,
-                palettes=palettes,
-                state_on=on,
-                state_brightness=brightness,
-            )
-            for segment_id, segment in enumerate(data.get("seg", []))
-        ]
+    live_data_override: LiveDataOverride = field(metadata=field_options(alias="lor"))
+    """Live data override.
 
-        playlist = data.get("pl", -1)
-        preset = data.get("ps", -1)
-        if presets:
-            playlist = playlists.get(playlist)
-            preset = presets.get(preset)
+    0 is off, 1 is override until live data ends, 2 is override until ESP reboot.
+    """
 
-        return State(
-            brightness=brightness,
-            nightlight=Nightlight.from_dict(data.get("nl", {})),
-            on=on,
-            playlist=playlist,
-            preset=preset,
-            segments=segments,
-            sync=UDPSync.from_dict(data.get("udpn", {})),
-            transition=data.get("transition", 0),
-            lor=LiveDataOverride(lor),
-        )
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for State object."""
+        # Segments are not indexes, which is suboptimal for the user.
+        # We will add the segment ID to the segment data and convert
+        # the segments list to an indexed dict.
+        d["seg"] = {
+            segment_id: segment | {"segment_id": segment_id}
+            for segment_id, segment in enumerate(d.get("seg", []))
+        }
+        return d
+
+    @classmethod
+    def __post_deserialize__(cls, obj: State) -> State:
+        """Post deserialize hook for State object."""
+        # If no playlist is active, the value will be -1. We want to represent
+        # this as None.
+        if obj.playlist_id == -1:
+            obj.playlist_id = None
+
+        # If no preset is active, the value will be -1. We want to represent
+        # this as None.
+        if obj.preset_id == -1:
+            obj.preset_id = None
+
+        return obj
 
 
 @dataclass
@@ -788,13 +810,7 @@ class Device:
             self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
-            self.state = State.from_dict(
-                _state,
-                self._indexed_effects,
-                self._indexed_palettes,
-                self._indexed_presets,
-                self._indexed_playlists,
-            )
+            self.state = State.from_dict(_state)
 
         return self
 
