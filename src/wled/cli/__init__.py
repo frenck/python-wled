@@ -1,21 +1,67 @@
 """Asynchronous Python client for WLED."""
 
 import asyncio
+import sys
 from typing import Annotated
 
 import typer
 from rich.console import Console
 from rich.live import Live
+from rich.panel import Panel
 from rich.table import Table
 from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
 from wled import WLED, WLEDReleases
+from wled.exceptions import WLEDConnectionError, WLEDUnsupportedVersionError
 
 from .async_typer import AsyncTyper
 
 cli = AsyncTyper(help="WLED CLI", no_args_is_help=True, add_completion=False)
 console = Console()
+
+
+@cli.error_handler(WLEDConnectionError)
+def connection_error_handler(_: WLEDConnectionError) -> None:
+    """Handle connection errors."""
+    message = """
+    Could not connect to the specified WLED device. Please make sure that
+    the device is powered on, connected to the network and that you have
+    specified the correct IP address or hostname.
+
+    If you are not sure what the IP address or hostname of your WLED device
+    is, you can use the scan command to find it:
+
+    wled scan
+    """
+    panel = Panel(
+        message,
+        expand=False,
+        title="Connection error",
+        border_style="red bold",
+    )
+    console.print(panel)
+    sys.exit(1)
+
+
+@cli.error_handler(WLEDUnsupportedVersionError)
+def unsupported_version_error_handler(
+    _: WLEDUnsupportedVersionError,
+) -> None:
+    """Handle unsupported version errors."""
+    message = """
+    The specified WLED device is running an unsupported version.
+
+    Currently only 0.14.0 and higher is supported
+    """
+    panel = Panel(
+        message,
+        expand=False,
+        title="Unsupported version",
+        border_style="red bold",
+    )
+    console.print(panel)
+    sys.exit(1)
 
 
 @cli.command("info")
