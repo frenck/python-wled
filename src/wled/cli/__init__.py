@@ -242,14 +242,12 @@ async def command_presets(
         console.print("🚫[red] This device has no presets")
         return
 
-    table = Table(title="\nPresets stored in the WLED device", show_header=False)
+    table = Table(title="\nPresets stored in the WLED device")
     table.add_column("Preset", style="cyan bold")
     table.add_column("Quick label", style="cyan bold")
     table.add_column("Active", style="green")
     for preset in device.presets.values():
-        table.add_row(preset.name)
-        table.add_row(preset.quick_label)
-        table.add_row("Yes" if preset.on else "No")
+        table.add_row(preset.name, preset.quick_label, "Yes" if preset.on else "No")
 
     console.print(table)
 

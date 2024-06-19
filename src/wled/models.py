@@ -202,7 +202,7 @@ class Segment(BaseModel):
     clones: int = field(default=-1, metadata=field_options(alias="cln"))
     """The segment this segment clones."""
 
-    color: Color = field(metadata=field_options(alias="col"))
+    color: Color | None = field(default=None, metadata=field_options(alias="col"))
     """The primary, secondary (background) and tertiary colors of the segment.
 
     Each color is an tuple of 3 or 4 bytes, which represents a RGB(W) color,
@@ -231,7 +231,7 @@ class Segment(BaseModel):
     Stop has preference, so if it is included, length is ignored.
     """
 
-    on: bool
+    on: bool | None = field(default=None)
     """The on/off state of the segment."""
 
     palette_id: int | str = field(default=0, metadata=field_options(alias="pal"))
@@ -246,7 +246,7 @@ class Segment(BaseModel):
     causing animations to change direction.
     """
 
-    segment_id: int
+    segment_id: int | None = field(default=None, metadata=field_options(alias="id"))
     """The ID of the segment."""
 
     selected: bool = field(default=False, metadata=field_options(alias="sel"))
@@ -551,7 +551,7 @@ class State(BaseModel):
         # We will add the segment ID to the segment data and convert
         # the segments list to an indexed dict.
         d["seg"] = {
-            segment_id: segment | {"segment_id": segment_id}
+            segment_id: segment | {"id": segment_id}
             for segment_id, segment in enumerate(d.get("seg", []))
         }
         return d
@@ -597,22 +597,10 @@ class Preset(BaseModel):
     main_segment_id: int = field(default=0, metadata=field_options(alias="mainseg"))
     """The main segment of the preset."""
 
-    segments: dict[int, Segment] = field(
-        default_factory=dict, metadata=field_options(alias="seg")
+    segments: list[Segment] = field(
+        default_factory=list, metadata=field_options(alias="seg")
     )
     """Segments are individual parts of the LED strip."""
-
-    @classmethod
-    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
-        """Pre deserialize hook for Preset object."""
-        # Segments are not indexes, which is suboptimal for the user.
-        # We will add the segment ID to the segment data and convert
-        # the segments list to an indexed dict.
-        d["seg"] = {
-            segment_id: segment | {"segment_id": segment_id}
-            for segment_id, segment in enumerate(d.get("seg", []))
-        }
-        return d
 
     @classmethod
     def __post_deserialize__(cls, obj: Preset) -> Preset:
@@ -623,13 +611,13 @@ class Preset(BaseModel):
         return obj
 
 
-@dataclass
-class PlaylistEntry:
+@dataclass(frozen=True, kw_only=True)
+class PlaylistEntry(BaseModel):
     """Object representing a entry in a WLED playlist."""
 
-    duration: int
+    duration: int = field(metadata=field_options(alias="dur"))
     entry_id: int
-    preset: Preset | None
+    preset: int = field(metadata=field_options(alias="ps"))
     transition: int
 
 
@@ -662,6 +650,7 @@ class Playlist(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for State object."""
+        d |= d["playlist"]
         # Duration, presets and transitions values are separate lists stored
         # in the playlist data. We will combine those into a list of
         # dictionaries, which will make it easier to work with the data.
@@ -681,12 +670,17 @@ class Playlist(BaseModel):
             d["transitions"] = [d["transitions"]] * item_count
 
         # Now we can easily combine the data into a list of dictionaries.
-        d["entries"] = {
-            {"entry_id": entry_id, "ps": ps, "dur": dur, "transition": transition}
+        d["entries"] = [
+            {
+                "entry_id": entry_id,
+                "ps": ps,
+                "dur": dur,
+                "transition": transition,
+            }
             for entry_id, (ps, dur, transition) in enumerate(
                 zip(d["ps"], d["dur"], d["transitions"])
             )
-        }
+        ]
 
         return d
 
