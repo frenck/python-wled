@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import socket
-from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 import backoff
-from awesomeversion import AwesomeVersion, AwesomeVersionException
-from cachetools import TTLCache
+import orjson
 from yarl import URL
 
 from .exceptions import (
@@ -23,13 +20,14 @@ from .exceptions import (
     WLEDError,
     WLEDUpgradeError,
 )
-from .models import Device, Live, Playlist, Preset
+from .models import Device, Playlist, Preset, Releases
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
+    from awesomeversion import AwesomeVersion
 
-VERSION_CACHE: TTLCache[str, str | None] = TTLCache(maxsize=16, ttl=7200)
+    from .const import LiveDataOverride
 
 
 @dataclass
@@ -43,8 +41,6 @@ class WLED:
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
-    _supports_si_request: bool | None = None
-    _supports_presets: bool | None = None
 
     @property
     def connected(self) -> bool:
@@ -204,24 +200,16 @@ class WLED:
                 if content_type == "application/json":
                     raise WLEDError(
                         response.status,
-                        json.loads(contents.decode("utf8")),
+                        orjson.loads(contents),
                     )
                 raise WLEDError(
                     response.status,
                     {"message": contents.decode("utf8")},
                 )
 
+            response_data = await response.text()
             if "application/json" in content_type:
-                response_data = await response.json()
-                if (
-                    method == "POST"
-                    and uri == "/json/state"
-                    and self._device is not None
-                    and data is not None
-                ):
-                    self._device.update_from_dict(data={"state": response_data})
-            else:
-                response_data = await response.text()
+                response_data = orjson.loads(response_data)
 
         except asyncio.TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
@@ -229,6 +217,14 @@ class WLED:
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error occurred while communicating with WLED device at {self.host}"
             raise WLEDConnectionError(msg) from exception
+
+        if "application/json" in content_type and (
+            method == "POST"
+            and uri == "/json/state"
+            and self._device is not None
+            and data is not None
+        ):
+            self._device.update_from_dict(data={"state": response_data})
 
         return response_data
 
@@ -238,107 +234,40 @@ class WLED:
         max_tries=3,
         logger=None,
     )
-    async def update(self, *, full_update: bool = False) -> Device:
+    async def update(self) -> Device:
         """Get all information about the device in a single call.
 
         This method updates all WLED information available with a single API
         call.
 
-        Args:
-        ----
-            full_update: Force a full update from the WLED Device.
-
-        Returns:
+        Returns
         -------
             WLED Device data.
 
-        Raises:
+        Raises
         ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
 
         """
-        if self._device is None or full_update:
-            if not (data := await self.request("/json")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on full update",
-                )
-                raise WLEDEmptyResponseError(msg)
-
-            # Try to get presets, introduced in WLED 0.11
-            try:
-                presets = await self.request("/presets.json")
-                data["presets"] = presets
-                self._supports_presets = True
-            except WLEDError:
-                self._supports_presets = False
-
-            with suppress(WLEDError):
-                versions = await self.get_wled_versions_from_github()
-                data["info"].update(versions)
-
-            self._device = Device(data)
-
-            # Try to figure out if this version supports
-            # a single info and state call
-            try:
-                self._supports_si_request = self._device.info.version >= AwesomeVersion(
-                    "0.10.0",
-                )
-            except AwesomeVersionException:
-                # Could be a manual build one? Lets poll for it
-                try:
-                    await self.request("/json/si")
-                    self._supports_si_request = True
-                except WLEDError:
-                    self._supports_si_request = False
-
-            return self._device
-
-        if self._supports_presets:
-            if not (presets := await self.request("/presets.json")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
-                )
-                raise WLEDEmptyResponseError(msg)
-            self._device.update_from_dict({"presets": presets})
-
-        # Handle legacy state and update in separate requests
-        if not self._supports_si_request:
-            if not (info := await self.request("/json/info")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on info update",
-                )
-                raise WLEDEmptyResponseError(msg)
-
-            if not (state := await self.request("/json/state")):
-                msg = (
-                    f"WLED device {self.host} returned an empty API"
-                    " response on state update",
-                )
-                raise WLEDEmptyResponseError(msg)
-
-            with suppress(WLEDError):
-                versions = await self.get_wled_versions_from_github()
-                info.update(versions)
-
-            self._device.update_from_dict({"info": info, "state": state})
-            return self._device
-
-        if not (state_info := await self.request("/json/si")):
+        if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on state & info update",
+                " response on full update",
             )
             raise WLEDEmptyResponseError(msg)
 
-        with suppress(WLEDError):
-            versions = await self.get_wled_versions_from_github()
-            state_info["info"].update(versions)
+        if not (presets := await self.request("/presets.json")):
+            msg = (
+                f"WLED device at {self.host} returned an empty API"
+                " response on presets update",
+            )
+            raise WLEDEmptyResponseError(msg)
+        data["presets"] = presets
 
-        self._device.update_from_dict(state_info)
+        if not self._device:
+            self._device = Device.from_dict(data)
+        else:
+            self._device.update_from_dict(data)
 
         return self._device
 
@@ -439,7 +368,7 @@ class WLED:
             msg = "Unable to communicate with WLED to get the current state"
             raise WLEDError(msg)
 
-        state = {}
+        state = {}  # type: ignore[var-annotated]
         segment = {
             "bri": brightness,
             "cln": clones,
@@ -456,24 +385,12 @@ class WLED:
             "sx": speed,
         }
 
-        # > WLED 0.10.0, does not support segment control on/bri.
-        # Luckily, the same release introduced si requests.
-        # Therefore, we can use that capability check to decide.
-        if not self._supports_si_request:
-            # This device does not support on/bri in the segment
-            del segment["on"]
-            del segment["bri"]
-            state = {
-                "bri": brightness,
-                "on": on,
-            }
-
         # Find effect if it was based on a name
         if effect is not None and isinstance(effect, str):
             segment["fx"] = next(
                 (
                     item.effect_id
-                    for item in self._device.effects
+                    for item in self._device.effects.values()
                     if item.name.lower() == effect.lower()
                 ),
                 None,
@@ -484,7 +401,7 @@ class WLED:
             segment["pal"] = next(
                 (
                     item.palette_id
-                    for item in self._device.palettes
+                    for item in self._device.palettes.values()
                     if item.name.lower() == palette.lower()
                 ),
                 None,
@@ -499,12 +416,20 @@ class WLED:
         if color_primary is not None:
             colors.append(color_primary)
         elif color_secondary is not None or color_tertiary is not None:
-            colors.append(self._device.state.segments[segment_id].color_primary)
+            if clrs := self._device.state.segments[segment_id].color:
+                colors.append(clrs.primary)
+            else:
+                colors.append((0, 0, 0))
 
         if color_secondary is not None:
             colors.append(color_secondary)
         elif color_tertiary is not None:
-            colors.append(self._device.state.segments[segment_id].color_secondary)
+            if (
+                clrs := self._device.state.segments[segment_id].color
+            ) and clrs.secondary:
+                colors.append(clrs.secondary)
+            else:
+                colors.append((0, 0, 0))
 
         if color_tertiary is not None:
             colors.append(color_tertiary)
@@ -514,7 +439,7 @@ class WLED:
 
         if segment:
             segment["id"] = segment_id
-            state["seg"] = [segment]  # type: ignore[assignment]
+            state["seg"] = [segment]
 
         if transition is not None:
             state["tt"] = transition
@@ -550,7 +475,7 @@ class WLED:
             preset = next(
                 (
                     item.preset_id
-                    for item in self._device.presets
+                    for item in self._device.presets.values()
                     if item.name.lower() == preset.lower()
                 ),
                 preset,
@@ -574,7 +499,7 @@ class WLED:
             playlist = next(
                 (
                     item.playlist_id
-                    for item in self._device.playlists
+                    for item in self._device.playlists.values()
                     if item.name.lower() == playlist.lower()
                 ),
                 playlist,
@@ -585,7 +510,7 @@ class WLED:
 
         await self.request("/json/state", method="POST", data={"ps": playlist})
 
-    async def live(self, live: Live) -> None:
+    async def live(self, live: LiveDataOverride) -> None:
         """Set the live override mode on a WLED device.
 
         Args:
@@ -742,85 +667,6 @@ class WLED:
             )
             raise WLEDConnectionError(msg) from exception
 
-    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
-    async def get_wled_versions_from_github(self) -> dict[str, str | None]:
-        """Fetch WLED version information from GitHub.
-
-        Returns
-        -------
-            A dictionary of WLED versions, with the key being the version type.
-
-        Raises
-        ------
-            WLEDConnectionTimeoutError: Timeout occurred while fetching WLED
-                version information from GitHub.
-            WLEDConnectionError: Timeout occurred while communicating with
-                GitHub for WLED version information.
-            WLEDError: Didn't get a JSON response from GitHub while retrieving
-                version information.
-
-        """
-        with suppress(KeyError):
-            return {
-                "version_latest_stable": VERSION_CACHE["stable"],
-                "version_latest_beta": VERSION_CACHE["beta"],
-            }
-
-        if self.session is None:
-            return {"version_latest_stable": None, "version_latest_beta": None}
-
-        try:
-            async with asyncio.timeout(self.request_timeout):
-                response = await self.session.get(
-                    "https://api.github.com/repos/Aircoookie/WLED/releases",
-                    headers={"Accept": "application/json"},
-                )
-        except asyncio.TimeoutError as exception:
-            msg = "Timeout occurred while fetching WLED version information from GitHub"
-            raise WLEDConnectionTimeoutError(msg) from exception
-        except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = "Timeout occurred while communicating with GitHub for WLED version"
-            raise WLEDConnectionError(msg) from exception
-
-        content_type = response.headers.get("Content-Type", "")
-        if response.status // 100 in [4, 5]:
-            contents = await response.read()
-            response.close()
-
-            if content_type == "application/json":
-                raise WLEDError(response.status, json.loads(contents.decode("utf8")))
-            raise WLEDError(response.status, {"message": contents.decode("utf8")})
-
-        if "application/json" not in content_type:
-            msg = "No JSON response from GitHub while retrieving version information"
-            raise WLEDError(msg)
-
-        releases = await response.json()
-        version_latest = None
-        version_latest_beta = None
-        for release in releases:
-            if (
-                release["prerelease"] is False
-                and "b" not in release["tag_name"].lower()
-                and version_latest is None
-            ):
-                version_latest = release["tag_name"].lstrip("vV")
-            if (
-                release["prerelease"] is True or "b" in release["tag_name"].lower()
-            ) and version_latest_beta is None:
-                version_latest_beta = release["tag_name"].lstrip("vV")
-            if version_latest is not None and version_latest_beta is not None:
-                break
-
-        # Cache results
-        VERSION_CACHE["stable"] = version_latest
-        VERSION_CACHE["beta"] = version_latest_beta
-
-        return {
-            "version_latest_stable": version_latest,
-            "version_latest_beta": version_latest_beta,
-        }
-
     async def reset(self) -> None:
         """Reboot WLED device."""
         await self.request("/reset")
@@ -837,6 +683,114 @@ class WLED:
         Returns
         -------
             The WLED object.
+
+        """
+        return self
+
+    async def __aexit__(self, *_exc_info: object) -> None:
+        """Async exit.
+
+        Args:
+        ----
+            _exc_info: Exec type.
+
+        """
+        await self.close()
+
+
+@dataclass
+class WLEDReleases:
+    """Get version information for WLED."""
+
+    request_timeout: float = 8.0
+    session: aiohttp.client.ClientSession | None = None
+
+    _client: aiohttp.ClientWebSocketResponse | None = None
+    _close_session: bool = False
+
+    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
+    async def releases(self) -> Releases:
+        """Fetch WLED version information from GitHub.
+
+        Returns
+        -------
+            A dictionary of WLED versions, with the key being the version type.
+
+        Raises
+        ------
+            WLEDConnectionTimeoutError: Timeout occurred while fetching WLED
+                version information from GitHub.
+            WLEDConnectionError: Timeout occurred while communicating with
+                GitHub for WLED version information.
+            WLEDError: Didn't get a JSON response from GitHub while retrieving
+                version information.
+
+        """
+        if self.session is None:
+            self.session = aiohttp.ClientSession()
+            self._close_session = True
+
+        try:
+            async with asyncio.timeout(self.request_timeout):
+                response = await self.session.get(
+                    "https://api.github.com/repos/Aircoookie/WLED/releases",
+                    headers={"Accept": "application/json"},
+                )
+        except asyncio.TimeoutError as exception:
+            msg = (
+                "Timeout occurred while fetching WLED releases information from GitHub"
+            )
+            raise WLEDConnectionTimeoutError(msg) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            msg = "Timeout occurred while communicating with GitHub for WLED releases"
+            raise WLEDConnectionError(msg) from exception
+
+        content_type = response.headers.get("Content-Type", "")
+        contents = await response.read()
+        if response.status // 100 in [4, 5]:
+            response.close()
+
+            if content_type == "application/json":
+                raise WLEDError(response.status, orjson.loads(contents))
+            raise WLEDError(response.status, {"message": contents.decode("utf8")})
+
+        if "application/json" not in content_type:
+            msg = "No JSON response from GitHub while retrieving WLED releases"
+            raise WLEDError(msg)
+
+        releases = orjson.loads(contents)
+        version_latest = None
+        version_latest_beta = None
+        for release in releases:
+            if (
+                release["prerelease"] is False
+                and "b" not in release["tag_name"].lower()
+                and version_latest is None
+            ):
+                version_latest = release["tag_name"].lstrip("vV")
+            if (
+                release["prerelease"] is True or "b" in release["tag_name"].lower()
+            ) and version_latest_beta is None:
+                version_latest_beta = release["tag_name"].lstrip("vV")
+            if version_latest is not None and version_latest_beta is not None:
+                break
+
+        return Releases(
+            beta=version_latest_beta,
+            stable=version_latest,
+        )
+
+    async def close(self) -> None:
+        """Close open client session."""
+        if self.session and self._close_session:
+            await self.session.close()
+
+    async def __aenter__(self) -> Self:
+        """Async enter.
+
+        Returns
+        -------
+            The WLEDReleases object.
 
         """
         return self

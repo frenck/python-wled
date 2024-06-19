@@ -2,101 +2,170 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import IntEnum, IntFlag
-from functools import lru_cache
-from operator import attrgetter
+from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
+from functools import cached_property
 from typing import Any
 
 from awesomeversion import AwesomeVersion
+from mashumaro import field_options
+from mashumaro.config import BaseConfig
+from mashumaro.mixins.orjson import DataClassORJSONMixin
+from mashumaro.types import SerializableType, SerializationStrategy
 
-from .exceptions import WLEDError
+from .const import (
+    MIN_REQUIRED_VERSION,
+    LightCapability,
+    LiveDataOverride,
+    NightlightMode,
+    SyncGroup,
+)
+from .exceptions import WLEDUnsupportedVersionError
+from .utils import get_awesome_version
 
-NAME_GETTER = attrgetter("name")
+
+class AwesomeVersionSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for AwesomeVersion objects."""
+
+    def serialize(self, value: AwesomeVersion | None) -> str:
+        """Serialize AwesomeVersion object to string."""
+        if value is None:
+            return ""
+        return str(value)
+
+    def deserialize(self, value: str) -> AwesomeVersion | None:
+        """Deserialize string to AwesomeVersion object."""
+        version = get_awesome_version(value)
+        if not version.valid:
+            return None
+        return version
 
 
-@lru_cache
-def get_awesome_version(version: str) -> AwesomeVersion:
-    """Return a cached AwesomeVersion object."""
-    return AwesomeVersion(version)
+class TimedeltaSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for timedelta objects."""
+
+    def serialize(self, value: timedelta) -> int:
+        """Serialize timedelta object to seconds."""
+        return int(value.total_seconds())
+
+    def deserialize(self, value: int) -> timedelta:
+        """Deserialize integer to timedelta object."""
+        return timedelta(seconds=value)
+
+
+class TimestampSerializationStrategy(SerializationStrategy, use_annotations=True):
+    """Serialization strategy for datetime objects."""
+
+    def serialize(self, value: datetime) -> float:
+        """Serialize datetime object to timestamp."""
+        return value.timestamp()
+
+    def deserialize(self, value: float) -> datetime:
+        """Deserialize timestamp to datetime object."""
+        return datetime.fromtimestamp(value, tz=UTC)
 
 
 @dataclass
-class Nightlight:
-    """Object holding nightlight state in WLED."""
+class Color(SerializableType):
+    """Object holding color information in WLED."""
 
-    duration: int
-    fade: bool
-    on: bool
-    mode: NightlightMode
-    target_brightness: int
+    primary: tuple[int, int, int, int] | tuple[int, int, int]
+    secondary: tuple[int, int, int, int] | tuple[int, int, int] | None = None
+    tertiary: tuple[int, int, int, int] | tuple[int, int, int] | None = None
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Nightlight:
-        """Return Nightlight object from WLED API response.
+    def _serialize(self) -> list[tuple[int, int, int, int] | tuple[int, int, int]]:
+        colors = [self.primary]
+        if self.secondary is not None:
+            colors.append(self.secondary)
+            if self.tertiary is not None:
+                colors.append(self.tertiary)
+        return colors
 
-        Args:
-        ----
-            data: The data from the WLED device API.
-
-        Returns:
-        -------
-            A Nightlight object.
-
-        """
-        nightlight = data.get("nl", {})
-
-        # Handle deprecated fade property for Nightlight
-        mode = nightlight.get("mode")
-        fade = nightlight.get("fade", False)
-        if mode is not None:
-            fade = mode != NightlightMode.INSTANT
-        if mode is None:
-            mode = NightlightMode.FADE if fade else NightlightMode.INSTANT
-
-        return Nightlight(
-            duration=nightlight.get("dur", 1),
-            fade=fade,
-            mode=NightlightMode(mode),
-            on=nightlight.get("on", False),
-            target_brightness=nightlight.get("tbri", 0),
+    @classmethod
+    def _deserialize(
+        cls, value: list[tuple[int, int, int, int] | tuple[int, int, int] | str]
+    ) -> Color:
+        # Some values in the list can be strings, which indicates that the
+        # color is a hex color value.
+        return cls(
+            *[  # type: ignore[arg-type]
+                tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
+                if isinstance(color, str)
+                else color
+                for color in value
+            ]
         )
 
 
-@dataclass
-class Sync:
-    """Object holding sync state in WLED."""
+class BaseModel(DataClassORJSONMixin):
+    """Base model for all WLED models."""
 
-    receive: bool
-    send: bool
+    # pylint: disable-next=too-few-public-methods
+    class Config(BaseConfig):
+        """Mashumaro configuration."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Sync:
-        """Return Sync object from WLED API response.
-
-        Args:
-        ----
-            data: The data from the WLED device API.
-
-        Returns:
-        -------
-            A sync object.
-
-        """
-        sync = data.get("udpn", {})
-        return Sync(send=sync.get("send", False), receive=sync.get("recv", False))
+        omit_none = True
+        serialization_strategy = {  # noqa: RUF012
+            AwesomeVersion: AwesomeVersionSerializationStrategy(),
+            datetime: TimestampSerializationStrategy(),
+            timedelta: TimedeltaSerializationStrategy(),
+        }
+        serialize_by_alias = True
 
 
-@dataclass
-class Effect:
+@dataclass(kw_only=True)
+class Nightlight(BaseModel):
+    """Object holding nightlight state in WLED."""
+
+    duration: int = field(default=1, metadata=field_options(alias="dur"))
+    """Duration of nightlight in minutes."""
+
+    mode: NightlightMode = field(default=NightlightMode.INSTANT)
+    """Nightlight mode (available since 0.10.2)."""
+
+    on: bool = field(default=False)
+    """Nightlight currently active."""
+
+    target_brightness: int = field(default=0, metadata=field_options(alias="tbri"))
+    """Target brightness of nightlight feature."""
+
+
+@dataclass(kw_only=True)
+class UDPSync(BaseModel):
+    """Object holding UDP sync state in WLED.
+
+    Missing at this point, is the `nn` field. This field allows to skip
+    sending a broadcast packet for the current API request; However, this field
+    is only used for requests and not part of the state responses.
+    """
+
+    receive: bool = field(default=False, metadata=field_options(alias="recv"))
+    """Receive broadcast packets."""
+
+    receive_groups: SyncGroup = field(
+        default=SyncGroup.NONE, metadata=field_options(alias="rgrp")
+    )
+    """Groups to receive WLED broadcast packets from."""
+
+    send: bool = field(default=False, metadata=field_options(alias="send"))
+    """Send WLED broadcast (UDP sync) packet on state change."""
+
+    send_groups: SyncGroup = field(
+        default=SyncGroup.NONE, metadata=field_options(alias="sgrp")
+    )
+    """Groups to send WLED broadcast packets to."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class Effect(BaseModel):
     """Object holding an effect in WLED."""
 
     effect_id: int
     name: str
 
 
-@dataclass
-class Palette:
+@dataclass(frozen=True, kw_only=True)
+class Palette(BaseModel):
     """Object holding an palette in WLED.
 
     Args:
@@ -113,8 +182,8 @@ class Palette:
     palette_id: int
 
 
-@dataclass
-class Segment:
+@dataclass(kw_only=True)
+class Segment(BaseModel):
     """Object holding segment state in WLED.
 
     Args:
@@ -127,142 +196,133 @@ class Segment:
 
     """
 
-    brightness: int
-    clones: int
-    color_primary: tuple[int, int, int, int] | tuple[int, int, int]
-    color_secondary: tuple[int, int, int, int] | tuple[int, int, int]
-    color_tertiary: tuple[int, int, int, int] | tuple[int, int, int]
-    effect: Effect
-    intensity: int
-    length: int
-    on: bool
-    palette: Palette
-    reverse: bool
-    segment_id: int
-    selected: bool
-    speed: int
-    start: int
-    stop: int
+    brightness: int = field(default=0, metadata=field_options(alias="bri"))
+    """Brightness of the segment."""
 
-    @staticmethod
-    # pylint: disable-next=too-many-arguments
-    def from_dict(  # noqa: PLR0913
-        segment_id: int,
-        data: dict[str, Any],
-        *,
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-        state_on: bool,
-        state_brightness: int,
-    ) -> Segment:
-        """Return Segment object from WLED API response.
+    clones: int = field(default=-1, metadata=field_options(alias="cln"))
+    """The segment this segment clones."""
 
-        Args:
-        ----
-            segment_id: The ID of the LED strip segment.
-            data: The segment data received from the WLED device.
-            effects: An indexed dict of Effect objects.
-            palettes: An indexed dict of Palette objects.
-            state_on: Boolean the represents the on/off state of this segment.
-            state_brightness: The brightness level of this segment.
+    color: Color | None = field(default=None, metadata=field_options(alias="col"))
+    """The primary, secondary (background) and tertiary colors of the segment.
 
-        Returns:
-        -------
-            An Segment object.
+    Each color is an tuple of 3 or 4 bytes, which represents a RGB(W) color,
+    i.e. (255,170,0) or (64,64,64,64).
 
-        """
-        start = data.get("start", 0)
-        stop = data.get("stop", 0)
-        length = data.get("len", (stop - start))
+    WLED can also return hex color values as strings, this library will
+    automatically convert those to RGB values to keep the data consistent.
+    """
 
-        colors = data.get("col", [])
-        primary_color, secondary_color, tertiary_color = (0, 0, 0)
-        try:
-            primary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-            secondary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-            tertiary_color = tuple(colors.pop(0))  # type: ignore[assignment]
-        except IndexError:
-            pass
+    effect_id: int | str = field(default=0, metadata=field_options(alias="fx"))
+    """ID of the effect.
 
-        effect = effects.get(data.get("fx", 0)) or Effect(effect_id=0, name="Unknown")
-        palette = palettes.get(data.get("pal", 0)) or Palette(
-            palette_id=0, name="Unknown"
-        )
+    ~ to increment, ~- to decrement, or "r" for random.
+    """
 
-        return Segment(
-            brightness=data.get("bri", state_brightness),
-            clones=data.get("cln", -1),
-            color_primary=primary_color,  # type: ignore[arg-type]
-            color_secondary=secondary_color,  # type: ignore[arg-type]
-            color_tertiary=tertiary_color,  # type: ignore[arg-type]
-            effect=effect,
-            intensity=data.get("ix", 0),
-            length=length,
-            on=data.get("on", state_on),
-            palette=palette,
-            reverse=data.get("rev", False),
-            segment_id=segment_id,
-            selected=data.get("sel", False),
-            speed=data.get("sx", 0),
-            start=start,
-            stop=stop,
-        )
+    intensity: int | str = field(default=0, metadata=field_options(alias="ix"))
+    """Intensity of the segment.
+
+    Effect intensity. ~ to increment, ~- to decrement. ~10 to increment by 10,
+    ~-10 to decrement by 10.
+    """
+
+    length: int = field(default=0, metadata=field_options(alias="len"))
+    """Length of the segment (stop - start).
+
+    Stop has preference, so if it is included, length is ignored.
+    """
+
+    on: bool | None = field(default=None)
+    """The on/off state of the segment."""
+
+    palette_id: int | str = field(default=0, metadata=field_options(alias="pal"))
+    """ID of the palette.
+
+    ~ to increment, ~- to decrement, or r for random.
+    """
+
+    reverse: bool = field(default=False, metadata=field_options(alias="rev"))
+    """
+    Flips the segment (in horizontal dimension for 2D set-up),
+    causing animations to change direction.
+    """
+
+    segment_id: int | None = field(default=None, metadata=field_options(alias="id"))
+    """The ID of the segment."""
+
+    selected: bool = field(default=False, metadata=field_options(alias="sel"))
+    """
+    Indicates if the segment is selected.
+
+    Selected segments will have their state (color/FX) updated by APIs that
+    don't support segments (e.g. UDP sync, HTTP API). If no segment is selected,
+    the first segment (id:0) will behave as if selected.
+
+    WLED will report the state of the first (lowest id) segment that is selected
+    to APIs (HTTP, MQTT, Blynk...), or mainseg in case no segment is selected
+    and for the UDP API.
+
+    Live data is always applied to all LEDs regardless of segment configuration.
+    """
+
+    speed: int = field(default=0, metadata=field_options(alias="sx"))
+    """Relative effect speed.
+
+    ~ to increment, ~- to decrement. ~10 to increment by 10, ~-10 to decrement by 10.
+    """
+
+    start: int = 0
+    """LED the segment starts at.
+
+    For 2D set-up it determines column where segment starts,
+    from top-left corner of the matrix.
+    """
+
+    stop: int = 0
+    """LED the segment stops at, not included in range.
+
+    If stop is set to a lower or equal value than start (setting to 0 is
+    recommended), the segment is invalidated and deleted.
+
+    For 2D set-up it determines column where segment stops,
+    from top-left corner of the matrix.
+    """
 
 
-@dataclass
+@dataclass(frozen=True, kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""
 
-    cct: bool
-    count: int
-    fps: int | None
-    light_capabilities: LightCapability | None
-    max_power: int
-    max_segments: int
-    power: int
-    rgbw: bool
-    wv: bool
-    segment_light_capabilities: list[LightCapability] | None
+    count: int = 0
+    """Total LED count."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Leds:
-        """Return Leds object from WLED API response.
+    fps: int = 0
+    """Current frames per second."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    light_capabilities: LightCapability = field(
+        default=LightCapability.NONE, metadata=field_options(alias="lc")
+    )
+    """Capabilities of the light."""
 
-        Returns:
-        -------
-            A Leds object.
+    max_power: int = field(default=0, metadata=field_options(alias="maxpwr"))
+    """Maximum power budget in milliamps for the ABL. 0 if ABL is disabled."""
 
-        """
-        leds = data.get("leds", {})
+    max_segments: int = field(default=0, metadata=field_options(alias="maxseg"))
+    """Maximum number of segments supported by this version."""
 
-        light_capabilities = None
-        segment_light_capabilities = None
-        if "lc" in leds and "seglc" in leds:
-            light_capabilities = LightCapability(leds["lc"])
-            segment_light_capabilities = [
-                LightCapability(item) for item in leds["seglc"]
-            ]
+    power: int = field(default=0, metadata=field_options(alias="pwr"))
+    """
+    Current LED power usage in milliamps as determined by the ABL.
+    0 if ABL is disabled.
+    """
 
-        return Leds(
-            cct=bool(leds.get("cct")),
-            count=leds.get("count", 0),
-            fps=leds.get("fps", None),
-            light_capabilities=light_capabilities,
-            max_power=leds.get("maxpwr", 0),
-            max_segments=leds.get("maxseg", 0),
-            power=leds.get("pwr", 0),
-            rgbw=leds.get("rgbw", False),
-            segment_light_capabilities=segment_light_capabilities,
-            wv=bool(leds.get("wv", True)),
-        )
+    segment_light_capabilities: list[LightCapability] = field(
+        default_factory=list, metadata=field_options(alias="seglc")
+    )
+    """Capabilities of each segment."""
 
 
-@dataclass
-class Wifi:
+@dataclass(frozen=True, kw_only=True)
+class Wifi(BaseModel):
     """Object holding Wi-Fi information from WLED.
 
     Args:
@@ -275,37 +335,14 @@ class Wifi:
 
     """
 
-    bssid: str
-    channel: int
-    rssi: int
-    signal: int
-
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Wifi | None:
-        """Return Wifi object form WLED API response.
-
-        Args:
-        ----
-            data: The response from the WLED API.
-
-        Returns:
-        -------
-            An Wifi object.
-
-        """
-        if "wifi" not in data:
-            return None
-        wifi = data.get("wifi", {})
-        return Wifi(
-            bssid=wifi.get("bssid", "00:00:00:00:00:00"),
-            channel=wifi.get("channel", 0),
-            rssi=wifi.get("rssi", 0),
-            signal=wifi.get("signal", 0),
-        )
+    bssid: str = "00:00:00:00:00:00"
+    channel: int = 0
+    rssi: int = 0
+    signal: int = 0
 
 
-@dataclass
-class Filesystem:
+@dataclass(frozen=True, kw_only=True)
+class Filesystem(BaseModel):
     """Object holding Filesystem information from WLED.
 
     Args:
@@ -318,402 +355,404 @@ class Filesystem:
 
     """
 
-    total: int
-    used: int
-    free: int
-    percentage: int
+    last_modified: datetime | None = field(
+        default=None, metadata=field_options(alias="pmt")
+    )
+    """
+    Last modification of the presets.json file. Not accurate after boot or
+    after using /edit.
+    """
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Filesystem | None:
-        """Return Filesystem object form WLED API response.
+    total: int = field(default=1, metadata=field_options(alias="t"))
+    """Total space of the filesystem in kilobytes."""
 
-        Args:
-        ----
-            data: The response from the WLED API.
+    used: int = field(default=1, metadata=field_options(alias="u"))
+    """Used space of the filesystem in kilobytes."""
 
-        Returns:
+    @cached_property
+    def free(self) -> int:
+        """Return the free space of the filesystem in kilobytes.
+
+        Returns
         -------
-            An Filesystem object.
+            The free space of the filesystem.
 
         """
-        if "fs" not in data:
-            return None
-        filesystem = data.get("fs", {})
-        total = filesystem.get("t", 1)
-        used = filesystem.get("u", 1)
-        return Filesystem(
-            total=total,
-            used=used,
-            free=(total - used),
-            percentage=round((used / total) * 100),
-        )
+        return self.total - self.used
+
+    @cached_property
+    def free_percentage(self) -> int:
+        """Return the free percentage of the filesystem.
+
+        Returns
+        -------
+            The free percentage of the filesystem.
+
+        """
+        return round((self.free / self.total) * 100)
+
+    @cached_property
+    def used_percentage(self) -> int:
+        """Return the used percentage of the filesystem.
+
+        Returns
+        -------
+            The used percentage of the filesystem.
+
+        """
+        return round((self.used / self.total) * 100)
 
 
-@dataclass
-class Info:  # pylint: disable=too-many-instance-attributes
+@dataclass(kw_only=True)
+class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
-    architecture: str
-    arduino_core_version: str
-    brand: str
-    build_type: str
-    effect_count: int
-    filesystem: Filesystem | None
-    free_heap: int
-    ip: str  # pylint: disable=invalid-name
-    leds: Leds
-    live_ip: str
-    live_mode: str
-    live: bool
-    mac_address: str
-    name: str
-    pallet_count: int
-    product: str
-    udp_port: int
-    uptime: int
-    version_id: str
-    version: AwesomeVersion | None
-    version_latest_beta: AwesomeVersion | None
-    version_latest_stable: AwesomeVersion | None
-    websocket: int | None
-    wifi: Wifi | None
+    architecture: str = field(default="Unknown", metadata=field_options(alias="arch"))
+    """Name of the platform."""
 
-    @staticmethod
-    def from_dict(data: dict[str, Any]) -> Info:
-        """Return Info object from WLED API response.
+    arduino_core_version: str = field(
+        default="Unknown", metadata=field_options(alias="core")
+    )
+    """Version of the underlying (Arduino core) SDK."""
 
-        Args:
-        ----
-            data: The data from the WLED device API.
+    brand: str = "WLED"
+    """The producer/vendor of the light. Always WLED for standard installations."""
 
-        Returns:
-        -------
-            A info object.
+    build: str = field(default="Unknown", metadata=field_options(alias="vid"))
+    """Build ID (YYMMDDB, B = daily build index)."""
 
-        """
-        if (websocket := data.get("ws")) == -1:
-            websocket = None
+    effect_count: int = field(default=0, metadata=field_options(alias="fxcount"))
+    """Number of effects included."""
 
-        if version := data.get("ver"):
-            version = get_awesome_version(version)
-            if not version.valid:
-                version = None
+    filesystem: Filesystem = field(metadata=field_options(alias="fs"))
+    """Info about the embedded LittleFS filesystem."""
 
-        if version_latest_stable := data.get("version_latest_stable"):
-            version_latest_stable = get_awesome_version(version_latest_stable)
+    free_heap: int = field(default=0, metadata=field_options(alias="freeheap"))
+    """Bytes of heap memory (RAM) currently available. Problematic if <10k."""
 
-        if version_latest_beta := data.get("version_latest_beta"):
-            version_latest_beta = get_awesome_version(version_latest_beta)
+    ip: str = ""  # pylint: disable=invalid-name
+    """The IP address of this instance. Empty string if not connected."""
 
-        arch = data.get("arch", "Unknown")
-        if (
-            (filesystem := Filesystem.from_dict(data)) is not None
-            and arch == "esp8266"
-            and filesystem.total
-        ):
-            if filesystem.total <= 256:
-                arch = "esp01"
-            elif filesystem.total <= 512:
-                arch = "esp02"
+    leds: Leds = field(default=Leds())
+    """Contains info about the LED setup."""
 
-        return Info(
-            architecture=arch,
-            arduino_core_version=data.get("core", "Unknown").replace("_", "."),
-            brand=data.get("brand", "WLED"),
-            build_type=data.get("btype", "Unknown"),
-            effect_count=data.get("fxcount", 0),
-            filesystem=filesystem,
-            free_heap=data.get("freeheap", 0),
-            ip=data.get("ip", "Unknown"),
-            leds=Leds.from_dict(data),
-            live_ip=data.get("lip", "Unknown"),
-            live_mode=data.get("lm", "Unknown"),
-            live=data.get("live", False),
-            mac_address=data.get("mac", ""),
-            name=data.get("name", "WLED Light"),
-            pallet_count=data.get("palcount", 0),
-            product=data.get("product", "DIY Light"),
-            udp_port=data.get("udpport", 0),
-            uptime=data.get("uptime", 0),
-            version_id=data.get("vid", "Unknown"),
-            version=version,
-            version_latest_beta=version_latest_beta,
-            version_latest_stable=version_latest_stable,
-            websocket=websocket,
-            wifi=Wifi.from_dict(data),
-        )
+    live_ip: str = field(default="Unknown", metadata=field_options(alias="lip"))
+    """Realtime data source IP address."""
+
+    live_mode: str = field(default="Unknown", metadata=field_options(alias="lm"))
+    """Info about the realtime data source."""
+
+    live: bool = False
+    """Realtime data source active via UDP or E1.31."""
+
+    mac_address: str = field(default="", metadata=field_options(alias="mac"))
+    """
+    The hexadecimal hardware MAC address of the light,
+    lowercase and without colons.
+    """
+
+    name: str = "WLED Light"
+    """Friendly name of the light. Intended for display in lists and titles."""
+
+    palette_count: int = field(default=0, metadata=field_options(alias="palcount"))
+    """Number of palettes configured."""
+
+    product: str = "DIY Light"
+    """The product name. Always FOSS for standard installations."""
+
+    udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
+    """The UDP port for realtime packets and WLED broadcast."""
+
+    uptime: timedelta = timedelta(0)
+    """Uptime of the device."""
+
+    version: AwesomeVersion | None = field(
+        default=None, metadata=field_options(alias="ver")
+    )
+    """Version of the WLED software."""
+
+    websocket: int | None = field(default=None, metadata=field_options(alias="ws"))
+    """
+    Number of currently connected WebSockets clients.
+    `None` indicates that WebSockets are unsupported in this build.
+    """
+
+    wifi: Wifi | None = None
+    """Info about the Wi-Fi connection."""
+
+    @classmethod
+    def __post_deserialize__(cls, obj: Info) -> Info:
+        """Post deserialize hook for Info object."""
+        # If the websocket is disabled in this build, the value will be -1.
+        # We want to represent this as None.
+        if obj.websocket == -1:
+            obj.websocket = None
+
+        # We can tweak the architecture name based on the filesystem size.
+        if obj.filesystem is not None and obj.architecture == "esp8266":
+            if obj.filesystem.total <= 256:
+                obj.architecture = "esp01"
+            elif obj.filesystem.total <= 512:
+                obj.architecture = "esp02"
+
+        return obj
 
 
-@dataclass
-class State:
+@dataclass(kw_only=True)
+class State(BaseModel):
     """Object holding the state of WLED."""
 
-    brightness: int
-    nightlight: Nightlight
-    on: bool
-    playlist: Playlist | int | None
-    preset: Preset | int | None
-    segments: list[Segment]
-    sync: Sync
-    transition: int
-    lor: Live
+    brightness: int = field(default=1, metadata=field_options(alias="bri"))
+    """Brightness of the light.
 
-    @property
-    def playlist_active(self) -> bool:
-        """Return if a playlist is currently active.
+    If on is false, contains last brightness when light was on (aka brightness
+    when on is set to true). Setting bri to 0 is supported but it is
+    recommended to use the range 1-255 and use on: false to turn off.
 
-        Returns
-        -------
-            True if there is currently a playlist active, False otherwise.
+    The state response will never have the value 0 for bri.
+    """
 
-        """
-        return self.playlist == -1
+    nightlight: Nightlight = field(metadata=field_options(alias="nl"))
+    """Nightlight state."""
 
-    @property
-    def preset_active(self) -> bool:
-        """Return if a preset is currently active.
+    on: bool = False
+    """The on/off state of the light."""
 
-        Returns
-        -------
-            True is a preset is currently active, False otherwise.
+    playlist_id: int | None = field(default=-1, metadata=field_options(alias="pl"))
+    """ID of currently set playlist.."""
 
-        """
-        return self.preset == -1
+    preset_id: int | None = field(default=-1, metadata=field_options(alias="ps"))
+    """ID of currently set preset."""
 
-    @staticmethod
-    def from_dict(
-        data: dict[str, Any],
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-        presets: dict[int, Preset],
-        playlists: dict[int, Playlist],
-    ) -> State:
-        """Return State object from WLED API response.
+    segments: dict[int, Segment] = field(
+        default_factory=dict, metadata=field_options(alias="seg")
+    )
+    """Segments are individual parts of the LED strip."""
 
-        Args:
-        ----
-            data: The state response received from the WLED device API.
-            effects: A dict index of effect objects.
-            palettes: A dict index of palette objects.
-            presets: A dict index of preset objects.
-            playlists: A dict index of playlist objects.
+    sync: UDPSync = field(metadata=field_options(alias="udpn"))
+    """UDP sync state."""
 
-        Returns:
-        -------
-            A State object.
+    transition: int = 0
+    """Duration of the crossfade between different colors/brightness levels.
 
-        """
-        brightness = data.get("bri", 1)
-        on = data.get("on", False)
-        lor = data.get("lor", 0)
+    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    """
 
-        segments = [
-            Segment.from_dict(
-                segment_id=segment_id,
-                data=segment,
-                effects=effects,
-                palettes=palettes,
-                state_on=on,
-                state_brightness=brightness,
-            )
-            for segment_id, segment in enumerate(data.get("seg", []))
-        ]
+    live_data_override: LiveDataOverride = field(metadata=field_options(alias="lor"))
+    """Live data override.
 
-        playlist = data.get("pl", -1)
-        preset = data.get("ps", -1)
-        if presets:
-            playlist = playlists.get(playlist)
-            preset = presets.get(preset)
+    0 is off, 1 is override until live data ends, 2 is override until ESP reboot.
+    """
 
-        return State(
-            brightness=brightness,
-            nightlight=Nightlight.from_dict(data),
-            on=on,
-            playlist=playlist,
-            preset=preset,
-            segments=segments,
-            sync=Sync.from_dict(data),
-            transition=data.get("transition", 0),
-            lor=Live(lor),
-        )
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for State object."""
+        # Segments are not indexes, which is suboptimal for the user.
+        # We will add the segment ID to the segment data and convert
+        # the segments list to an indexed dict.
+        d["seg"] = {
+            segment_id: segment | {"id": segment_id}
+            for segment_id, segment in enumerate(d.get("seg", []))
+        }
+        return d
+
+    @classmethod
+    def __post_deserialize__(cls, obj: State) -> State:
+        """Post deserialize hook for State object."""
+        # If no playlist is active, the value will be -1. We want to represent
+        # this as None.
+        if obj.playlist_id == -1:
+            obj.playlist_id = None
+
+        # If no preset is active, the value will be -1. We want to represent
+        # this as None.
+        if obj.preset_id == -1:
+            obj.preset_id = None
+
+        return obj
 
 
-@dataclass
-class Preset:
+@dataclass(kw_only=True)
+class Preset(BaseModel):
     """Object representing a WLED preset."""
 
     preset_id: int
-    name: str
-    quick_label: str | None
+    """The ID of the preset."""
 
-    on: bool
-    transition: int
-    main_segment: Segment | None
-    segments: list[Segment]
+    name: str = field(default="", metadata=field_options(alias="n"))
+    """The name of the preset."""
 
-    @staticmethod
-    def from_dict(
-        preset_id: int,
-        data: dict[str, Any],
-        effects: dict[int, Effect],
-        palettes: dict[int, Palette],
-    ) -> Preset:
-        """Return Preset object from WLED API response.
+    quick_label: str | None = field(default=None, metadata=field_options(alias="ql"))
+    """The quick label of the preset."""
 
-        Args:
-        ----
-            preset_id: The ID of the preset.
-            data: The data from the WLED device API.
-            effects: A indexed dict of effect objects.
-            palettes: A indexed dict of palette object.
+    on: bool = False
+    """The on/off state of the preset."""
 
-        Returns:
-        -------
-            A Preset object.
+    transition: int = 0
+    """Duration of the crossfade between different colors/brightness levels.
 
-        """
-        segment_data = data.get("seg", [])
-        if not isinstance(segment_data, list):
-            # Some older versions of WLED have an single segment
-            # instead of a list.
-            segment_data = [segment_data]
+    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    """
 
-        segments = [
-            Segment.from_dict(
-                segment_id=segment_id,
-                data=segment,
-                effects=effects,
-                palettes=palettes,
-                state_on=False,
-                state_brightness=0,
-            )
-            for segment_id, segment in enumerate(segment_data)
-        ]
+    main_segment_id: int = field(default=0, metadata=field_options(alias="mainseg"))
+    """The main segment of the preset."""
 
-        try:
-            main_segment = segments[data.get("mainseg", 0)]
-        except IndexError:
-            main_segment = None
+    segments: list[Segment] = field(
+        default_factory=list, metadata=field_options(alias="seg")
+    )
+    """Segments are individual parts of the LED strip."""
 
-        return Preset(
-            main_segment=main_segment,
-            name=data.get("n", str(preset_id)),
-            on=data.get("on", False),
-            preset_id=preset_id,
-            quick_label=data.get("ql"),
-            segments=segments,
-            transition=data.get("transition", 0),
-        )
+    @classmethod
+    def __post_deserialize__(cls, obj: Preset) -> Preset:
+        """Post deserialize hook for Preset object."""
+        # If name is empty, we will replace it with the playlist ID.
+        if not obj.name:
+            obj.name = str(obj.preset_id)
+        return obj
 
 
-@dataclass
-class PlaylistEntry:
+@dataclass(frozen=True, kw_only=True)
+class PlaylistEntry(BaseModel):
     """Object representing a entry in a WLED playlist."""
 
-    duration: int
+    duration: int = field(metadata=field_options(alias="dur"))
     entry_id: int
-    preset: Preset | None
+    preset: int = field(metadata=field_options(alias="ps"))
     transition: int
 
 
-@dataclass
-class Playlist:
+@dataclass(kw_only=True)
+class Playlist(BaseModel):
     """Object representing a WLED playlist."""
 
-    end: Preset | None
+    end_preset_id: int | None = field(default=None, metadata=field_options(alias="end"))
+    """Single preset ID to apply after the playlist finished.
+
+    Has no effect when an indefinite cycle is set. If not provided,
+    the light will stay on the last preset of the playlist.
+    """
+
     entries: list[PlaylistEntry]
-    name: str
+    """List of entries in the playlist."""
+
+    name: str = field(default="", metadata=field_options(alias="n"))
+    """The name of the playlist."""
+
     playlist_id: int
-    repeat: int
-    shuffle: bool
+    """The ID of the playlist."""
 
-    @staticmethod
-    def from_dict(
-        playlist_id: int,
-        data: dict[str, Any],
-        presets: dict[int, Preset],
-    ) -> Playlist:
-        """Return Playlist object from WLED API response.
+    repeat: int = 0
+    """Number of times the playlist should repeat."""
 
-        Args:
-        ----
-            playlist_id: The ID of the playlist.
-            data: The data from the WLED device API.
-            presets: A list of preset objects.
+    shuffle: bool = field(default=False, metadata=field_options(alias="r"))
+    """Shuffle the playlist entries."""
 
-        Returns:
-        -------
-            A Playlist object.
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for State object."""
+        d |= d["playlist"]
+        # Duration, presets and transitions values are separate lists stored
+        # in the playlist data. We will combine those into a list of
+        # dictionaries, which will make it easier to work with the data.
+        item_count = len(d.get("ps", []))
 
-        """
-        playlist = data.get("playlist", {})
-        entries_durations = playlist.get("dur", [])
-        entries_presets = playlist.get("ps", [])
-        entries_transitions = playlist.get("transition", [])
+        # If the duration is a single value, we will convert it to a list.
+        # with the same length as the presets list.
+        if not isinstance(d["dur"], list):
+            d["dur"] = [d["dur"]] * item_count
 
-        entries = [
-            PlaylistEntry(
-                entry_id=entry_id,
-                duration=entries_durations[entry_id],
-                transition=entries_transitions[entry_id],
-                preset=presets.get(preset_id),
+        # If the transition value doesn't exists, we will set it to 0.
+        if "transitions" not in d:
+            d["transitions"] = [0] * item_count
+        # If the transition is a single value, we will convert it to a list.
+        # with the same length as the presets list.
+        elif not isinstance(d["transitions"], list):
+            d["transitions"] = [d["transitions"]] * item_count
+
+        # Now we can easily combine the data into a list of dictionaries.
+        d["entries"] = [
+            {
+                "entry_id": entry_id,
+                "ps": ps,
+                "dur": dur,
+                "transition": transition,
+            }
+            for entry_id, (ps, dur, transition) in enumerate(
+                zip(d["ps"], d["dur"], d["transitions"])
             )
-            for entry_id, preset_id in enumerate(entries_presets)
         ]
 
-        end = presets.get(playlist.get("end"))
+        return d
 
-        return Playlist(
-            playlist_id=playlist_id,
-            shuffle=playlist.get("r", False),
-            name=data.get("n", str(playlist_id)),
-            repeat=playlist.get("repeat", 0),
-            end=end,
-            entries=entries,
-        )
+    @classmethod
+    def __post_deserialize__(cls, obj: Playlist) -> Playlist:
+        """Post deserialize hook for Playlist object."""
+        # If name is empty, we will replace it with the playlist ID.
+        if not obj.name:
+            obj.name = str(obj.playlist_id)
+        return obj
 
 
-class Device:
+@dataclass(kw_only=True)
+class Device(BaseModel):
     """Object holding all information of WLED."""
 
-    effects: list[Effect]
     info: Info
-    palettes: list[Palette]
-    playlists: list[Playlist]
-    presets: list[Preset]
     state: State
 
-    def __init__(self, data: dict[str, Any]) -> None:
-        """Initialize an empty WLED device class.
+    effects: dict[int, Effect] = field(default_factory=dict)
+    palettes: dict[int, Palette] = field(default_factory=dict)
+    playlists: dict[int, Playlist] = field(default_factory=dict)
+    presets: dict[int, Preset] = field(default_factory=dict)
 
-        Args:
-        ----
-            data: The full API response from a WLED device.
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Device object."""
+        if (version := d.get("info", {}).get("ver")) and version < MIN_REQUIRED_VERSION:
+            msg = (
+                f"Unsupported firmware version {version}. "
+                f"Minimum required version is {MIN_REQUIRED_VERSION}. "
+                f"Please update your WLED device."
+            )
+            raise WLEDUnsupportedVersionError(msg)
 
-        Raises:
-        ------
-            WLEDError: In case the given API response is incomplete in a way
-                that a Device object cannot be constructed from it.
+        if _effects := d.get("effects"):
+            d["effects"] = {
+                effect_id: {"effect_id": effect_id, "name": name}
+                for effect_id, name in enumerate(_effects)
+            }
 
-        """
-        self._indexed_effects: dict[int, Effect] = {}
-        self._indexed_palettes: dict[int, Palette] = {}
-        self._indexed_presets: dict[int, Preset] = {}
-        self._indexed_playlists: dict[int, Playlist] = {}
+        if _palettes := d.get("palettes"):
+            d["palettes"] = {
+                palette_id: {"palette_id": palette_id, "name": name}
+                for palette_id, name in enumerate(_palettes)
+            }
 
-        self.effects = []
-        self.palettes = []
-        self.playlists = []
-        self.presets = []
+        if _presets := d.get("presets"):
+            _presets = _presets.copy()
+            # The preset data contains both presets and playlists,
+            # we split those out, so we can handle those correctly.
+            d["presets"] = {
+                int(preset_id): preset | {"preset_id": int(preset_id)}
+                for preset_id, preset in _presets.items()
+                if "playlist" not in preset
+                or "ps" not in preset["playlist"]
+                or not preset["playlist"]["ps"]
+            }
+            # Nobody cares about 0.
+            d["presets"].pop(0, None)
 
-        # Check if all elements are in the passed dict, else raise an Error
-        if any(
-            k not in data and data[k] is not None
-            for k in ("effects", "palettes", "info", "state")
-        ):
-            msg = "WLED data is incomplete, cannot construct device object"
-            raise WLEDError(msg)
-        self.update_from_dict(data)
+            d["playlists"] = {
+                int(playlist_id): playlist | {"playlist_id": int(playlist_id)}
+                for playlist_id, playlist in _presets.items()
+                if "playlist" in playlist
+                and "ps" in playlist["playlist"]
+                and playlist["playlist"]["ps"]
+            }
+            # Nobody cares about 0.
+            d["playlists"].pop(0, None)
+
+        return d
 
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
@@ -729,40 +768,35 @@ class Device:
 
         """
         if _effects := data.get("effects"):
-            self._indexed_effects = {
-                effect_id: Effect(effect_id=effect_id, name=effect)
-                for effect_id, effect in enumerate(_effects)
+            self.effects = {
+                effect_id: Effect(effect_id=effect_id, name=name)
+                for effect_id, name in enumerate(_effects)
             }
-            self.effects = sorted(self._indexed_effects.values(), key=NAME_GETTER)
 
         if _palettes := data.get("palettes"):
-            self._indexed_palettes = {
-                palette_id: Palette(palette_id=palette_id, name=palette)
-                for palette_id, palette in enumerate(_palettes)
+            self.palettes = {
+                palette_id: Palette(palette_id=palette_id, name=name)
+                for palette_id, name in enumerate(_palettes)
             }
-            self.palettes = sorted(self._indexed_palettes.values(), key=NAME_GETTER)
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
             # we split those out, so we can handle those correctly.
-            self._indexed_presets = {
+            self.presets = {
                 int(preset_id): Preset.from_dict(
-                    int(preset_id),
-                    preset,
-                    self._indexed_effects,
-                    self._indexed_palettes,
+                    preset | {"preset_id": int(preset_id)},
                 )
                 for preset_id, preset in _presets.items()
                 if "playlist" not in preset
-                or not ("ps" in preset["playlist"] and preset["playlist"]["ps"])
+                or "ps" not in preset["playlist"]
+                or not preset["playlist"]["ps"]
             }
             # Nobody cares about 0.
-            self._indexed_presets.pop(0, None)
-            self.presets = sorted(self._indexed_presets.values(), key=NAME_GETTER)
+            self.presets.pop(0, None)
 
-            self._indexed_playlists = {
+            self.playlists = {
                 int(playlist_id): Playlist.from_dict(
-                    int(playlist_id), playlist, self._indexed_presets
+                    playlist | {"playlist_id": int(playlist_id)}
                 )
                 for playlist_id, playlist in _presets.items()
                 if "playlist" in playlist
@@ -770,54 +804,20 @@ class Device:
                 and playlist["playlist"]["ps"]
             }
             # Nobody cares about 0.
-            self._indexed_playlists.pop(0, None)
-            self.playlists = sorted(self._indexed_playlists.values(), key=NAME_GETTER)
+            self.playlists.pop(0, None)
 
         if _info := data.get("info"):
             self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
-            self.state = State.from_dict(
-                _state,
-                self._indexed_effects,
-                self._indexed_palettes,
-                self._indexed_presets,
-                self._indexed_playlists,
-            )
+            self.state = State.from_dict(_state)
 
         return self
 
 
-class LightCapability(IntFlag):
-    """Enumeration representing the capabilities of a light in WLED."""
+@dataclass(frozen=True, kw_only=True)
+class Releases(BaseModel):
+    """Object holding WLED releases information."""
 
-    NONE = 0
-    RGB_COLOR = 1
-    WHITE_CHANNEL = 2
-    COLOR_TEMPERATURE = 4
-    MANUAL_WHITE = 8
-
-    # These are not used, but are reserved for future use.
-    # WLED specifications documents we should expect them,
-    # therefore, we include them here.
-    RESERVED_2 = 16
-    RESERVED_3 = 32
-    RESERVED_4 = 64
-    RESERVED_5 = 128
-
-
-class Live(IntEnum):
-    """Enumeration representing live override mode from WLED."""
-
-    OFF = 0
-    ON = 1
-    OFF_UNTIL_REBOOT = 2
-
-
-class NightlightMode(IntEnum):
-    """Enumeration representing nightlight mode from WLED."""
-
-    INSTANT = 0
-    FADE = 1
-    COLOR_FADE = 2
-    SUNRISE = 3
+    beta: AwesomeVersion | None
+    stable: AwesomeVersion | None

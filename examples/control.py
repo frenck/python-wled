@@ -8,21 +8,20 @@ from wled import WLED
 
 async def main() -> None:
     """Show example on controlling your WLED device."""
-    async with WLED("10.10.11.61") as led:
+    async with WLED("10.10.11.31") as led:
         device = await led.update()
         print(device.info.version)
+        print(device.state)
 
-        print(device.info.leds)
-        print(device.state.segments[0])
-        # await led.segment(
-        #     0,
-        # await led.segment(
+        if device.state.on:
+            print("Turning off WLED....")
+            await led.master(on=False)
+        else:
+            print("Turning on WLED....")
+            await led.master(on=True)
 
-        # if isinstance(device.state.preset, Preset):
-
-        # if isinstance(device.state.playlist, Playlist):
-
-        # Turn strip on, full brightness
+        device = await led.update()
+        print(device.state)
 
 
 if __name__ == "__main__":

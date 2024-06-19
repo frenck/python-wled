@@ -21,5 +21,9 @@ class WLEDConnectionClosedError(WLEDConnectionError):
     """WLED WebSocket connection has been closed."""
 
 
+class WLEDUnsupportedVersionError(WLEDError):
+    """WLED version is unsupported."""
+
+
 class WLEDUpgradeError(WLEDError):
     """WLED upgrade exception."""

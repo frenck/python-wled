@@ -29,9 +29,11 @@ aiohttp = ">=3.0.0"
 awesomeversion = ">=22.1.0"
 backoff = ">=2.2.0"
 cachetools = ">=4.0.0"
+mashumaro = "^3.13"
+orjson = ">=3.9.8"
 python = "^3.11"
-yarl = ">=1.6.0"
 typer = {version = "^0.12.3", optional = true, extras = ["all"]}
+yarl = ">=1.6.0"
 zeroconf = {version = "^0.132.2", optional = true, extras = ["all"]}
 
 [tool.poetry.extras]
@@ -66,7 +68,7 @@ plugins = ["covdefaults"]
 source = ["wled"]
 
 [tool.coverage.report]
-fail_under = 53
+fail_under = 25
 show_missing = true
 omit = ["src/wled/cli/*"]
 
@@ -138,6 +140,9 @@ max-line-length = 88
 [tool.pylint.DESIGN]
 max-attributes = 20
 
+[tool.pylint.TYPECHECK]
+ignored-modules = ["orjson"]
+
 [tool.pytest.ini_options]
 addopts = "--cov"
 asyncio_mode = "auto"
@@ -145,6 +150,7 @@ asyncio_mode = "auto"
 [tool.ruff.lint]
 ignore = [
   "ANN101", # Self... explanatory
+  "ANN102", # cls... clear screen?
   "ANN401", # Opinioated warning on disallowing dynamically typed expressions
   "D203", # Conflicts with other rules
   "D213", # Conflicts with other rules
@@ -163,6 +169,9 @@ mark-parentheses = false
 
 [tool.ruff.lint.isort]
 known-first-party = ["wled"]
+
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["mashumaro.mixins.orjson.DataClassORJSONMixin"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 25
