@@ -1,14 +1,16 @@
 """Asynchronous Python client for WLED."""
 
 import asyncio
+from typing import Annotated
 
+import typer
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
-from wled import WLEDReleases
+from wled import WLED, WLEDReleases
 
 from .async_typer import AsyncTyper
 
@@ -16,15 +18,88 @@ cli = AsyncTyper(help="WLED CLI", no_args_is_help=True, add_completion=False)
 console = Console()
 
 
+@cli.command("info")
+async def command_info(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the latest release information of WLED."""
+    with console.status(
+        "[cyan]Fetching WLED device information...", spinner="toggle12"
+    ):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    info_table = Table(title="\nWLED device information", show_header=False)
+    info_table.add_column("Property", style="cyan bold")
+    info_table.add_column("Value", style="green")
+
+    info_table.add_row("Name", device.info.name)
+    info_table.add_row("Brand", device.info.brand)
+    info_table.add_row("Product", device.info.product)
+
+    info_table.add_section()
+    info_table.add_row("IP address", device.info.ip)
+    info_table.add_row("MAC address", device.info.mac_address)
+    if device.info.wifi:
+        info_table.add_row("Wi-Fi BSSID", device.info.wifi.bssid)
+        info_table.add_row("Wi-Fi channel", str(device.info.wifi.channel))
+        info_table.add_row("Wi-Fi RSSI", f"{device.info.wifi.rssi} dBm")
+        info_table.add_row("Wi-Fi signal strength", f"{device.info.wifi.signal}%")
+
+    info_table.add_section()
+    info_table.add_row("Version", device.info.version)
+    info_table.add_row("Build", str(device.info.build))
+    info_table.add_row("Architecture", device.info.architecture)
+    info_table.add_row("Arduino version", device.info.arduino_core_version)
+
+    info_table.add_section()
+    info_table.add_row("Uptime", f"{int(device.info.uptime.total_seconds())} seconds")
+    info_table.add_row("Free heap", f"{device.info.free_heap} bytes")
+    info_table.add_row("Total storage", f"{device.info.filesystem.total} bytes")
+    info_table.add_row("Used storage", f"{device.info.filesystem.used} bytes")
+    info_table.add_row("% Used storage", f"{device.info.filesystem.used_percentage}%")
+
+    info_table.add_section()
+    info_table.add_row("Effect count", f"{device.info.effect_count} effects")
+    info_table.add_row("Palette count", f"{device.info.palette_count} palettes")
+
+    info_table.add_section()
+    info_table.add_row("Sync UDP port", str(device.info.udp_port))
+    info_table.add_row(
+        "WebSocket",
+        "Disabled"
+        if device.info.websocket is None
+        else f"{device.info.websocket} client(s)",
+    )
+
+    info_table.add_section()
+    info_table.add_row("Live", "Yes" if device.info.live else "No")
+    info_table.add_row("Live IP", device.info.live_ip)
+    info_table.add_row("Live mode", device.info.live_mode)
+
+    info_table.add_section()
+    info_table.add_row("LED count", f"{device.info.leds.count} LEDs")
+    info_table.add_row("LED power", f"{device.info.leds.power} mA")
+    info_table.add_row("LED max power", f"{device.info.leds.max_power} mA")
+
+    console.print(info_table)
+
+
 @cli.command("releases")
-async def releases() -> None:
+async def command_releases() -> None:
     """Show the latest release information of WLED."""
     with console.status(
         "[cyan]Fetching latest release information...", spinner="toggle12"
     ):
-        async with WLEDReleases() as rel:
-            latest = await rel.releases()
-    console.print("✅[green]Success!")
+        async with WLEDReleases() as releases:
+            latest = await releases.releases()
 
     table = Table(
         title="\n\nFound WLED Releases", header_style="cyan bold", show_lines=True
@@ -48,7 +123,7 @@ async def releases() -> None:
 
 
 @cli.command("scan")
-async def scan() -> None:
+async def command_scan() -> None:
     """Scan for WLED devices on the network."""
     zeroconf = AsyncZeroconf()
     background_tasks = set()

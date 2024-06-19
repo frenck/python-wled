@@ -85,7 +85,7 @@ class Color(SerializableType):
         # Some values in the list can be strings, which indicates that the
         # color is a hex color value.
         return cls(
-            *[
+            *[  # type: ignore[arg-type]
                 tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
                 if isinstance(color, str)
                 else color
@@ -421,9 +421,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     effect_count: int = field(default=0, metadata=field_options(alias="fxcount"))
     """Number of effects included."""
 
-    filesystem: Filesystem | None = field(
-        default=None, metadata=field_options(alias="fs")
-    )
+    filesystem: Filesystem = field(metadata=field_options(alias="fs"))
     """Info about the embedded LittleFS filesystem."""
 
     free_heap: int = field(default=0, metadata=field_options(alias="freeheap"))
@@ -444,7 +442,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     live: bool = False
     """Realtime data source active via UDP or E1.31."""
 
-    mac_address: str = ""
+    mac_address: str = field(default="", metadata=field_options(alias="mac"))
     """
     The hexadecimal hardware MAC address of the light,
     lowercase and without colons.
@@ -453,7 +451,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     name: str = "WLED Light"
     """Friendly name of the light. Intended for display in lists and titles."""
 
-    pallet_count: int = 0
+    palette_count: int = field(default=0, metadata=field_options(alias="palcount"))
     """Number of palettes configured."""
 
     product: str = "DIY Light"
