@@ -416,13 +416,18 @@ class WLED:
         if color_primary is not None:
             colors.append(color_primary)
         elif color_secondary is not None or color_tertiary is not None:
-            colors.append(self._device.state.segments[segment_id].color.primary)
+            if clrs := self._device.state.segments[segment_id].color:
+                colors.append(clrs.primary)
+            else:
+                colors.append((0, 0, 0))
 
         if color_secondary is not None:
             colors.append(color_secondary)
         elif color_tertiary is not None:
-            if secondary := self._device.state.segments[segment_id].color.secondary:
-                colors.append(secondary)
+            if (
+                clrs := self._device.state.segments[segment_id].color
+            ) and clrs.secondary:
+                colors.append(clrs.secondary)
             else:
                 colors.append((0, 0, 0))
 
