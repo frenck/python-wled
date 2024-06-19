@@ -92,6 +92,32 @@ async def command_info(
     console.print(info_table)
 
 
+@cli.command("effects")
+async def command_effects(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the effects on the device."""
+    with console.status(
+        "[cyan]Fetching WLED device information...", spinner="toggle12"
+    ):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    table = Table(title="\nEffects on this WLED device", show_header=False)
+    table.add_column("Effects", style="cyan bold")
+    for effect in device.effects.values():
+        table.add_row(effect.name)
+
+    console.print(table)
+
+
 @cli.command("palettes")
 async def command_palettes(
     host: Annotated[
