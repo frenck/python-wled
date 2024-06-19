@@ -140,6 +140,9 @@ max-line-length = 88
 [tool.pylint.DESIGN]
 max-attributes = 20
 
+[tool.pylint.TYPECHECK]
+ignored-modules = ["orjson"]
+
 [tool.pytest.ini_options]
 addopts = "--cov"
 asyncio_mode = "auto"

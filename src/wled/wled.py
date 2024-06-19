@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
 import backoff
+import orjson
 from yarl import URL
 
 from .exceptions import (
@@ -200,24 +200,16 @@ class WLED:
                 if content_type == "application/json":
                     raise WLEDError(
                         response.status,
-                        json.loads(contents.decode("utf8")),
+                        orjson.loads(contents),
                     )
                 raise WLEDError(
                     response.status,
                     {"message": contents.decode("utf8")},
                 )
 
+            response_data = await response.text()
             if "application/json" in content_type:
-                response_data = await response.json()
-                if (
-                    method == "POST"
-                    and uri == "/json/state"
-                    and self._device is not None
-                    and data is not None
-                ):
-                    self._device.update_from_dict(data={"state": response_data})
-            else:
-                response_data = await response.text()
+                response_data = orjson.loads(response_data)
 
         except asyncio.TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
@@ -225,6 +217,14 @@ class WLED:
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error occurred while communicating with WLED device at {self.host}"
             raise WLEDConnectionError(msg) from exception
+
+        if "application/json" in content_type and (
+            method == "POST"
+            and uri == "/json/state"
+            and self._device is not None
+            and data is not None
+        ):
+            self._device.update_from_dict(data={"state": response_data})
 
         return response_data
 
@@ -741,19 +741,19 @@ class WLEDReleases:
             raise WLEDConnectionError(msg) from exception
 
         content_type = response.headers.get("Content-Type", "")
+        contents = await response.read()
         if response.status // 100 in [4, 5]:
-            contents = await response.read()
             response.close()
 
             if content_type == "application/json":
-                raise WLEDError(response.status, json.loads(contents.decode("utf8")))
+                raise WLEDError(response.status, orjson.loads(contents))
             raise WLEDError(response.status, {"message": contents.decode("utf8")})
 
         if "application/json" not in content_type:
             msg = "No JSON response from GitHub while retrieving WLED releases"
             raise WLEDError(msg)
 
-        releases = await response.json()
+        releases = orjson.loads(contents)
         version_latest = None
         version_latest_beta = None
         for release in releases:
