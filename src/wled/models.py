@@ -287,6 +287,12 @@ class Segment(BaseModel):
     from top-left corner of the matrix.
     """
 
+    cct: int = field(default=0, metadata=field_options(alias="cct"))
+    """White spectrum color temperature.
+
+    0 indicates the warmest possible color temperature,
+    255 indicates the coldest temperature
+    """
 
 @dataclass(frozen=True, kw_only=True)
 class Leds:
