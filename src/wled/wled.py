@@ -327,6 +327,7 @@ class WLED:
         start: int | None = None,
         stop: int | None = None,
         transition: int | None = None,
+        cct: int | None = None,
     ) -> None:
         """Change state of a WLED Light segment.
 
@@ -355,6 +356,7 @@ class WLED:
             transition:  Duration of the crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
+            cct: White spectrum color temperature.
 
         Raises:
         ------
@@ -383,6 +385,7 @@ class WLED:
             "start": start,
             "stop": stop,
             "sx": speed,
+            "cct": cct,
         }
 
         # Find effect if it was based on a name
