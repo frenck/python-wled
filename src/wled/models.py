@@ -489,7 +489,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
             obj.websocket = None
 
         # We can tweak the architecture name based on the filesystem size.
-        if obj.filesystem is not None and obj.architecture == "esp8266":
+        if obj.filesystem is not None and obj.architecture.lower() == "esp8266":
             if obj.filesystem.total <= 256:
                 obj.architecture = "esp01"
             elif obj.filesystem.total <= 512:
