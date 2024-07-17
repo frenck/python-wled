@@ -488,6 +488,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         if obj.websocket == -1:
             obj.websocket = None
 
+        # We want the architecture in lower case
+        obj.architecture = obj.architecture.lower()
+
         # We can tweak the architecture name based on the filesystem size.
         if obj.filesystem is not None and obj.architecture == "esp8266":
             if obj.filesystem.total <= 256:
@@ -807,8 +810,6 @@ class Device(BaseModel):
             self.playlists.pop(0, None)
 
         if _info := data.get("info"):
-            if "architecture" in _info:
-                _info["architecture"] = _info["architecture"].lower()
             self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
