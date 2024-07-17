@@ -407,7 +407,7 @@ class Filesystem(BaseModel):
 class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
-    architecture: str = field(default="Unknown", metadata=field_options(alias="arch"))
+    architecture: str = field(default="unknown", metadata=field_options(alias="arch"))
     """Name of the platform."""
 
     arduino_core_version: str = field(
