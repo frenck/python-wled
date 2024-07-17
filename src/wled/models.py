@@ -288,7 +288,7 @@ class Segment(BaseModel):
     """
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""
 
@@ -321,7 +321,7 @@ class Leds:
     """Capabilities of each segment."""
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Wifi(BaseModel):
     """Object holding Wi-Fi information from WLED.
 
@@ -341,7 +341,7 @@ class Wifi(BaseModel):
     signal: int = 0
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Filesystem(BaseModel):
     """Object holding Filesystem information from WLED.
 
@@ -433,7 +433,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     ip: str = ""  # pylint: disable=invalid-name
     """The IP address of this instance. Empty string if not connected."""
 
-    leds: Leds = field(default=Leds())
+    leds: Leds = field(default_factory=Leds)
     """Contains info about the LED setup."""
 
     live_ip: str = field(default="Unknown", metadata=field_options(alias="lip"))
