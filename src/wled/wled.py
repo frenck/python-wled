@@ -590,7 +590,7 @@ class WLED:
             msg = "Unexpected upgrade error; No session or device"
             raise WLEDUpgradeError(msg)
 
-        if self._device.info.architecture.lower() not in {
+        if self._device.info.architecture not in {
             "esp01",
             "esp02",
             "esp32",
@@ -616,7 +616,7 @@ class WLED:
         # Determine if this is an Ethernet board
         ethernet = ""
         if (
-            self._device.info.architecture.lower() == "esp32"
+            self._device.info.architecture == "esp32"
             and self._device.info.wifi is not None
             and not self._device.info.wifi.bssid
             and self._device.info.version
@@ -627,7 +627,7 @@ class WLED:
         # Determine if this is a 2M ESP8266 board.
         # See issue `https://github.com/Aircoookie/WLED/issues/3257`
         gzip = ""
-        if self._device.info.architecture.lower() == "esp02":
+        if self._device.info.architecture == "esp02":
             gzip = ".gz"
 
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
