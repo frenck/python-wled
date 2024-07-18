@@ -407,7 +407,7 @@ class Filesystem(BaseModel):
 class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
-    architecture: str = field(default="Unknown", metadata=field_options(alias="arch"))
+    architecture: str = field(default="unknown", metadata=field_options(alias="arch"))
     """Name of the platform."""
 
     arduino_core_version: str = field(
@@ -487,6 +487,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         # We want to represent this as None.
         if obj.websocket == -1:
             obj.websocket = None
+
+        # We want the architecture in lower case
+        obj.architecture = obj.architecture.lower()
 
         # We can tweak the architecture name based on the filesystem size.
         if obj.filesystem is not None and obj.architecture == "esp8266":
