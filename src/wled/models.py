@@ -294,7 +294,7 @@ class Segment(BaseModel):
     255 indicates the coldest temperature
     """
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""
 
@@ -327,7 +327,7 @@ class Leds:
     """Capabilities of each segment."""
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Wifi(BaseModel):
     """Object holding Wi-Fi information from WLED.
 
@@ -347,7 +347,7 @@ class Wifi(BaseModel):
     signal: int = 0
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class Filesystem(BaseModel):
     """Object holding Filesystem information from WLED.
 
@@ -413,7 +413,7 @@ class Filesystem(BaseModel):
 class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """Object holding information from WLED."""
 
-    architecture: str = field(default="Unknown", metadata=field_options(alias="arch"))
+    architecture: str = field(default="unknown", metadata=field_options(alias="arch"))
     """Name of the platform."""
 
     arduino_core_version: str = field(
@@ -439,7 +439,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     ip: str = ""  # pylint: disable=invalid-name
     """The IP address of this instance. Empty string if not connected."""
 
-    leds: Leds = field(default=Leds())
+    leds: Leds = field(default_factory=Leds)
     """Contains info about the LED setup."""
 
     live_ip: str = field(default="Unknown", metadata=field_options(alias="lip"))
@@ -493,6 +493,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         # We want to represent this as None.
         if obj.websocket == -1:
             obj.websocket = None
+
+        # We want the architecture in lower case
+        obj.architecture = obj.architecture.lower()
 
         # We can tweak the architecture name based on the filesystem size.
         if obj.filesystem is not None and obj.architecture == "esp8266":
