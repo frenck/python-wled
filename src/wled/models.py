@@ -613,6 +613,15 @@ class Preset(BaseModel):
     """Segments are individual parts of the LED strip."""
 
     @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Preset object."""
+        # If the segment is a single value, we will convert it to a list.
+        if "seg" in d and not isinstance(d["seg"], list):
+            d["seg"] = [d["seg"]]
+
+        return d
+
+    @classmethod
     def __post_deserialize__(cls, obj: Preset) -> Preset:
         """Post deserialize hook for Preset object."""
         # If name is empty, we will replace it with the playlist ID.
