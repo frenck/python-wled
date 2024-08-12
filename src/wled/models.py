@@ -746,6 +746,13 @@ class Device(BaseModel):
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
+        elif _palettes is None:
+            # Some less capable devices don't have palettes and
+            # will return `null`.
+            # Refs:
+            # - https://github.com/home-assistant/core/issues/123506
+            # - https://github.com/Aircoookie/WLED/issues/1974
+            d["palettes"] = {}
 
         if _presets := d.get("presets"):
             _presets = _presets.copy()
