@@ -728,9 +728,9 @@ class Device(BaseModel):
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
         _version = (_version_str := d.get("info", {}).get("ver")) and AwesomeVersion(_version_str)
-        if not _version or AwesomeVersion(f"{version.major}.{version.minor}") < MIN_REQUIRED_VERSION:
+        if not _version or AwesomeVersion(f"{_version.major}.{_version.minor}") < MIN_REQUIRED_VERSION:
             msg = (
-                f"Unsupported firmware version {version}. "
+                f"Unsupported firmware version {_version_str}. "
                 f"Minimum required version is {MIN_REQUIRED_VERSION}. "
                 f"Please update your WLED device."
             )
