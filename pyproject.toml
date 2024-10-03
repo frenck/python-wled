@@ -34,7 +34,7 @@ orjson = ">=3.9.8"
 python = "^3.11"
 typer = {version = "^0.12.3", optional = true, extras = ["all"]}
 yarl = ">=1.6.0"
-zeroconf = {version = "^0.134.0", optional = true, extras = ["all"]}
+zeroconf = {version = "^0.135.0", optional = true, extras = ["all"]}
 
 [tool.poetry.extras]
 cli = ["typer", "zeroconf"]
