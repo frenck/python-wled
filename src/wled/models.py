@@ -727,13 +727,17 @@ class Device(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
-        if (version := d.get("info", {}).get("ver")) and version < MIN_REQUIRED_VERSION:
-            msg = (
-                f"Unsupported firmware version {version}. "
-                f"Minimum required version is {MIN_REQUIRED_VERSION}. "
-                f"Please update your WLED device."
-            )
-            raise WLEDUnsupportedVersionError(msg)
+        version = d.get("info", {}).get("ver")
+        if version:
+            # Strip any trailing characters after a dash (e.g., "-b1")
+            clean_version = version.split('-')[0]
+            if clean_version < MIN_REQUIRED_VERSION:
+                msg = (
+                    f"Unsupported firmware version {version}. "
+                    f"Minimum required version is {MIN_REQUIRED_VERSION}. "
+                    f"Please update your WLED device."
+                )
+                raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
             d["effects"] = {
