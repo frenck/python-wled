@@ -32,7 +32,7 @@ cachetools = ">=4.0.0"
 mashumaro = "^3.13"
 orjson = ">=3.9.8"
 python = "^3.11"
-typer = {version = "^0.13.0", optional = true, extras = ["all"]}
+typer = {version = "^0.15.0", optional = true, extras = ["all"]}
 yarl = ">=1.6.0"
 zeroconf = {version = "^0.136.0", optional = true, extras = ["all"]}
 
