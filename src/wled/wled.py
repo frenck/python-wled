@@ -12,6 +12,8 @@ import backoff
 import orjson
 from yarl import URL
 
+from wled.const import WLED_DEFAULT_REPO
+
 from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -572,7 +574,7 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(self, *, version: str | AwesomeVersion) -> None:
+    async def upgrade(self, *, version: str | AwesomeVersion, repo) -> None:
         """Upgrades WLED device to the specified version.
 
         Args:
@@ -637,7 +639,7 @@ class WLED:
         architecture = self._device.info.architecture.upper()
         update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
         download_url = (
-            "https://github.com/Aircoookie/WLED/releases/download"
+            f"https://github.com/{repo}/releases/download"
             f"/v{version}/{update_file}"
         )
 
@@ -656,7 +658,7 @@ class WLED:
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested WLED version '{version}' does not exists"
+                msg = f"Requested WLED bin {update_file} for version '{version}' does not exists"
                 raise WLEDUpgradeError(msg) from exception
             msg = (
                 f"Could not download requested WLED version '{version}'"
@@ -707,9 +709,15 @@ class WLEDReleases:
 
     request_timeout: float = 8.0
     session: aiohttp.client.ClientSession | None = None
+    repo: str = WLED_DEFAULT_REPO
+
 
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
+
+    def __init__(self, repo=None):
+        if repo is not None:
+            self.repo = repo
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
     async def releases(self) -> Releases:
@@ -733,10 +741,11 @@ class WLEDReleases:
             self.session = aiohttp.ClientSession()
             self._close_session = True
 
+        print(f"https://api.github.com/repos/{self.repo}/releases")
         try:
             async with asyncio.timeout(self.request_timeout):
                 response = await self.session.get(
-                    "https://api.github.com/repos/Aircoookie/WLED/releases",
+                    f"https://api.github.com/repos/{self.repo}/releases",
                     headers={"Accept": "application/json"},
                 )
         except asyncio.TimeoutError as exception:
@@ -781,6 +790,7 @@ class WLEDReleases:
         return Releases(
             beta=version_latest_beta,
             stable=version_latest,
+            repo=self.repo,
         )
 
     async def close(self) -> None:
