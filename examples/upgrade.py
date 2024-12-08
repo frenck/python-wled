@@ -2,12 +2,14 @@
 """Asynchronous Python client for WLED."""
 
 import asyncio
+import sys
 
 from wled import WLED, WLEDReleases
 
 
 async def main() -> None:
     """Show example on upgrade your WLED device."""
+#    async with WLEDReleases("MoonModules/WLED") as releases:
     async with WLEDReleases() as releases:
         latest = await releases.releases()
         print(f"Latest stable version: {latest.stable}")
@@ -17,12 +19,13 @@ async def main() -> None:
         print("No stable version found")
         return
 
-    async with WLED("10.10.11.54") as led:
+    async with WLED(sys.argv[1]) as led:
         device = await led.update()
         print(f"Current version: {device.info.version}")
+        print(f"Current release: {device.info.release}")
 
         print("Upgrading WLED....")
-        await led.upgrade(version=latest.stable)
+        await led.upgrade(version=latest.stable,repo=latest.repo) # stable not default option
 
         print("Waiting for WLED to come back....")
         await asyncio.sleep(5)

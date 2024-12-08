@@ -478,6 +478,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """Version of the WLED software."""
 
+    release: str | None = field(metadata=field_options(alias="release"))
+    """Release info of the WLED software."""
+
     websocket: int | None = field(default=None, metadata=field_options(alias="ws"))
     """
     Number of currently connected WebSockets clients.
@@ -847,3 +850,4 @@ class Releases(BaseModel):
 
     beta: AwesomeVersion | None
     stable: AwesomeVersion | None
+    repo: str
