@@ -149,8 +149,6 @@ asyncio_mode = "auto"
 
 [tool.ruff.lint]
 ignore = [
-  "ANN101", # Self... explanatory
-  "ANN102", # cls... clear screen?
   "ANN401", # Opinioated warning on disallowing dynamically typed expressions
   "D203", # Conflicts with other rules
   "D213", # Conflicts with other rules

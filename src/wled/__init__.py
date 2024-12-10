@@ -27,6 +27,7 @@ from .models import (
 from .wled import WLED, WLEDReleases
 
 __all__ = [
+    "WLED",
     "Device",
     "Effect",
     "Info",
@@ -44,7 +45,6 @@ __all__ = [
     "State",
     "SyncGroup",
     "UDPSync",
-    "WLED",
     "WLEDConnectionClosedError",
     "WLEDConnectionError",
     "WLEDConnectionTimeoutError",
