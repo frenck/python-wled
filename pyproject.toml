@@ -58,7 +58,7 @@ pylint = "3.3.2"
 pytest = "8.3.4"
 pytest-asyncio = "0.24.0"
 pytest-cov = "6.0.0"
-ruff = "0.7.4"
+ruff = "0.8.2"
 safety = "3.2.11"
 types-cachetools = "^5.3.0"
 yamllint = "1.35.1"
@@ -149,8 +149,6 @@ asyncio_mode = "auto"
 
 [tool.ruff.lint]
 ignore = [
-  "ANN101", # Self... explanatory
-  "ANN102", # cls... clear screen?
   "ANN401", # Opinioated warning on disallowing dynamically typed expressions
   "D203", # Conflicts with other rules
   "D213", # Conflicts with other rules

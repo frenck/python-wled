@@ -27,7 +27,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Coroutine,
     ParamSpec,
     TypeVar,
 )
@@ -36,6 +35,8 @@ from typer import Exit
 from typer import Typer as SyncTyper
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from typer.core import TyperCommand, TyperGroup
 
 _P = ParamSpec("_P")

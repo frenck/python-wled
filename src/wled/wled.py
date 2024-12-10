@@ -642,12 +642,15 @@ class WLED:
         )
 
         try:
-            async with asyncio.timeout(
-                self.request_timeout * 10,
-            ), self.session.get(
-                download_url,
-                raise_for_status=True,
-            ) as download:
+            async with (
+                asyncio.timeout(
+                    self.request_timeout * 10,
+                ),
+                self.session.get(
+                    download_url,
+                    raise_for_status=True,
+                ) as download,
+            ):
                 form = aiohttp.FormData()
                 form.add_field("file", await download.read(), filename=update_file)
                 await self.session.post(url, data=form)
