@@ -8,14 +8,14 @@ repos:
         types: [python]
         entry: poetry run ruff check --fix
         require_serial: true
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: ruff-format
         name: 🐶 Ruff Formatter
         language: system
         types: [python]
         entry: poetry run ruff format
         require_serial: true
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: check-ast
         name: 🐍 Check Python AST
         language: system
@@ -35,7 +35,7 @@ repos:
         language: system
         types: [text, executable]
         entry: poetry run check-executables-have-shebangs
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: check-json
         name: ｛ Check JSON files
         language: system
@@ -82,7 +82,7 @@ repos:
         language: system
         types: [text]
         entry: poetry run end-of-file-fixer
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: mypy
         name: 🆎 Static type checking using mypy
         language: system
@@ -125,7 +125,7 @@ repos:
         language: system
         types: [text]
         entry: poetry run trailing-whitespace-fixer
-        stages: [commit, push, manual]
+        stages: [pre-commit, pre-push, manual]
       - id: yamllint
         name: 🎗  Check YAML files with yamllint
         language: system
