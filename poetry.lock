@@ -2012,13 +2012,13 @@ files = [
 
 [[package]]
 name = "typer"
-version = "0.13.1"
+version = "0.15.1"
 description = "Typer, build great CLIs. Easy to code. Based on Python type hints."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "typer-0.13.1-py3-none-any.whl", hash = "sha256:5b59580fd925e89463a29d363e0a43245ec02765bde9fb77d39e5d0f29dd7157"},
-    {file = "typer-0.13.1.tar.gz", hash = "sha256:9d444cb96cc268ce6f8b94e13b4335084cef4c079998a9f4851a90229a3bd25c"},
+    {file = "typer-0.15.1-py3-none-any.whl", hash = "sha256:7994fb7b8155b64d3402518560648446072864beefd44aa2dc36972a5972e847"},
+    {file = "typer-0.15.1.tar.gz", hash = "sha256:a0588c0a7fa68a1978a069818657778f86abe6ff5ea6abf472f940a08bfe4f0a"},
 ]
 
 [package.dependencies]
@@ -2285,4 +2285,4 @@ cli = ["typer", "zeroconf"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "bd9f86b205616e9f46b1a11e8e7dc1ac13c54d3acbe26aab8a277b30a6e3093f"
+content-hash = "13205d8d2e488bb21318f8fca78162839e35b3f1467cf00fa53881d16393aaf8"
