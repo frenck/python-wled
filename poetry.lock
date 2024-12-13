@@ -1920,13 +1920,13 @@ files = [
 
 [[package]]
 name = "safety"
-version = "3.2.12"
+version = "3.2.13"
 description = "Checks installed dependencies for known vulnerabilities and licenses."
 optional = false
 python-versions = ">=3.7"
 files = [
-    {file = "safety-3.2.12-py3-none-any.whl", hash = "sha256:e368b02d532ed6e248631617b246c1d01561e862b6a0949a87d28e0152322d13"},
-    {file = "safety-3.2.12.tar.gz", hash = "sha256:fab91195f32bfcb64d99b3a796b6865fc020950c67b1f940230201aaf8f46e01"},
+    {file = "safety-3.2.13-py3-none-any.whl", hash = "sha256:c259d43b751c62973b484ed03b78409890236023a50d8e3292b80d84139a9d35"},
+    {file = "safety-3.2.13.tar.gz", hash = "sha256:9328510c3286d67a788346d60df531b8bd2f35abbed3ac4dfaf8d119e6eec1ae"},
 ]
 
 [package.dependencies]
@@ -2288,4 +2288,4 @@ cli = ["typer", "zeroconf"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "d3cb55d86a440427a7985b3a4382bf9ef2733faa7da002db192562942474d652"
+content-hash = "f6a3c703b3929e1dbd1c2dacc8e7e89f10a9dc7717a1963c7004858311fe6461"
