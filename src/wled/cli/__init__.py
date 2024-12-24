@@ -115,6 +115,9 @@ async def command_info(
     info_table.add_section()
     info_table.add_row("Effect count", f"{device.info.effect_count} effects")
     info_table.add_row("Palette count", f"{device.info.palette_count} palettes")
+    info_table.add_row(
+        "Custom palette count", f"{device.info.custom_palette_count} custom palettes"
+    )
 
     info_table.add_section()
     info_table.add_row("Sync UDP port", str(device.info.udp_port))
