@@ -644,7 +644,6 @@ class WLED:
             "https://github.com/Aircoookie/WLED/releases/download"
             f"/v{version}/{update_file}"
         )
-        msg(f"Downloading {download_url} to {url}")
 
         try:
             async with (
