@@ -37,7 +37,7 @@ jobs:
       - name: 🚀 Run pytest
         run: poetry run pytest --cov wled tests
       - name: ⬆️ Upload coverage artifact
-        uses: actions/upload-artifact@v4.5.0
+        uses: actions/upload-artifact@v4.6.0
         with:
           name: coverage-${{ matrix.python }}
           include-hidden-files: true
@@ -72,7 +72,7 @@ jobs:
           poetry run coverage combine coverage*/.coverage*
           poetry run coverage xml -i
       - name: 🚀 Upload coverage report
-        uses: codecov/codecov-action@v5.1.2
+        uses: codecov/codecov-action@v5.3.1
       - name: SonarCloud Scan
         if: github.event.pull_request.head.repo.fork == false
         uses: SonarSource/sonarcloud-github-action@v4.0.0
