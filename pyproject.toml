@@ -49,7 +49,7 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 
 [tool.poetry.dev-dependencies]
 aresponses = "3.0.0"
-codespell = "2.3.0"
+codespell = "2.4.1"
 covdefaults = "2.3.0"
 coverage = {version = "7.6.10", extras = ["toml"]}
 mypy = "1.15.0"
