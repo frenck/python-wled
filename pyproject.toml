@@ -175,6 +175,9 @@ runtime-evaluated-base-classes = ["mashumaro.mixins.orjson.DataClassORJSONMixin"
 [tool.ruff.lint.mccabe]
 max-complexity = 25
 
+[tool.codespell]
+ignore-words-list = "abl"
+
 [build-system]
 build-backend = "poetry.core.masonry.api"
 requires = ["poetry-core>=1.0.0"]
