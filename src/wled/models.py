@@ -311,14 +311,14 @@ class Leds:
     """Capabilities of the light."""
 
     max_power: int = field(default=0, metadata=field_options(alias="maxpwr"))
-    """Maximum power budget in milliamps for the ABL. 0 if ABL is disabled."""
+    """Maximum power budget in milliamperes for the ABL. 0 if ABL is disabled."""
 
     max_segments: int = field(default=0, metadata=field_options(alias="maxseg"))
     """Maximum number of segments supported by this version."""
 
     power: int = field(default=0, metadata=field_options(alias="pwr"))
     """
-    Current LED power usage in milliamps as determined by the ABL.
+    Current LED power usage in milliamperes as determined by the ABL.
     0 if ABL is disabled.
     """
 
