@@ -427,6 +427,13 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     release: str | None = None
     """The releae name, e.g ESP32_Ethernet, ESP8266_160"""
+    """The release name of the WLED device.
+
+    Examples:
+        - ESP32_Ethernet
+        - ESP8266_160
+        - ESP8266_compat
+    """
 
     build: str = field(default="Unknown", metadata=field_options(alias="vid"))
     """Build ID (YYMMDDB, B = daily build index)."""

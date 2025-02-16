@@ -635,7 +635,7 @@ class WLED:
 
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
         architecture = self._device.info.architecture.upper()
-        if(self._device.info.release is not None):
+        if self._device.info.release is not None:
             update_file = f"{self._device.info.brand}_{version}_{self._device.info.release}.bin{gzip}"
         else:
             update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
