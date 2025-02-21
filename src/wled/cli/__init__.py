@@ -271,12 +271,12 @@ async def command_releases() -> None:
     table.add_row(
         "Stable",
         latest.stable,
-        f"https://github.com/wled-dev/WLED/releases/v{latest.stable}",
+        f"https://github.com/wled/WLED/releases/v{latest.stable}",
     )
     table.add_row(
         "Beta",
         latest.beta,
-        f"https://github.com/wled-dev/WLED/releases/v{latest.beta}",
+        f"https://github.com/wled/WLED/releases/v{latest.beta}",
     )
 
     console.print(table)

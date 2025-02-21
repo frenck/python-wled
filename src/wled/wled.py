@@ -628,7 +628,7 @@ class WLED:
             ethernet = "_Ethernet"
 
         # Determine if this is a 2M ESP8266 board.
-        # See issue `https://github.com/wled-dev/WLED/issues/3257`
+        # See issue `https://github.com/wled/WLED/issues/3257`
         gzip = ""
         if self._device.info.architecture == "esp02":
             gzip = ".gz"
@@ -637,7 +637,7 @@ class WLED:
         architecture = self._device.info.architecture.upper()
         update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
         download_url = (
-            "https://github.com/wled-dev/WLED/releases/download"
+            "https://github.com/wled/WLED/releases/download"
             f"/v{version}/{update_file}"
         )
 
@@ -739,7 +739,7 @@ class WLEDReleases:
         try:
             async with asyncio.timeout(self.request_timeout):
                 response = await self.session.get(
-                    "https://api.github.com/repos/wled-dev/WLED/releases",
+                    "https://api.github.com/repos/wled/WLED/releases",
                     headers={"Accept": "application/json"},
                 )
         except asyncio.TimeoutError as exception:
