@@ -426,8 +426,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     """The producer/vendor of the light. Always WLED for standard installations."""
 
     release: str | None = None
-    """The releae name, e.g ESP32_Ethernet, ESP8266_160"""
-    """The release name of the WLED device.
+    """The release name of the WLED device firmware.
 
     Examples:
         - ESP32_Ethernet
