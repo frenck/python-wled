@@ -662,7 +662,7 @@ class WLED:
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested WLED version '{version}' does not exists"
+                msg = f"Requested file {update_file} does not exists"
                 raise WLEDUpgradeError(msg) from exception
             msg = (
                 f"Could not download requested WLED version '{version}'"
