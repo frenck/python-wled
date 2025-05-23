@@ -2,11 +2,16 @@
 """Asynchronous Python client for WLED."""
 
 import asyncio
+import sys
 
 from wled import WLED, WLEDReleases
 
 
 async def main() -> None:
+    if len(sys.argv) < 2:
+        print("Usage: python upgrade.py <ip_address>")
+        sys.exit(1)
+
     """Show example on upgrade your WLED device."""
     async with WLEDReleases() as releases:
         latest = await releases.releases()
@@ -17,7 +22,7 @@ async def main() -> None:
         print("No stable version found")
         return
 
-    async with WLED("10.10.11.54") as led:
+    async with WLED(sys.argv[1]) as led:
         device = await led.update()
         print(f"Current version: {device.info.version}")
 
