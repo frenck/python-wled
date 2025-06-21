@@ -51,7 +51,7 @@ jobs:
           verbose: true
           print-hash: true
       - name: ✍️ Sign published artifacts
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
+        uses: sigstore/gh-action-sigstore-python@v3.0.1
         with:
           inputs: ./dist/*.tar.gz ./dist/*.whl
           release-signing-artifacts: true
