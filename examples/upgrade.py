@@ -7,9 +7,6 @@ from wled import WLED, WLEDReleases
 
 
 async def main() -> None:
-    if len(sys.argv) < 2:
-        print("Usage: python upgrade.py <ip_address>")
-        sys.exit(1)
 
     """Show example on upgrade your WLED device."""
     async with WLEDReleases() as releases:
