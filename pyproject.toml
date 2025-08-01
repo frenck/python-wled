@@ -52,7 +52,7 @@ aresponses = "3.0.0"
 codespell = "2.4.1"
 covdefaults = "2.3.0"
 coverage = {version = "7.10.1", extras = ["toml"]}
-mypy = "1.17.0"
+mypy = "1.17.1"
 pre-commit = "4.2.0"
 pre-commit-hooks = "5.0.0"
 pylint = "3.3.7"
