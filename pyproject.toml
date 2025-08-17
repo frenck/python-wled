@@ -51,7 +51,7 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 aresponses = "3.0.0"
 codespell = "2.4.1"
 covdefaults = "2.3.0"
-coverage = {version = "7.10.2", extras = ["toml"]}
+coverage = {version = "7.10.4", extras = ["toml"]}
 mypy = "1.17.1"
 pre-commit = "4.3.0"
 pre-commit-hooks = "5.0.0"
