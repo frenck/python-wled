@@ -294,6 +294,13 @@ class Segment(BaseModel):
     255 indicates the coldest temperature
     """
 
+    name: str | None = field(default=None, metadata=field_options(alias="n"))
+    """The name of the segment. 
+    
+    Names are not present by default. If this is none, use 
+    "Segment{segment_id}" to match the WLED UI.
+    """
+
 
 @dataclass(kw_only=True)
 class Leds:
