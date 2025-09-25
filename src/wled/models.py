@@ -294,6 +294,28 @@ class Segment(BaseModel):
     255 indicates the coldest temperature
     """
 
+    name: str | None = field(default=None, metadata=field_options(alias="n"))
+    """User-defined segment name (alias: "n").
+
+    Not present by default. If None or empty, callers may fall back to a UI-like
+    default, e.g., "Segment {segment_id}".
+    """
+
+    @property
+    def effective_name(self) -> str:
+        if self.name:
+            return self.name
+        if self.segment_id is not None:
+            return f"Segment {self.segment_id}"
+        return "Segment"
+
+    @classmethod
+    def __post_deserialize__(cls, obj: "Segment") -> "Segment":
+        # Normalize empty string to None for consistency
+        if obj.name == "":
+            obj.name = None
+        return obj
+
 
 @dataclass(kw_only=True)
 class Leds:
