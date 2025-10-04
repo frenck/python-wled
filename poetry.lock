@@ -1218,18 +1218,18 @@ tests = ["pytest", "simplejson"]
 
 [[package]]
 name = "mashumaro"
-version = "3.16"
+version = "3.17"
 description = "Fast and well tested serialization library"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "mashumaro-3.16-py3-none-any.whl", hash = "sha256:d72782cdad5e164748ca883023bc5a214a80835cdca75826bf0bcbff827e0bd3"},
-    {file = "mashumaro-3.16.tar.gz", hash = "sha256:3844137cf053bbac30c4cbd0ee9984e839a5731a0ef96fd3dd9388359af3f2e1"},
+    {file = "mashumaro-3.17-py3-none-any.whl", hash = "sha256:3964e2c804f62de9e4c58fb985de71dcd716f9507cc18374b1bd5c4f1a1b879b"},
+    {file = "mashumaro-3.17.tar.gz", hash = "sha256:de1d8b1faffee58969c7f97e35963a92480a38d4c9858e92e0721efec12258ed"},
 ]
 
 [package.dependencies]
-typing-extensions = ">=4.1.0"
+typing_extensions = ">=4.14.0"
 
 [package.extras]
 msgpack = ["msgpack (>=0.5.6)"]
