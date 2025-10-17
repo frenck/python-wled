@@ -425,6 +425,15 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     brand: str = "WLED"
     """The producer/vendor of the light. Always WLED for standard installations."""
 
+    release: str | None = None
+    """The release name of the WLED device firmware.
+
+    Examples:
+        - ESP32_Ethernet
+        - ESP8266_160
+        - ESP8266_compat
+    """
+
     build: str = field(default="Unknown", metadata=field_options(alias="vid"))
     """Build ID (YYMMDDB, B = daily build index)."""
 
