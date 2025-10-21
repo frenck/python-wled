@@ -1994,14 +1994,14 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pylint"
-version = "4.0.1"
+version = "4.0.2"
 description = "python code static checker"
 optional = false
 python-versions = ">=3.10.0"
 groups = ["dev"]
 files = [
-    {file = "pylint-4.0.1-py3-none-any.whl", hash = "sha256:6077ac21d01b7361eae6ed0f38d9024c02732fdc635d9e154d4fe6063af8ac56"},
-    {file = "pylint-4.0.1.tar.gz", hash = "sha256:06db6a1fda3cedbd7aee58f09d241e40e5f14b382fd035ed97be320f11728a84"},
+    {file = "pylint-4.0.2-py3-none-any.whl", hash = "sha256:9627ccd129893fb8ee8e8010261cb13485daca83e61a6f854a85528ee579502d"},
+    {file = "pylint-4.0.2.tar.gz", hash = "sha256:9c22dfa52781d3b79ce86ab2463940f874921a3e5707bcfc98dd0c019945014e"},
 ]
 
 [package.dependencies]
@@ -2952,4 +2952,4 @@ cli = ["typer", "zeroconf"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "5966b542fcb6cc62ac9a3a2853dca74d7d8e564c9e237a3e812e739f45aeab09"
+content-hash = "10c5516c76c17c712be9ab27b52f9d9df88347b704cbd42867f16d39ddc3c69c"
