@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
@@ -739,7 +739,6 @@ class WLED:
             not isinstance(device_data, dict)
             or not (info := device_data.get("info"))
             or not (uptime := info.get("uptime"))
-            or not (time := info.get("time"))
             or not (fs := info.get("fs"))
             or not (pmt := fs.get("pmt"))
         ):
@@ -748,11 +747,7 @@ class WLED:
         try:
             presets_modified_timestamp = int(pmt)
             uptime_seconds = int(uptime)
-            current_time_seconds = (
-                datetime.strptime(time, "%Y-%m-%d, %H:%M:%S")
-                .replace(tzinfo=timezone.utc)
-                .timestamp()
-            )
+            current_time_seconds = int(time.time())
             boot_time_approx = current_time_seconds - uptime_seconds
             new_version = (presets_modified_timestamp, int(boot_time_approx))
 
@@ -761,12 +756,16 @@ class WLED:
             # will be reset to 0 on device restart, and we might miss an update. Detect
             # device restarts by tracking the boot time.
             #
-            # Since we are approximating the time, allow 1 second changes for rounding
-            # errors.
+            # Since we are approximating the time, allow 2 seconds changes for rounding
+            # errors and network delay.
+            #
+            # We could get a better approximation of the boot time by using the device
+            # time from info.time. The device time is however unreliable, especially
+            # around boot.
             changed = (
                 self._presets_version is None
                 or self._presets_version[0] != new_version[0]
-                or abs(self._presets_version[1] - new_version[1]) > 1
+                or abs(self._presets_version[1] - new_version[1]) > 2
             )
         except ValueError:
             # In case of a parse failure, assume presets might have changed
