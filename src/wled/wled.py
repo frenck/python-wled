@@ -32,6 +32,12 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class _PresetsVersion:
+    presets_modified_timestamp: int
+    boot_time: int
+
+
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
@@ -42,7 +48,7 @@ class WLED:
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
-    _presets_version: tuple[int, int] | None = None
+    _presets_version: _PresetsVersion | None = None
 
     @property
     def connected(self) -> bool:
@@ -724,7 +730,7 @@ class WLED:
 
     def _check_presets_version(
         self, device_data: Any
-    ) -> tuple[bool, tuple[int, int] | None]:
+    ) -> tuple[bool, _PresetsVersion | None]:
         """Check if the presets have possibly been changed since last check.
 
         Returns
@@ -749,7 +755,9 @@ class WLED:
             uptime_seconds = int(uptime)
             current_time_seconds = int(time.time())
             boot_time_approx = current_time_seconds - uptime_seconds
-            new_version = (presets_modified_timestamp, int(boot_time_approx))
+            new_version = _PresetsVersion(
+                presets_modified_timestamp, int(boot_time_approx)
+            )
 
             # Presets are the same if the presets last modified timestamp has not been
             # modified. Since the last modified timestamp is only stored in memory, it
@@ -764,8 +772,9 @@ class WLED:
             # around boot.
             changed = (
                 self._presets_version is None
-                or self._presets_version[0] != new_version[0]
-                or abs(self._presets_version[1] - new_version[1]) > 2
+                or self._presets_version.presets_modified_timestamp
+                != new_version.presets_modified_timestamp
+                or abs(self._presets_version.boot_time - new_version.boot_time) > 2
             )
         except ValueError:
             # In case of a parse failure, assume presets might have changed
