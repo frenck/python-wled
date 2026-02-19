@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -31,6 +32,12 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class _PresetsVersion:
+    presets_modified_timestamp: int
+    boot_time: int
+
+
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
@@ -41,6 +48,7 @@ class WLED:
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
+    _presets_version: _PresetsVersion | None = None
 
     @property
     def connected(self) -> bool:
@@ -119,7 +127,21 @@ class WLED:
 
             if message.type == aiohttp.WSMsgType.TEXT:
                 message_data = message.json()
+
+                presets_changed, new_presets_version = self._check_presets_version(
+                    message_data
+                )
+                if presets_changed:
+                    if not (presets := await self.request("/presets.json")):
+                        err_msg = (
+                            f"WLED device at {self.host} returned an empty API"
+                            " response on presets update",
+                        )
+                        raise WLEDConnectionError(WLEDEmptyResponseError(err_msg))
+                    message_data["presets"] = presets
+
                 device = self._device.update_from_dict(data=message_data)
+                self._presets_version = new_presets_version
                 callback(device)
 
             if message.type in (
@@ -256,19 +278,22 @@ class WLED:
             )
             raise WLEDEmptyResponseError(msg)
 
-        if not (presets := await self.request("/presets.json")):
-            msg = (
-                f"WLED device at {self.host} returned an empty API"
-                " response on presets update",
-            )
-            raise WLEDEmptyResponseError(msg)
-        data["presets"] = presets
+        presets_changed, new_presets_version = self._check_presets_version(data)
+        if presets_changed:
+            if not (presets := await self.request("/presets.json")):
+                msg = (
+                    f"WLED device at {self.host} returned an empty API"
+                    " response on presets update",
+                )
+                raise WLEDEmptyResponseError(msg)
+            data["presets"] = presets
 
         if not self._device:
             self._device = Device.from_dict(data)
         else:
             self._device.update_from_dict(data)
 
+        self._presets_version = new_presets_version
         return self._device
 
     async def master(
@@ -702,6 +727,59 @@ class WLED:
 
         """
         await self.close()
+
+    def _check_presets_version(
+        self, device_data: Any
+    ) -> tuple[bool, _PresetsVersion | None]:
+        """Check if the presets have possibly been changed since last check.
+
+        Returns
+        -------
+            Tuple where first element denotes if presets have possibly changed, and
+            the second element the new version tuple. If version cannot be parsed, the
+            version is None.
+
+        """
+        # pylint: disable=too-many-boolean-expressions
+        if (
+            not isinstance(device_data, dict)
+            or not (info := device_data.get("info"))
+            or not (uptime := info.get("uptime"))
+            or not (fs := info.get("fs"))
+            or not (pmt := fs.get("pmt"))
+        ):
+            return (True, None)
+
+        try:
+            presets_modified_timestamp = int(pmt)
+            uptime_seconds = int(uptime)
+            current_time_seconds = int(time.time())
+            boot_time_approx = current_time_seconds - uptime_seconds
+            new_version = _PresetsVersion(
+                presets_modified_timestamp, int(boot_time_approx)
+            )
+
+            # Presets are the same if the presets last modified timestamp has not been
+            # modified. Since the last modified timestamp is only stored in memory, it
+            # will be reset to 0 on device restart, and we might miss an update. Detect
+            # device restarts by tracking the boot time.
+            #
+            # Since we are approximating the time, allow 2 seconds changes for rounding
+            # errors and network delay.
+            #
+            # We could get a better approximation of the boot time by using the device
+            # time from info.time. The device time is however unreliable, especially
+            # around boot.
+            changed = (
+                self._presets_version is None
+                or self._presets_version.presets_modified_timestamp
+                != new_version.presets_modified_timestamp
+                or abs(self._presets_version.boot_time - new_version.boot_time) > 2
+            )
+        except ValueError:
+            # In case of a parse failure, assume presets might have changed
+            return (True, None)
+        return (changed, new_version)
 
 
 @dataclass
