@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -464,6 +465,11 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     palette_count: int = field(default=0, metadata=field_options(alias="palcount"))
     """Number of palettes configured."""
 
+    custom_palette_count: int = field(
+        default=0, metadata=field_options(alias="cpalcount")
+    )
+    """Number of custom palettes configured."""
+
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
 
@@ -744,7 +750,13 @@ class Device(BaseModel):
         if _palettes := d.get("palettes"):
             d["palettes"] = {
                 palette_id: {"palette_id": palette_id, "name": name}
-                for palette_id, name in enumerate(_palettes)
+                for palette_id, name in itertools.chain(
+                    enumerate(_palettes),
+                    (
+                        (255 - i, f"~ Custom {i} ~")
+                        for i in range(d.get("info", {}).get("cpalcount", 0))
+                    ),
+                )
             }
         elif _palettes is None:
             # Some less capable devices don't have palettes and
@@ -802,7 +814,13 @@ class Device(BaseModel):
         if _palettes := data.get("palettes"):
             self.palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
-                for palette_id, name in enumerate(_palettes)
+                for palette_id, name in itertools.chain(
+                    enumerate(_palettes),
+                    (
+                        (255 - i, f"~ Custom {i} ~")
+                        for i in range(self.info.custom_palette_count)
+                    ),
+                )
             }
 
         if _presets := data.get("presets"):
