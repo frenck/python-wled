@@ -193,10 +193,10 @@
     "ver": "0.15.3",
     "ws": 1,
     "wifi": {
-      "bssid": "58:11:22:34:84:18",
-      "rssi": -71,
-      "signal": 58,
-      "channel": 6,
+      "bssid": "11:22:33:44:55:66",
+      "rssi": -12,
+      "signal": 12,
+      "channel": 1,
       "ap": false
     }
   },
