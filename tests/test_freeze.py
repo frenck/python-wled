@@ -24,7 +24,11 @@ def test_read_freeze_state() -> None:
     model_instance = State.from_dict(data["state"])
 
     assert model_instance.segments[0].freeze is True
+    # assert explicit frz: false
     assert model_instance.segments[1].freeze is False
+    # assert default freeze=false from models.py
+    assert model_instance.segments[2].freeze is False
+    assert model_instance.segments[3].freeze is False
 
 @pytest.mark.asyncio
 async def test_write_freeze_state(mocker, aresponses: ResponsesMockServer) -> None:
