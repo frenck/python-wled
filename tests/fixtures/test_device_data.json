@@ -1,0 +1,211 @@
+{
+  "state": {
+    "on": false,
+    "bri": 30,
+    "transition": 7,
+    "ps": -1,
+    "pl": -1,
+    "ledmap": 0,
+    "AudioReactive": {
+      "on": true
+    },
+    "nl": {
+      "on": false,
+      "dur": 60,
+      "mode": 1,
+      "tbri": 0,
+      "rem": -1
+    },
+    "udpn": {
+      "send": false,
+      "recv": true,
+      "sgrp": 1,
+      "rgrp": 1
+    },
+    "lor": 0,
+    "mainseg": 0,
+    "seg": [
+      {
+        "id": 0,
+        "start": 0,
+        "stop": 70,
+        "len": 70,
+        "grp": 1,
+        "spc": 0,
+        "of": 7,
+        "on": true,
+        "frz": true,
+        "bri": 255,
+        "cct": 0,
+        "set": 0,
+        "col": [
+          [0, 221, 255, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        "fx": 110,
+        "sx": 100,
+        "ix": 128,
+        "pal": 4,
+        "c1": 128,
+        "c2": 128,
+        "c3": 16,
+        "sel": true,
+        "rev": false,
+        "mi": true,
+        "o1": false,
+        "o2": false,
+        "o3": false,
+        "si": 0,
+        "m12": 1
+      },
+      {
+        "id": 1,
+        "start": 0,
+        "stop": 17,
+        "len": 17,
+        "grp": 1,
+        "spc": 0,
+        "of": 0,
+        "on": false,
+        "frz": false,
+        "bri": 255,
+        "cct": 127,
+        "set": 0,
+        "col": [
+          [8, 255, 0, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        "fx": 0,
+        "sx": 128,
+        "ix": 128,
+        "pal": 0,
+        "c1": 128,
+        "c2": 128,
+        "c3": 16,
+        "sel": false,
+        "rev": false,
+        "mi": false,
+        "o1": false,
+        "o2": false,
+        "o3": false,
+        "si": 0,
+        "m12": 0
+      },
+      {
+        "id": 2,
+        "start": 17,
+        "stop": 31,
+        "len": 14,
+        "grp": 1,
+        "spc": 0,
+        "of": 0,
+        "on": false,
+        "frz": false,
+        "bri": 255,
+        "cct": 127,
+        "set": 0,
+        "col": [
+          [0, 0, 255, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        "fx": 0,
+        "sx": 128,
+        "ix": 128,
+        "pal": 0,
+        "c1": 128,
+        "c2": 128,
+        "c3": 16,
+        "sel": false,
+        "rev": false,
+        "mi": false,
+        "o1": false,
+        "o2": false,
+        "o3": false,
+        "si": 0,
+        "m12": 0
+      },
+      {
+        "id": 3,
+        "start": 31,
+        "stop": 70,
+        "len": 39,
+        "grp": 1,
+        "spc": 0,
+        "of": 0,
+        "on": false,
+        "frz": false,
+        "bri": 255,
+        "cct": 127,
+        "set": 0,
+        "col": [
+          [255, 0, 255, 0],
+          [0, 0, 0, 0],
+          [0, 0, 0, 0]
+        ],
+        "fx": 0,
+        "sx": 128,
+        "ix": 128,
+        "pal": 0,
+        "c1": 128,
+        "c2": 128,
+        "c3": 16,
+        "sel": false,
+        "rev": false,
+        "mi": false,
+        "o1": false,
+        "o2": false,
+        "o3": false,
+        "si": 0,
+        "m12": 0
+      }
+    ]
+  },
+  "info": {
+    "arch": "esp32",
+    "core": "v3.3.6-16",
+    "vid": 1234567,
+    "fxcount": 123,
+    "fs": {
+        "u": 12,
+        "t": 123,
+        "pmt": 1234567890
+    },
+    "freeheap": 123456,
+    "leds": {
+        "count": 70,
+      "pwr": 120,
+      "fps": 0,
+      "maxpwr": 5000,
+      "maxseg": 32,
+      "bootps": 0,
+      "seglc": [7, 7, 7, 7],
+      "lc": 7,
+      "rgbw": true,
+      "wv": 2,
+      "cct": 4
+    },
+    "lip": "",
+    "lm": "",
+    "mac": "1aa3bbb0c620",
+    "palcount": 12,
+    "udpport": 12345,
+    "ver": "0.15.3",
+    "ws": 1,
+    "wifi": {
+      "bssid": "58:11:22:34:84:18",
+      "rssi": -71,
+      "signal": 58,
+      "channel": 6,
+      "ap": false
+    }
+  },
+  "effects": [
+    "Solid"
+  ],
+  "palettes": [
+    "Default"
+  ]
+}
