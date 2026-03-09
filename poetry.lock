@@ -301,14 +301,14 @@ files = [
 
 [[package]]
 name = "cachetools"
-version = "7.0.3"
+version = "7.0.4"
 description = "Extensible memoizing collections and decorators"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "cachetools-7.0.3-py3-none-any.whl", hash = "sha256:c128ffca156eef344c25fcd08a96a5952803786fa33097f5f2d49edf76f79d53"},
-    {file = "cachetools-7.0.3.tar.gz", hash = "sha256:8c246313b95849964e54a909c03b327a87ab0428b068fac10da7b105ca275ef6"},
+    {file = "cachetools-7.0.4-py3-none-any.whl", hash = "sha256:0c8bb1b9ec8194fa4d764accfde602dfe52f70d0f311e62792d4c3f8c051b1e9"},
+    {file = "cachetools-7.0.4.tar.gz", hash = "sha256:7042c0e4eea87812f04744ce6ee9ed3de457875eb1f82d8a206c46d6e48b6734"},
 ]
 
 [[package]]
