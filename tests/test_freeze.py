@@ -9,8 +9,7 @@ from wled import WLED
 from aresponses import ResponsesMockServer
 
 
-ROOT_DIR = Path(__file__).parent.parent
-FIXTURE_DIR = ROOT_DIR / "tests" / "fixtures"
+FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 def load_fixture(file_name: str) -> dict:
     """Load a fixture file from the fixtures directory."""
@@ -50,5 +49,5 @@ async def test_write_freeze_state(mocker, aresponses: ResponsesMockServer) -> No
         request_spy.assert_called_once()
         args, kwargs = request_spy.call_args
         assert isinstance(kwargs["data"]["seg"][0]["frz"], bool)
-        assert kwargs["data"]["seg"][0]["frz"] == True
+        assert kwargs["data"]["seg"][0]["frz"] is True
         assert response is None
