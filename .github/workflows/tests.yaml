@@ -52,7 +52,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: ⬇️ Download coverage data
-        uses: actions/download-artifact@v8.0.0
+        uses: actions/download-artifact@v8.0.1
       - name: 🏗 Set up Poetry
         run: pipx install poetry
       - name: 🏗 Set up Python ${{ env.DEFAULT_PYTHON }}
