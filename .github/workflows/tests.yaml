@@ -37,7 +37,7 @@ jobs:
       - name: 🚀 Run pytest
         run: poetry run pytest --cov wled tests
       - name: ⬆️ Upload coverage artifact
-        uses: actions/upload-artifact@v7.0.0
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: coverage-${{ matrix.python }}
           include-hidden-files: true
