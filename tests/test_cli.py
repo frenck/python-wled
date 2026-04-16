@@ -380,6 +380,7 @@ def test_reset_command(
         result = runner.invoke(cli, ["reset", "--host", "example.com"])
     assert result.exit_code == 0
     assert result.output == snapshot
+    mock.return_value.reset.assert_awaited_once()
 
 
 @pytest.mark.usefixtures("stable_terminal")
