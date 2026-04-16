@@ -314,6 +314,7 @@ def test_palettes_command(
     assert output == snapshot
 
 
+@pytest.mark.usefixtures("stable_terminal")
 def test_playlists_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
@@ -337,6 +338,7 @@ def test_playlists_command_empty(
     assert output == snapshot
 
 
+@pytest.mark.usefixtures("stable_terminal")
 def test_presets_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
@@ -373,6 +375,7 @@ def test_releases_command(
     assert result.output == snapshot
 
 
+@pytest.mark.usefixtures("stable_terminal")
 def test_scan_command_keyboard_interrupt(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
