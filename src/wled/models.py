@@ -197,8 +197,11 @@ class Segment(BaseModel):
 
     """
 
-    brightness: int = field(default=0, metadata=field_options(alias="bri"))
-    """Brightness of the segment."""
+    brightness: int | str = field(default=0, metadata=field_options(alias="bri"))
+    """Brightness of the segment.
+
+    ~ to increment, ~- to decrement. w~40 to increment by 40, wrapping.
+    """
 
     clones: int = field(default=-1, metadata=field_options(alias="cln"))
     """The segment this segment clones."""
@@ -271,7 +274,7 @@ class Segment(BaseModel):
     Live data is always applied to all LEDs regardless of segment configuration.
     """
 
-    speed: int = field(default=0, metadata=field_options(alias="sx"))
+    speed: int | str = field(default=0, metadata=field_options(alias="sx"))
     """Relative effect speed.
 
     ~ to increment, ~- to decrement. ~10 to increment by 10, ~-10 to decrement by 10.
