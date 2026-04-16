@@ -1127,7 +1127,7 @@ async def test_upgrade_calls_update_when_no_device() -> None:
         mock_json_and_presets(mocked)
         # Mock the download and upload
         mocked.get(
-            "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+            "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
             status=200,
             body=b"fake firmware",
         )
@@ -1159,7 +1159,7 @@ async def test_upgrade_success() -> None:
         async with aiohttp.ClientSession() as session:
             wled = await _get_wled_with_device_for_upgrade(mocked, session)
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
                 status=200,
                 body=b"fake firmware",
             )
@@ -1180,7 +1180,7 @@ async def test_upgrade_ethernet_board() -> None:
                 mocked, session, wifi_bssid=""
             )
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32_Ethernet.bin",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32_Ethernet.bin",
                 status=200,
                 body=b"fake firmware",
             )
@@ -1217,7 +1217,7 @@ async def test_upgrade_esp02_gzip() -> None:
             wled = WLED("example.com", session=session)
             await wled.update()
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP02.bin.gz",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP02.bin.gz",
                 status=200,
                 body=b"fake firmware",
             )
@@ -1236,7 +1236,7 @@ async def test_upgrade_404() -> None:
         async with aiohttp.ClientSession() as session:
             wled = await _get_wled_with_device_for_upgrade(mocked, session)
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.99.0/WLED_0.99.0_ESP32.bin",
+                "https://github.com/wled/WLED/releases/download/v0.99.0/WLED_0.99.0_ESP32.bin",
                 status=404,
             )
             with pytest.raises(WLEDUpgradeError, match="does not exist"):
@@ -1249,7 +1249,7 @@ async def test_upgrade_other_http_error() -> None:
         async with aiohttp.ClientSession() as session:
             wled = await _get_wled_with_device_for_upgrade(mocked, session)
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
                 status=500,
             )
             with pytest.raises(WLEDUpgradeError, match="Could not download"):
@@ -1262,7 +1262,7 @@ async def test_upgrade_connection_error() -> None:
         async with aiohttp.ClientSession() as session:
             wled = await _get_wled_with_device_for_upgrade(mocked, session)
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
                 exception=aiohttp.ClientError("fail"),
             )
             with pytest.raises(WLEDConnectionError):
@@ -1276,7 +1276,7 @@ async def test_upgrade_timeout() -> None:
             wled = await _get_wled_with_device_for_upgrade(mocked, session)
             wled.request_timeout = 0.001
             mocked.get(
-                "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+                "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
                 exception=TimeoutError(),
             )
             with pytest.raises(WLEDConnectionTimeoutError):
@@ -1302,7 +1302,7 @@ async def test_releases_success() -> None:
     ]
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body=json.dumps(releases_data),
             content_type="application/json",
@@ -1331,7 +1331,7 @@ async def test_releases_with_b_in_tag_name() -> None:
     ]
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body=json.dumps(releases_data),
             content_type="application/json",
@@ -1355,7 +1355,7 @@ async def test_releases_no_beta() -> None:
     ]
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body=json.dumps(releases_data),
             content_type="application/json",
@@ -1374,7 +1374,7 @@ async def test_releases_context_manager() -> None:
     ]
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body=json.dumps(releases_data),
             content_type="application/json",
@@ -1391,7 +1391,7 @@ async def test_releases_internal_session() -> None:
     ]
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body=json.dumps(releases_data),
             content_type="application/json",
@@ -1416,7 +1416,7 @@ async def test_releases_http_error() -> None:
     """Test releases raises WLEDError on HTTP error."""
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=500,
             body='{"message": "error"}',
             content_type="application/json",
@@ -1431,7 +1431,7 @@ async def test_releases_http_error_text() -> None:
     """Test releases raises WLEDError on HTTP error with text."""
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=403,
             body="Forbidden",
             content_type="text/plain",
@@ -1446,7 +1446,7 @@ async def test_releases_non_json_response() -> None:
     """Test releases raises WLEDError on non-JSON response."""
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             status=200,
             body="Not JSON",
             content_type="text/plain",
@@ -1461,15 +1461,15 @@ async def test_releases_timeout() -> None:
     """Test releases raises on timeout."""
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=TimeoutError(),
         )
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=TimeoutError(),
         )
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=TimeoutError(),
         )
         async with aiohttp.ClientSession() as session:
@@ -1483,15 +1483,15 @@ async def test_releases_connection_error() -> None:
     """Test releases raises on connection error."""
     with aioresponses() as mocked:
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=aiohttp.ClientError("fail"),
         )
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=aiohttp.ClientError("fail"),
         )
         mocked.get(
-            "https://api.github.com/repos/Aircoookie/WLED/releases",
+            "https://api.github.com/repos/wled/WLED/releases",
             exception=aiohttp.ClientError("fail"),
         )
         async with aiohttp.ClientSession() as session:

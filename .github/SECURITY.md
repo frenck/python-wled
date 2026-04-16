@@ -59,7 +59,7 @@ The following are **not** considered security vulnerabilities in this project:
 - Issues only reproducible on Python versions older than those listed as
   supported in `pyproject.toml`.
 - Issues in the WLED firmware itself; please report those directly to
-  the [WLED project](https://github.com/Aircoookie/WLED/security/policy).
+  the [WLED project](https://github.com/wled/WLED/security/policy).
 - Denial-of-service or data-exposure conditions resulting from malformed or
   hostile responses from a WLED device the client is explicitly pointed at.
   This library assumes the configured endpoint is trusted.
