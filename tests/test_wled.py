@@ -1485,6 +1485,29 @@ async def test_releases_success() -> None:
             assert str(releases.beta) == "0.15.0b1"
             assert releases.nightly is not None
             assert str(releases.nightly) == "17.0.0-dev20260416"
+            assert releases.repo == "wled/WLED"
+
+
+async def test_releases_custom_repo() -> None:
+    """Test fetching releases from a custom repository."""
+    releases_data = [
+        {
+            "tag_name": "v0.14.0",
+            "prerelease": False,
+        },
+    ]
+    with aioresponses() as mocked:
+        mocked.get(
+            "https://api.github.com/repos/MoonModules/WLED/releases",
+            status=200,
+            body=json.dumps(releases_data),
+            content_type="application/json",
+        )
+        async with aiohttp.ClientSession() as session:
+            wled_releases = WLEDReleases(repo="MoonModules/WLED", session=session)
+            releases = await wled_releases.releases()
+            assert releases.repo == "MoonModules/WLED"
+            assert str(releases.stable) == "0.14.0"
 
 
 async def test_releases_with_b_in_tag_name() -> None:

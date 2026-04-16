@@ -14,6 +14,7 @@ import backoff
 import orjson
 from yarl import URL
 
+from .const import DEFAULT_REPO
 from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -603,12 +604,18 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(self, *, version: str | AwesomeVersion) -> None:  # noqa: PLR0912
+    async def upgrade(  # noqa: PLR0912
+        self,
+        *,
+        version: str | AwesomeVersion,
+        repo: str = DEFAULT_REPO,
+    ) -> None:
         """Upgrade WLED device to the specified version.
 
         Args:
         ----
             version: The version to upgrade to.
+            repo: GitHub repository to download firmware from.
 
         Raises:
         ------
@@ -677,7 +684,7 @@ class WLED:
             architecture = self._device.info.architecture.upper()
             update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
         download_url = (
-            f"https://github.com/wled/WLED/releases/download/v{version}/{update_file}"
+            f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
         )
 
         try:
@@ -793,6 +800,7 @@ class WLED:
 class WLEDReleases:
     """Get version information for WLED."""
 
+    repo: str = DEFAULT_REPO
     request_timeout: float = 8.0
     session: aiohttp.client.ClientSession | None = None
 
@@ -824,7 +832,7 @@ class WLEDReleases:
         try:
             async with asyncio.timeout(self.request_timeout):
                 response = await self.session.get(
-                    "https://api.github.com/repos/wled/WLED/releases",
+                    f"https://api.github.com/repos/{self.repo}/releases",
                     headers={"Accept": "application/json"},
                 )
         except TimeoutError as exception:
@@ -886,6 +894,7 @@ class WLEDReleases:
             {
                 "beta": version_beta or "",
                 "nightly": version_nightly or "",
+                "repo": self.repo,
                 "stable": version_stable or "",
             }
         )
