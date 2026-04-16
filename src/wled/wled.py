@@ -211,8 +211,10 @@ class WLED:
                 response = await self.session.request(
                     method,
                     url,
-                    json=data,
-                    headers=headers,
+                    data=orjson.dumps(data) if data is not None else None,
+                    headers=headers | {"Content-Type": "application/json"}
+                    if data is not None
+                    else headers,
                 )
 
             content_type = response.headers.get("Content-Type", "")
