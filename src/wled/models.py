@@ -751,7 +751,7 @@ class Device(BaseModel):
             # will return `null`.
             # Refs:
             # - https://github.com/home-assistant/core/issues/123506
-            # - https://github.com/Aircoookie/WLED/issues/1974
+            # - https://github.com/wled/WLED/issues/1974
             d["palettes"] = {}
 
         if _presets := d.get("presets"):
