@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -24,114 +22,7 @@ from wled.models import (
 )
 from wled.utils import get_awesome_version
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-
-# ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
-
-WLED_JSON: dict[str, Any] = {
-    "state": {
-        "on": True,
-        "bri": 128,
-        "transition": 7,
-        "ps": -1,
-        "pl": -1,
-        "nl": {"on": False, "dur": 60, "mode": 1, "tbri": 0},
-        "udpn": {"send": False, "recv": True, "sgrp": 1, "rgrp": 1},
-        "lor": 0,
-        "seg": [
-            {
-                "id": 0,
-                "start": 0,
-                "stop": 30,
-                "len": 30,
-                "col": [[255, 159, 0], [0, 0, 0], [0, 0, 0]],
-                "fx": 0,
-                "sx": 128,
-                "ix": 128,
-                "pal": 0,
-                "sel": True,
-                "rev": False,
-                "on": True,
-                "bri": 255,
-                "cln": -1,
-                "cct": 127,
-            }
-        ],
-    },
-    "info": {
-        "ver": "0.14.0",
-        "vid": "2312080",
-        "leds": {
-            "count": 30,
-            "fps": 30,
-            "maxpwr": 850,
-            "maxseg": 16,
-            "pwr": 0,
-            "lc": 7,
-            "seglc": [7],
-        },
-        "name": "WLED",
-        "udpport": 21324,
-        "live": False,
-        "lm": "",
-        "lip": "",
-        "ws": 0,
-        "fxcount": 187,
-        "palcount": 71,
-        "wifi": {
-            "bssid": "AA:BB:CC:DD:EE:FF",
-            "rssi": -62,
-            "signal": 76,
-            "channel": 11,
-        },
-        "fs": {"u": 12, "t": 64, "pmt": 1702050803.0},
-        "arch": "esp32",
-        "core": "v3.3.6-16",
-        "freeheap": 116864,
-        "uptime": 32489,
-        "mac": "aabbccddeeff",
-        "ip": "192.168.1.100",
-    },
-    "effects": ["Solid", "Blink", "Breathe"],
-    "palettes": ["Default", "Random Cycle", "Primary Color"],
-}
-
-PRESETS_JSON: dict[str, Any] = {
-    "0": {},
-    "1": {
-        "n": "My Preset",
-        "on": True,
-        "bri": 128,
-        "transition": 7,
-        "mainseg": 0,
-        "seg": [{"col": [[255, 0, 0]]}],
-    },
-    "2": {
-        "n": "My Playlist",
-        "playlist": {
-            "ps": [1],
-            "dur": [100],
-            "transitions": [10],
-            "end": 0,
-            "r": False,
-            "repeat": 3,
-        },
-    },
-}
-
-
-def _full_device_data() -> dict[str, Any]:
-    """Return complete device data with presets merged in."""
-    data = json.loads(json.dumps(WLED_JSON))
-    data["presets"] = json.loads(json.dumps(PRESETS_JSON))
-    return data
-
-
-def _load_fixture(name: str) -> dict[str, Any]:
-    """Load a JSON fixture file."""
-    return json.loads((FIXTURES_DIR / name).read_text())
+from .conftest import full_device_data, load_fixture_json
 
 
 # =========================================================================
@@ -682,7 +573,7 @@ class TestDevice:
 
     def test_from_dict_full(self) -> None:
         """Test full Device deserialization from dict."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
 
         # Info
@@ -720,35 +611,35 @@ class TestDevice:
 
     def test_unsupported_version(self) -> None:
         """Test that unsupported firmware version raises error."""
-        data = _full_device_data()
+        data = full_device_data()
         data["info"]["ver"] = "0.8.0"
         with pytest.raises(WLEDUnsupportedVersionError):
             Device.from_dict(data)
 
     def test_null_palettes(self) -> None:
         """Test that None palettes results in empty dict."""
-        data = _full_device_data()
+        data = full_device_data()
         data["palettes"] = None
         device = Device.from_dict(data)
         assert device.palettes == {}
 
     def test_no_effects(self) -> None:
         """Test device with no effects list."""
-        data = _full_device_data()
+        data = full_device_data()
         data.pop("effects", None)
         device = Device.from_dict(data)
         assert device.effects == {}
 
     def test_no_palettes_key(self) -> None:
         """Test device with no palettes key at all defaults to empty dict."""
-        data = _full_device_data()
+        data = full_device_data()
         data.pop("palettes", None)
         device = Device.from_dict(data)
         assert device.palettes == {}
 
     def test_no_presets(self) -> None:
         """Test device with no presets."""
-        data = _full_device_data()
+        data = full_device_data()
         data.pop("presets", None)
         device = Device.from_dict(data)
         assert device.presets == {}
@@ -756,7 +647,7 @@ class TestDevice:
 
     def test_update_from_dict_effects(self) -> None:
         """Test update_from_dict updates effects."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
         device.update_from_dict({"effects": ["NewEffect1", "NewEffect2"]})
         assert len(device.effects) == 2
@@ -764,7 +655,7 @@ class TestDevice:
 
     def test_update_from_dict_palettes(self) -> None:
         """Test update_from_dict updates palettes."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
         device.update_from_dict({"palettes": ["NewPalette"]})
         assert len(device.palettes) == 1
@@ -772,7 +663,7 @@ class TestDevice:
 
     def test_update_from_dict_presets(self) -> None:
         """Test update_from_dict updates presets and playlists."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
         new_presets = {
             "0": {},
@@ -796,32 +687,32 @@ class TestDevice:
 
     def test_update_from_dict_info(self) -> None:
         """Test update_from_dict updates info."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
-        new_info = json.loads(json.dumps(WLED_JSON["info"]))
+        new_info = load_fixture_json("wled")["info"]
         new_info["name"] = "Updated WLED"
         device.update_from_dict({"info": new_info})
         assert device.info.name == "Updated WLED"
 
     def test_update_from_dict_state(self) -> None:
         """Test update_from_dict updates state."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
-        new_state = json.loads(json.dumps(WLED_JSON["state"]))
+        new_state = load_fixture_json("wled")["state"]
         new_state["on"] = False
         device.update_from_dict({"state": new_state})
         assert device.state.on is False
 
     def test_update_from_dict_returns_self(self) -> None:
         """Test update_from_dict returns the device itself."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
         result = device.update_from_dict({})
         assert result is device
 
     def test_preset_with_empty_playlist_ps(self) -> None:
         """Test that a preset with empty playlist ps list is treated as preset."""
-        data = _full_device_data()
+        data = full_device_data()
         data["presets"]["3"] = {
             "n": "Empty PL",
             "playlist": {"ps": [], "dur": [], "end": 0, "r": False},
@@ -832,7 +723,7 @@ class TestDevice:
 
     def test_update_from_dict_preset_with_empty_playlist_ps(self) -> None:
         """Test update_from_dict handles preset with empty playlist ps."""
-        data = _full_device_data()
+        data = full_device_data()
         device = Device.from_dict(data)
         new_presets = {
             "0": {},
@@ -910,7 +801,7 @@ def test_device_fixture(
     snapshot: SnapshotAssertion,
 ) -> None:
     """Test Device parsing against real-world WLED responses."""
-    data = _load_fixture(f"{fixture}.json")
+    data = load_fixture_json(fixture)
     data["presets"] = {}
     device = Device.from_dict(data)
     assert device == snapshot

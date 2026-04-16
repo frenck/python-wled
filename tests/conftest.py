@@ -16,14 +16,38 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 FixtureLoader = Callable[[str], Any]
 
 
+def load_fixture_json(name: str) -> Any:
+    """Load a JSON fixture file by name (without extension)."""
+    return json.loads((FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def full_device_data() -> dict[str, Any]:
+    """Return complete device data with presets merged in."""
+    data = load_fixture_json("wled")
+    data["presets"] = load_fixture_json("presets")
+    return data
+
+
+def mock_json_and_presets(mocked: aioresponses) -> None:
+    """Register the two GET endpoints that WLED.update() calls."""
+    mocked.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(load_fixture_json("wled")),
+        content_type="application/json",
+    )
+    mocked.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+
 @pytest.fixture
 def load_fixture() -> FixtureLoader:
     """Return a helper that loads a JSON fixture by name."""
-
-    def _load(name: str) -> Any:
-        return json.loads((FIXTURES_DIR / f"{name}.json").read_text(encoding="utf-8"))
-
-    return _load
+    return load_fixture_json
 
 
 @pytest.fixture

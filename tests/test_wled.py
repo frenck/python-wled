@@ -1,9 +1,8 @@
-"""Tests for `wled`."""
+"""Tests for `wled.wled` (WLED client)."""
 
 from __future__ import annotations
 
 import json
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -11,9 +10,7 @@ import pytest
 from aioresponses import aioresponses
 
 from wled import WLED, Device, Releases
-from wled.const import (
-    LiveDataOverride,
-)
+from wled.const import LiveDataOverride
 from wled.exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -23,123 +20,7 @@ from wled.exceptions import (
 )
 from wled.wled import WLEDReleases
 
-# ---------------------------------------------------------------------------
-# Fixtures / helpers
-# ---------------------------------------------------------------------------
-
-WLED_JSON: dict[str, Any] = {
-    "state": {
-        "on": True,
-        "bri": 128,
-        "transition": 7,
-        "ps": -1,
-        "pl": -1,
-        "nl": {"on": False, "dur": 60, "mode": 1, "tbri": 0},
-        "udpn": {"send": False, "recv": True, "sgrp": 1, "rgrp": 1},
-        "lor": 0,
-        "seg": [
-            {
-                "id": 0,
-                "start": 0,
-                "stop": 30,
-                "len": 30,
-                "col": [[255, 159, 0], [0, 0, 0], [0, 0, 0]],
-                "fx": 0,
-                "sx": 128,
-                "ix": 128,
-                "pal": 0,
-                "sel": True,
-                "rev": False,
-                "on": True,
-                "bri": 255,
-                "cln": -1,
-                "cct": 127,
-            }
-        ],
-    },
-    "info": {
-        "ver": "0.14.0",
-        "vid": "2312080",
-        "leds": {
-            "count": 30,
-            "fps": 30,
-            "maxpwr": 850,
-            "maxseg": 16,
-            "pwr": 0,
-            "lc": 7,
-            "seglc": [7],
-        },
-        "name": "WLED",
-        "udpport": 21324,
-        "live": False,
-        "lm": "",
-        "lip": "",
-        "ws": 0,
-        "fxcount": 187,
-        "palcount": 71,
-        "wifi": {
-            "bssid": "AA:BB:CC:DD:EE:FF",
-            "rssi": -62,
-            "signal": 76,
-            "channel": 11,
-        },
-        "fs": {"u": 12, "t": 64, "pmt": 1702050803.0},
-        "arch": "esp32",
-        "core": "v3.3.6-16",
-        "freeheap": 116864,
-        "uptime": 32489,
-        "mac": "aabbccddeeff",
-        "ip": "192.168.1.100",
-    },
-    "effects": ["Solid", "Blink", "Breathe"],
-    "palettes": ["Default", "Random Cycle", "Primary Color"],
-}
-
-PRESETS_JSON: dict[str, Any] = {
-    "0": {},
-    "1": {
-        "n": "My Preset",
-        "on": True,
-        "bri": 128,
-        "transition": 7,
-        "mainseg": 0,
-        "seg": [{"col": [[255, 0, 0]]}],
-    },
-    "2": {
-        "n": "My Playlist",
-        "playlist": {
-            "ps": [1],
-            "dur": [100],
-            "transitions": [10],
-            "end": 0,
-            "r": False,
-            "repeat": 3,
-        },
-    },
-}
-
-
-def _full_device_data() -> dict[str, Any]:
-    """Return complete device data with presets merged in."""
-    data = json.loads(json.dumps(WLED_JSON))
-    data["presets"] = json.loads(json.dumps(PRESETS_JSON))
-    return data
-
-
-def _mock_json_and_presets(mocked: aioresponses) -> None:
-    """Register the two GET endpoints that WLED.update() calls."""
-    mocked.get(
-        "http://example.com/json",
-        status=200,
-        body=json.dumps(WLED_JSON),
-        content_type="application/json",
-    )
-    mocked.get(
-        "http://example.com/presets.json",
-        status=200,
-        body=json.dumps(PRESETS_JSON),
-        content_type="application/json",
-    )
+from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
 
 
 # =========================================================================
@@ -292,7 +173,7 @@ class TestWLEDUpdate:
     async def test_update_creates_device(self) -> None:
         """Test that update() creates a Device from API responses."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             async with aiohttp.ClientSession() as session:
                 wled = WLED("example.com", session=session)
                 device = await wled.update()
@@ -303,8 +184,8 @@ class TestWLEDUpdate:
     async def test_update_uses_existing_device(self) -> None:
         """Test that subsequent update() calls use update_from_dict."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             async with aiohttp.ClientSession() as session:
                 wled = WLED("example.com", session=session)
                 device1 = await wled.update()
@@ -335,7 +216,7 @@ class TestWLEDUpdate:
                 mocked.get(
                     "http://example.com/json",
                     status=200,
-                    body=json.dumps(WLED_JSON),
+                    body=json.dumps(load_fixture_json("wled")),
                     content_type="application/json",
                 )
                 mocked.get(
@@ -423,7 +304,7 @@ class TestWLEDSegment:
         self, mocked: aioresponses, session: aiohttp.ClientSession
     ) -> WLED:
         """Create a WLED instance with a loaded device."""
-        _mock_json_and_presets(mocked)
+        mock_json_and_presets(mocked)
         wled = WLED("example.com", session=session)
         await wled.update()
         return wled
@@ -540,7 +421,7 @@ class TestWLEDSegment:
     async def test_segment_calls_update_when_no_device(self) -> None:
         """Test segment() calls update() if no device loaded."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             mocked.post(
                 "http://example.com/json/state",
                 status=200,
@@ -581,7 +462,7 @@ class TestWLEDSegment:
         """Test tertiary color when segment has no secondary color in state."""
         with aioresponses() as mocked:
             # Build device data where the segment color has no secondary
-            wled_data = json.loads(json.dumps(WLED_JSON))
+            wled_data = load_fixture_json("wled")
             wled_data["state"]["seg"][0]["col"] = [[255, 0, 0]]
             mocked.get(
                 "http://example.com/json",
@@ -592,7 +473,7 @@ class TestWLEDSegment:
             mocked.get(
                 "http://example.com/presets.json",
                 status=200,
-                body=json.dumps(PRESETS_JSON),
+                body=json.dumps(load_fixture_json("presets")),
                 content_type="application/json",
             )
             async with aiohttp.ClientSession() as session:
@@ -610,7 +491,7 @@ class TestWLEDSegment:
         """Test secondary color when segment has no color at all in state."""
         with aioresponses() as mocked:
             # Build device data where the segment has no col
-            wled_data = json.loads(json.dumps(WLED_JSON))
+            wled_data = load_fixture_json("wled")
             del wled_data["state"]["seg"][0]["col"]
             mocked.get(
                 "http://example.com/json",
@@ -621,7 +502,7 @@ class TestWLEDSegment:
             mocked.get(
                 "http://example.com/presets.json",
                 status=200,
-                body=json.dumps(PRESETS_JSON),
+                body=json.dumps(load_fixture_json("presets")),
                 content_type="application/json",
             )
             async with aiohttp.ClientSession() as session:
@@ -640,7 +521,7 @@ class TestWLEDSegment:
         """Test tertiary color when segment has no color at all in state."""
         with aioresponses() as mocked:
             # Build device data where the segment has no col
-            wled_data = json.loads(json.dumps(WLED_JSON))
+            wled_data = load_fixture_json("wled")
             del wled_data["state"]["seg"][0]["col"]
             mocked.get(
                 "http://example.com/json",
@@ -651,7 +532,7 @@ class TestWLEDSegment:
             mocked.get(
                 "http://example.com/presets.json",
                 status=200,
-                body=json.dumps(PRESETS_JSON),
+                body=json.dumps(load_fixture_json("presets")),
                 content_type="application/json",
             )
             async with aiohttp.ClientSession() as session:
@@ -678,7 +559,7 @@ class TestWLEDPresetPlaylist:
         self, mocked: aioresponses, session: aiohttp.ClientSession
     ) -> WLED:
         """Create a WLED instance with a loaded device."""
-        _mock_json_and_presets(mocked)
+        mock_json_and_presets(mocked)
         wled = WLED("example.com", session=session)
         await wled.update()
         return wled
@@ -986,7 +867,7 @@ class TestWLEDWebSocket:
         """Test connect() raises when device has no WebSocket support."""
         with aioresponses() as mocked:
             # Build data with ws=-1 (no websocket support)
-            wled_data = json.loads(json.dumps(WLED_JSON))
+            wled_data = load_fixture_json("wled")
             wled_data["info"]["ws"] = -1
             mocked.get(
                 "http://example.com/json",
@@ -997,7 +878,7 @@ class TestWLEDWebSocket:
             mocked.get(
                 "http://example.com/presets.json",
                 status=200,
-                body=json.dumps(PRESETS_JSON),
+                body=json.dumps(load_fixture_json("presets")),
                 content_type="application/json",
             )
             async with aiohttp.ClientSession() as session:
@@ -1009,7 +890,7 @@ class TestWLEDWebSocket:
     async def test_connect_connection_error(self) -> None:
         """Test connect() raises WLEDConnectionError on connection failure."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             async with aiohttp.ClientSession() as session:
                 wled = WLED("example.com", session=session)
                 await wled.update()
@@ -1024,7 +905,7 @@ class TestWLEDWebSocket:
     async def test_connect_calls_update_when_no_device(self) -> None:
         """Test connect() calls update() if no device is loaded."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             async with aiohttp.ClientSession() as session:
                 wled = WLED("example.com", session=session)
                 # Device has ws=0, so connect should try to ws_connect
@@ -1051,7 +932,7 @@ class TestWLEDWebSocket:
         mock_client.receive = AsyncMock(return_value=mock_msg)
         mock_client.exception.return_value = Exception("test error")
         wled._client = mock_client
-        wled._device = Device.from_dict(_full_device_data())
+        wled._device = Device.from_dict(full_device_data())
         with pytest.raises(WLEDConnectionError):
             await wled.listen(lambda _: None)
 
@@ -1061,9 +942,9 @@ class TestWLEDWebSocket:
         mock_client = MagicMock()
         mock_client.closed = False
         wled._client = mock_client
-        wled._device = Device.from_dict(_full_device_data())
+        wled._device = Device.from_dict(full_device_data())
 
-        state_update = json.dumps({"state": WLED_JSON["state"]})
+        state_update = json.dumps({"state": load_fixture_json("wled")["state"]})
         text_msg = MagicMock()
         text_msg.type = aiohttp.WSMsgType.TEXT
         text_msg.json.return_value = json.loads(state_update)
@@ -1085,7 +966,7 @@ class TestWLEDWebSocket:
         mock_client = MagicMock()
         mock_client.closed = False
         wled._client = mock_client
-        wled._device = Device.from_dict(_full_device_data())
+        wled._device = Device.from_dict(full_device_data())
 
         close_msg = MagicMock()
         close_msg.type = aiohttp.WSMsgType.CLOSED
@@ -1121,9 +1002,9 @@ class TestWLEDRequest:
 
     async def test_post_state_adds_v_true(self) -> None:
         """Test POST to /json/state adds v=True to data."""
-        state_response = json.dumps(WLED_JSON["state"])
+        state_response = json.dumps(load_fixture_json("wled")["state"])
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             mocked.post(
                 "http://example.com/json/state",
                 status=200,
@@ -1175,7 +1056,7 @@ class TestWLEDUpgrade:
         wifi_bssid: str = "AA:BB:CC:DD:EE:FF",
     ) -> WLED:
         """Create a WLED instance with a specific architecture."""
-        wled_data = json.loads(json.dumps(WLED_JSON))
+        wled_data = load_fixture_json("wled")
         wled_data["info"]["arch"] = arch
         wled_data["info"]["ver"] = version
         if wifi_bssid is not None:
@@ -1189,7 +1070,7 @@ class TestWLEDUpgrade:
         mocked.get(
             "http://example.com/presets.json",
             status=200,
-            body=json.dumps(PRESETS_JSON),
+            body=json.dumps(load_fixture_json("presets")),
             content_type="application/json",
         )
         wled = WLED("example.com", session=session)
@@ -1219,7 +1100,7 @@ class TestWLEDUpgrade:
         with aioresponses() as mocked:
             async with aiohttp.ClientSession() as session:
                 # Build device with invalid version
-                wled_data = json.loads(json.dumps(WLED_JSON))
+                wled_data = load_fixture_json("wled")
                 wled_data["info"]["ver"] = "0.14.0"
                 mocked.get(
                     "http://example.com/json",
@@ -1230,7 +1111,7 @@ class TestWLEDUpgrade:
                 mocked.get(
                     "http://example.com/presets.json",
                     status=200,
-                    body=json.dumps(PRESETS_JSON),
+                    body=json.dumps(load_fixture_json("presets")),
                     content_type="application/json",
                 )
                 wled = WLED("example.com", session=session)
@@ -1243,7 +1124,7 @@ class TestWLEDUpgrade:
     async def test_upgrade_calls_update_when_no_device(self) -> None:
         """Test upgrade() calls update() if no device loaded."""
         with aioresponses() as mocked:
-            _mock_json_and_presets(mocked)
+            mock_json_and_presets(mocked)
             # Mock the download and upload
             mocked.get(
                 "https://github.com/Aircoookie/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
@@ -1310,7 +1191,7 @@ class TestWLEDUpgrade:
         """Test upgrade for esp02 (2M ESP8266) includes .gz suffix."""
         with aioresponses() as mocked:
             async with aiohttp.ClientSession() as session:
-                wled_data = json.loads(json.dumps(WLED_JSON))
+                wled_data = load_fixture_json("wled")
                 wled_data["info"]["arch"] = "esp8266"
                 wled_data["info"]["ver"] = "0.14.0"
                 # Small filesystem for esp02 detection
@@ -1324,7 +1205,7 @@ class TestWLEDUpgrade:
                 mocked.get(
                     "http://example.com/presets.json",
                     status=200,
-                    body=json.dumps(PRESETS_JSON),
+                    body=json.dumps(load_fixture_json("presets")),
                     content_type="application/json",
                 )
                 wled = WLED("example.com", session=session)
