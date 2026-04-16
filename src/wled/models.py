@@ -219,6 +219,9 @@ class Segment(BaseModel):
     ~ to increment, ~- to decrement, or "r" for random.
     """
 
+    freeze: bool = field(default=False, metadata=field_options(alias="frz"))
+    """Freeze the current segment state."""
+
     intensity: int | str = field(default=0, metadata=field_options(alias="ix"))
     """Intensity of the segment.
 

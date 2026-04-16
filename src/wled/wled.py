@@ -313,6 +313,7 @@ class WLED:
         color_secondary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
         color_tertiary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
         effect: int | str | None = None,
+        freeze: bool | None = None,
         individual: Sequence[
             int | Sequence[int] | tuple[int, int, int, int] | tuple[int, int, int]
         ]
@@ -340,6 +341,7 @@ class WLED:
             color_secondary: The secondary color of this segment.
             color_tertiary: The tertiary color of this segment.
             effect: The effect number (or name) to use on this segment.
+            freeze: Freeze the current segment state.
             individual: A list of colors to use for each LED in the segment.
             intensity: The effect intensity to use on this segment.
             length: The length of this segment.
@@ -374,6 +376,7 @@ class WLED:
         segment = {
             "bri": brightness,
             "cln": clones,
+            "frz": freeze,
             "fx": effect,
             "i": individual,
             "ix": intensity,
