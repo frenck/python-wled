@@ -231,6 +231,9 @@ class Segment(BaseModel):
     Stop has preference, so if it is included, length is ignored.
     """
 
+    name: str | None = field(default=None, metadata=field_options(alias="n"))
+    """User-defined name of the segment."""
+
     on: bool | None = field(default=None)
     """The on/off state of the segment."""
 
