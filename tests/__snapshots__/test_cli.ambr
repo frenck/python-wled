@@ -1,10 +1,26 @@
 # serializer version: 1
+# name: test_brightness_command
+  '''
+  Brightness set to 200!
+  
+  '''
+# ---
 # name: test_cli_structure
   dict({
+    'brightness': list([
+      'brightness',
+      'host',
+    ]),
     'effects': list([
       'host',
     ]),
     'info': list([
+      'host',
+    ]),
+    'off': list([
+      'host',
+    ]),
+    'on': list([
       'host',
     ]),
     'palettes': list([
@@ -191,6 +207,18 @@
   │ LED power             │ 0 mA              │
   │ LED max power         │ 850 mA            │
   └───────────────────────┴───────────────────┘
+  
+  '''
+# ---
+# name: test_off_command
+  '''
+  WLED device turned off!
+  
+  '''
+# ---
+# name: test_on_command
+  '''
+  WLED device turned on!
   
   '''
 # ---
