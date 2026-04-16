@@ -479,6 +479,13 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
 
+    release: str | None = None
+    """The release name of the firmware build.
+
+    When present, used to determine the correct firmware filename during
+    upgrades (e.g. "ESP32", "ESP32_Ethernet", "ESP8266_160").
+    """
+
     udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
     """The UDP port for realtime packets and WLED broadcast."""
 

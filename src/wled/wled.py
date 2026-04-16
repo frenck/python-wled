@@ -575,7 +575,7 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(self, *, version: str | AwesomeVersion) -> None:
+    async def upgrade(self, *, version: str | AwesomeVersion) -> None:  # noqa: PLR0912
         """Upgrade WLED device to the specified version.
 
         Args:
@@ -637,8 +637,17 @@ class WLED:
             gzip = ".gz"
 
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-        architecture = self._device.info.architecture.upper()
-        update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
+
+        # If the device reports its release name, use it to build the
+        # correct firmware filename. Otherwise fall back to architecture.
+        if self._device.info.release is not None:
+            update_file = (
+                f"{self._device.info.brand}_{version}"
+                f"_{self._device.info.release}.bin{gzip}"
+            )
+        else:
+            architecture = self._device.info.architecture.upper()
+            update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
         download_url = (
             f"https://github.com/wled/WLED/releases/download/v{version}/{update_file}"
         )
@@ -661,7 +670,7 @@ class WLED:
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested WLED version '{version}' does not exist"
+                msg = f"Requested firmware file {update_file} does not exist"
                 raise WLEDUpgradeError(msg) from exception
             msg = (
                 f"Could not download requested WLED version '{version}'"
