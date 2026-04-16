@@ -706,7 +706,7 @@ class Playlist(BaseModel):
     @classmethod
     def __post_deserialize__(cls, obj: Playlist) -> Playlist:
         """Post deserialize hook for Playlist object."""
-        # If name is empty, we will replace it with the preset ID.
+        # If name is empty, we will replace it with the playlist ID.
         if not obj.name:
             obj.name = str(obj.playlist_id)
         return obj

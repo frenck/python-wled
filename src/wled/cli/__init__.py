@@ -321,7 +321,7 @@ async def command_scan() -> None:
 
         console.print(f"[cyan bold]Found service {info.server}: is a WLED device 🎉")
 
-        mac = info.properties[b"mac"]
+        mac = info.properties.get(b"mac")
         table.add_row(
             f"{str(info.server).rstrip('.')}\n"
             + ", ".join(info.parsed_scoped_addresses()),
