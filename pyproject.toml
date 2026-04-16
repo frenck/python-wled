@@ -81,9 +81,6 @@ source = ["wled"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 95
-omit = [
-  "src/wled/cli/*",
-]
 
 [tool.ty.environment]
 python-version = "3.11"

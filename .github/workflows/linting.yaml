@@ -35,7 +35,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Check code for common misspellings
         run: poetry run prek run codespell --all-files
 
@@ -60,7 +60,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Run ruff linter
         run: poetry run ruff check --output-format=github .
       - name: 🚀 Run ruff formatter
@@ -87,7 +87,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Check Python AST
         run: poetry run prek run check-ast --all-files
       - name: 🚀 Check for case conflicts
@@ -133,7 +133,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Run pylint
         run: poetry run prek run pylint --all-files
 
@@ -158,7 +158,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Run yamllint
         run: poetry run yamllint .
 
@@ -183,7 +183,7 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🏗 Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
@@ -215,6 +215,6 @@ jobs:
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install Python dependencies
-        run: poetry install --no-interaction
+        run: poetry install --extras cli --no-interaction
       - name: 🚀 Run zizmor
         run: poetry run zizmor .github/workflows/
