@@ -26,8 +26,16 @@
     'palettes': list([
       'host',
     ]),
+    'playlist': list([
+      'host',
+      'playlist',
+    ]),
     'playlists': list([
       'host',
+    ]),
+    'preset': list([
+      'host',
+      'preset',
     ]),
     'presets': list([
       'host',
@@ -237,6 +245,18 @@
   
   '''
 # ---
+# name: test_playlist_command_by_id
+  '''
+  Playlist '2' activated!
+  
+  '''
+# ---
+# name: test_playlist_command_by_name
+  '''
+  Playlist 'My Playlist' activated!
+  
+  '''
+# ---
 # name: test_playlists_command
   '''
                  
@@ -252,6 +272,18 @@
 # name: test_playlists_command_empty
   '''
   🚫 This device has no playlists
+  
+  '''
+# ---
+# name: test_preset_command_by_id
+  '''
+  Preset '1' activated!
+  
+  '''
+# ---
+# name: test_preset_command_by_name
+  '''
+  Preset 'My Preset' activated!
   
   '''
 # ---
