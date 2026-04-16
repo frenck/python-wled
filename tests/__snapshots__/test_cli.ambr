@@ -23,6 +23,10 @@
     ]),
     'scan': list([
     ]),
+    'upgrade': list([
+      'host',
+      'version',
+    ]),
   })
 # ---
 # name: test_connection_error_handler
@@ -286,6 +290,14 @@
   │     Currently only 0.14.0 and higher is supported                │
   │                                                                  │
   ╰──────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_upgrade_command
+  '''
+  Current version: 0.14.0
+  Upgrading to: 0.15.0
+  Upgrade complete! The device will reboot.
   
   '''
 # ---

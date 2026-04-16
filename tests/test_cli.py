@@ -384,6 +384,22 @@ def test_reset_command(
 
 
 @pytest.mark.usefixtures("stable_terminal")
+def test_upgrade_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Upgrade command shows progress and completes."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["upgrade", "--host", "example.com", "--version", "0.15.0"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.upgrade.assert_awaited_once_with(version="0.15.0")
+
+
+@pytest.mark.usefixtures("stable_terminal")
 def test_releases_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
