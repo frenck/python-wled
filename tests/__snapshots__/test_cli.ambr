@@ -23,6 +23,9 @@
     ]),
     'scan': list([
     ]),
+    'state': list([
+      'host',
+    ]),
     'upgrade': list([
       'host',
       'version',
@@ -279,6 +282,27 @@
   ┃ Addresses ┃ MAC Address ┃
   ┡━━━━━━━━━━━╇━━━━━━━━━━━━━┩
   └───────────┴─────────────┘
+  '''
+# ---
+# name: test_state_command
+  '''
+                         
+     WLED device state   
+  ┌───────────────┬─────┐
+  │ Power         │ On  │
+  │ Brightness    │ 128 │
+  │ Transition    │ 7   │
+  │ Nightlight    │ Off │
+  │ Live override │ Off │
+  └───────────────┴─────┘
+                                                               
+                            Segments                           
+  ┏━━━━┳━━━━━━┳━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━┳━━━━━━━┓
+  ┃ ID ┃ Name ┃ Power ┃ Brightness ┃ Effect ┃ Palette ┃ Range ┃
+  ┡━━━━╇━━━━━━╇━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━╇━━━━━━━┩
+  │ 0  │      │ On    │ 255        │ Solid  │ Default │ 0-30  │
+  └────┴──────┴───────┴────────────┴────────┴─────────┴───────┘
+  
   '''
 # ---
 # name: test_unsupported_version_error_handler

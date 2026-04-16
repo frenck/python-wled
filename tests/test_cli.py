@@ -384,6 +384,17 @@ def test_reset_command(
 
 
 @pytest.mark.usefixtures("stable_terminal")
+def test_state_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """State command shows device state and segments."""
+    exit_code, output = _invoke(runner, ["state", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
 def test_upgrade_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
