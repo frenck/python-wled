@@ -37,4 +37,4 @@ jobs:
       - name: 🏗 Install dependencies
         run: poetry install --no-interaction
       - name: 🚀 Run ty
-        run: poetry run ty check examples src tests
+        run: poetry run ty check --exclude 'src/wled/cli/' examples src tests

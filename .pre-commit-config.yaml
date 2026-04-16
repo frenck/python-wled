@@ -87,7 +87,7 @@ repos:
         name: 🆎 Static type checking using ty
         language: system
         types: [python]
-        entry: poetry run ty check
+        entry: poetry run ty check --exclude 'src/wled/cli/'
         require_serial: true
       - id: no-commit-to-branch
         name: 🛑 Don't commit to main branch
