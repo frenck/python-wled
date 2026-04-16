@@ -1,0 +1,275 @@
+# serializer version: 1
+# name: test_cli_structure
+  dict({
+    'effects': list([
+      'host',
+    ]),
+    'info': list([
+      'host',
+    ]),
+    'palettes': list([
+      'host',
+    ]),
+    'playlists': list([
+      'host',
+    ]),
+    'presets': list([
+      'host',
+    ]),
+    'releases': list([
+    ]),
+    'scan': list([
+    ]),
+  })
+# ---
+# name: test_connection_error_handler
+  '''
+  ╭───────────────────────────── Connection error ──────────────────────────────╮
+  │                                                                             │
+  │     Could not connect to the specified WLED device. Please make sure that   │
+  │     the device is powered on, connected to the network and that you have    │
+  │     specified the correct IP address or hostname.                           │
+  │                                                                             │
+  │     If you are not sure what the IP address or hostname of your WLED device │
+  │     is, you can use the scan command to find it:                            │
+  │                                                                             │
+  │     wled scan                                                               │
+  │                                                                             │
+  ╰─────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
+# name: test_effects_command
+  '''
+             
+  Effects on 
+   this WLED 
+    device   
+  ┌─────────┐
+  │ Solid   │
+  │ Blink   │
+  │ Breathe │
+  └─────────┘
+  
+  '''
+# ---
+# name: test_info_command
+  '''
+                                               
+             WLED device information           
+  ┌───────────────────────┬───────────────────┐
+  │ Name                  │ WLED              │
+  │ Brand                 │ WLED              │
+  │ Product               │ DIY Light         │
+  ├───────────────────────┼───────────────────┤
+  │ IP address            │ 192.168.1.100     │
+  │ MAC address           │ aabbccddeeff      │
+  │ Wi-Fi BSSID           │ AA:BB:CC:DD:EE:FF │
+  │ Wi-Fi channel         │ 11                │
+  │ Wi-Fi RSSI            │ -62 dBm           │
+  │ Wi-Fi signal strength │ 76%               │
+  ├───────────────────────┼───────────────────┤
+  │ Version               │ 0.14.0            │
+  │ Build                 │ 2312080           │
+  │ Architecture          │ esp32             │
+  │ Arduino version       │ v3.3.6-16         │
+  ├───────────────────────┼───────────────────┤
+  │ Uptime                │ 32489 seconds     │
+  │ Free heap             │ 116864 bytes      │
+  │ Total storage         │ 64 bytes          │
+  │ Used storage          │ 12 bytes          │
+  │ % Used storage        │ 19%               │
+  ├───────────────────────┼───────────────────┤
+  │ Effect count          │ 187 effects       │
+  │ Palette count         │ 71 palettes       │
+  ├───────────────────────┼───────────────────┤
+  │ Sync UDP port         │ 21324             │
+  │ WebSocket             │ 0 client(s)       │
+  ├───────────────────────┼───────────────────┤
+  │ Live                  │ No                │
+  │ Live IP               │                   │
+  │ Live mode             │                   │
+  ├───────────────────────┼───────────────────┤
+  │ LED count             │ 30 LEDs           │
+  │ LED power             │ 0 mA              │
+  │ LED max power         │ 850 mA            │
+  └───────────────────────┴───────────────────┘
+  
+  '''
+# ---
+# name: test_info_command_no_wifi
+  '''
+                                     
+        WLED device information      
+  ┌─────────────────┬───────────────┐
+  │ Name            │ WLED          │
+  │ Brand           │ WLED          │
+  │ Product         │ DIY Light     │
+  ├─────────────────┼───────────────┤
+  │ IP address      │ 192.168.1.100 │
+  │ MAC address     │ aabbccddeeff  │
+  ├─────────────────┼───────────────┤
+  │ Version         │ 0.14.0        │
+  │ Build           │ 2312080       │
+  │ Architecture    │ esp32         │
+  │ Arduino version │ v3.3.6-16     │
+  ├─────────────────┼───────────────┤
+  │ Uptime          │ 32489 seconds │
+  │ Free heap       │ 116864 bytes  │
+  │ Total storage   │ 64 bytes      │
+  │ Used storage    │ 12 bytes      │
+  │ % Used storage  │ 19%           │
+  ├─────────────────┼───────────────┤
+  │ Effect count    │ 187 effects   │
+  │ Palette count   │ 71 palettes   │
+  ├─────────────────┼───────────────┤
+  │ Sync UDP port   │ 21324         │
+  │ WebSocket       │ 0 client(s)   │
+  ├─────────────────┼───────────────┤
+  │ Live            │ No            │
+  │ Live IP         │               │
+  │ Live mode       │               │
+  ├─────────────────┼───────────────┤
+  │ LED count       │ 30 LEDs       │
+  │ LED power       │ 0 mA          │
+  │ LED max power   │ 850 mA        │
+  └─────────────────┴───────────────┘
+  
+  '''
+# ---
+# name: test_info_command_websocket_none
+  '''
+                                               
+             WLED device information           
+  ┌───────────────────────┬───────────────────┐
+  │ Name                  │ WLED              │
+  │ Brand                 │ WLED              │
+  │ Product               │ DIY Light         │
+  ├───────────────────────┼───────────────────┤
+  │ IP address            │ 192.168.1.100     │
+  │ MAC address           │ aabbccddeeff      │
+  │ Wi-Fi BSSID           │ AA:BB:CC:DD:EE:FF │
+  │ Wi-Fi channel         │ 11                │
+  │ Wi-Fi RSSI            │ -62 dBm           │
+  │ Wi-Fi signal strength │ 76%               │
+  ├───────────────────────┼───────────────────┤
+  │ Version               │ 0.14.0            │
+  │ Build                 │ 2312080           │
+  │ Architecture          │ esp32             │
+  │ Arduino version       │ v3.3.6-16         │
+  ├───────────────────────┼───────────────────┤
+  │ Uptime                │ 32489 seconds     │
+  │ Free heap             │ 116864 bytes      │
+  │ Total storage         │ 64 bytes          │
+  │ Used storage          │ 12 bytes          │
+  │ % Used storage        │ 19%               │
+  ├───────────────────────┼───────────────────┤
+  │ Effect count          │ 187 effects       │
+  │ Palette count         │ 71 palettes       │
+  ├───────────────────────┼───────────────────┤
+  │ Sync UDP port         │ 21324             │
+  │ WebSocket             │ Disabled          │
+  ├───────────────────────┼───────────────────┤
+  │ Live                  │ No                │
+  │ Live IP               │                   │
+  │ Live mode             │                   │
+  ├───────────────────────┼───────────────────┤
+  │ LED count             │ 30 LEDs           │
+  │ LED power             │ 0 mA              │
+  │ LED max power         │ 850 mA            │
+  └───────────────────────┴───────────────────┘
+  
+  '''
+# ---
+# name: test_palettes_command
+  '''
+                   
+  Palettes on this 
+     WLED device   
+  ┌───────────────┐
+  │ Default       │
+  │ Random Cycle  │
+  │ Primary Color │
+  └───────────────┘
+  
+  '''
+# ---
+# name: test_playlists_command
+  '''
+                 
+     Playlists   
+   stored in the 
+    WLED device  
+  ┌─────────────┐
+  │ My Playlist │
+  └─────────────┘
+  
+  '''
+# ---
+# name: test_playlists_command_empty
+  '''
+  🚫 This device has no playlists
+  
+  '''
+# ---
+# name: test_presets_command
+  '''
+                                      
+   Presets stored in the WLED device  
+  ┏━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━┓
+  ┃ Preset    ┃ Quick label ┃ Active ┃
+  ┡━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━┩
+  │ My Preset │             │ Yes    │
+  └───────────┴─────────────┴────────┘
+  
+  '''
+# ---
+# name: test_presets_command_empty
+  '''
+  🚫 This device has no presets
+  
+  '''
+# ---
+# name: test_releases_command
+  '''
+                                                                                              
+                                                                                              
+                                      Found WLED Releases                                     
+  ┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+  ┃ Release channel ┃ Latest version ┃ Release notes                                         ┃
+  ┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+  │ Stable          │ 0.14.0         │ https://github.com/Aircoookie/WLED/releases/v0.14.0   │
+  ├─────────────────┼────────────────┼───────────────────────────────────────────────────────┤
+  │ Beta            │ 0.15.0b1       │ https://github.com/Aircoookie/WLED/releases/v0.15.0b1 │
+  └─────────────────┴────────────────┴───────────────────────────────────────────────────────┘
+  
+  '''
+# ---
+# name: test_scan_command_keyboard_interrupt
+  '''
+  Scanning for WLED devices...
+  Press Ctrl-C to exit
+  
+  
+  Control-C pressed, stopping scan
+                             
+                             
+      Found WLED devices     
+  ┏━━━━━━━━━━━┳━━━━━━━━━━━━━┓
+  ┃ Addresses ┃ MAC Address ┃
+  ┡━━━━━━━━━━━╇━━━━━━━━━━━━━┩
+  └───────────┴─────────────┘
+  '''
+# ---
+# name: test_unsupported_version_error_handler
+  '''
+  ╭────────────────────── Unsupported version ───────────────────────╮
+  │                                                                  │
+  │     The specified WLED device is running an unsupported version. │
+  │                                                                  │
+  │     Currently only 0.14.0 and higher is supported                │
+  │                                                                  │
+  ╰──────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---

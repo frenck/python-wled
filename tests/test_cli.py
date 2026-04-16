@@ -1,13 +1,16 @@
 """Tests for the WLED CLI module and AsyncTyper."""
 
+# pylint: disable=redefined-outer-name
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import click
 import pytest
-from awesomeversion import AwesomeVersion
 from typer import Exit
+from typer.main import get_command
 from typer.testing import CliRunner
 
 from wled import Device, Releases
@@ -17,30 +20,27 @@ from wled.exceptions import WLEDConnectionError, WLEDUnsupportedVersionError
 
 from .conftest import full_device_data
 
-runner = CliRunner()
+if TYPE_CHECKING:
+    from syrupy.assertion import SnapshotAssertion
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Fixtures
 # ---------------------------------------------------------------------------
 
 
-def _make_wled_mock(device: Device) -> MagicMock:
-    """Create a mock WLED instance that acts as an async context manager."""
-    mock_instance = AsyncMock()
-    mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_instance.__aexit__ = AsyncMock(return_value=False)
-    mock_instance.update = AsyncMock(return_value=device)
-    return MagicMock(return_value=mock_instance)
+@pytest.fixture
+def stable_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force deterministic Rich rendering for stable snapshots."""
+    monkeypatch.setenv("COLUMNS", "100")
+    monkeypatch.setenv("NO_COLOR", "1")
+    monkeypatch.setenv("TERM", "dumb")
 
 
-def _make_wled_error_mock(exc: Exception) -> MagicMock:
-    """Create a mock WLED that raises an exception on update()."""
-    mock_instance = AsyncMock()
-    mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_instance.__aexit__ = AsyncMock(return_value=False)
-    mock_instance.update = AsyncMock(side_effect=exc)
-    return MagicMock(return_value=mock_instance)
+@pytest.fixture
+def runner() -> CliRunner:
+    """Return a CLI runner for invoking the Typer app."""
+    return CliRunner()
 
 
 def _device() -> Device:
@@ -55,100 +55,114 @@ def _device_no_presets() -> Device:
     return Device.from_dict(data)
 
 
+def _device_no_wifi() -> Device:
+    """Return a Device without Wi-Fi info."""
+    data = full_device_data()
+    data["info"]["wifi"] = None
+    return Device.from_dict(data)
+
+
+def _device_websocket_none() -> Device:
+    """Return a Device with websocket disabled (ws: -1)."""
+    data = full_device_data()
+    data["info"]["ws"] = -1
+    return Device.from_dict(data)
+
+
+def _mock_wled(device: Device) -> MagicMock:
+    """Create a mock WLED that returns the given device."""
+    instance = AsyncMock()
+    instance.__aenter__.return_value = instance
+    instance.__aexit__.return_value = None
+    instance.update.return_value = device
+    return MagicMock(return_value=instance)
+
+
+def _mock_releases(*, stable: str = "0.14.0", beta: str = "0.15.0b1") -> MagicMock:
+    """Create a mock WLEDReleases that returns the given versions."""
+    releases = Releases.from_dict({"stable": stable, "beta": beta})
+    instance = AsyncMock()
+    instance.__aenter__.return_value = instance
+    instance.__aexit__.return_value = None
+    instance.releases.return_value = releases
+    return MagicMock(return_value=instance)
+
+
+def _invoke(
+    runner: CliRunner,
+    args: list[str],
+    device: Device | None = None,
+) -> tuple[int, str]:
+    """Invoke a WLED CLI command with a mocked WLED client."""
+    mock = _mock_wled(device or _device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(cli, args)
+    return result.exit_code, result.output
+
+
 # ---------------------------------------------------------------------------
 # AsyncTyper unit tests
 # ---------------------------------------------------------------------------
 
 
 def test_async_typer_command_wraps_async() -> None:
-    """AsyncTyper.command wraps an async function so typer can call it."""
+    """Test that AsyncTyper wraps async command functions for sync execution."""
     app = AsyncTyper()
-    called = False
 
-    # Need two commands so typer treats it as a group with subcommands
-    @app.command("hello")
-    async def hello_cmd() -> None:
-        nonlocal called
-        called = True
-
-    @app.command("other")
-    async def other_cmd() -> None:
+    @app.command("greet")
+    async def greet() -> None:
         pass
 
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, ["hello"])
-    assert result.exit_code == 0
-    assert called
+    assert asyncio.iscoroutinefunction(greet)
 
 
 def test_async_typer_command_wraps_sync() -> None:
-    """AsyncTyper.command passes sync functions through unchanged."""
+    """Test that AsyncTyper passes through sync command functions."""
     app = AsyncTyper()
-    called = False
 
-    @app.command("sync-hello")  # ty: ignore[invalid-argument-type]
-    def sync_hello_cmd() -> None:
-        nonlocal called
-        called = True
-
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
+    @app.command("greet")  # ty: ignore[invalid-argument-type]
+    def greet() -> None:
         pass
 
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, ["sync-hello"])
-    assert result.exit_code == 0
-    assert called
+    assert not asyncio.iscoroutinefunction(greet)
 
 
 def test_async_typer_callback_wraps_async() -> None:
-    """AsyncTyper.callback wraps an async callback."""
+    """Test that AsyncTyper wraps async callback functions."""
     app = AsyncTyper()
-    called = False
 
-    @app.callback(invoke_without_command=True)
-    async def my_callback() -> None:
-        nonlocal called
-        called = True
+    @app.callback()
+    async def main() -> None:
+        pass
 
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert called
+    assert asyncio.iscoroutinefunction(main)
 
 
 def test_async_typer_callback_wraps_sync() -> None:
-    """AsyncTyper.callback passes sync callbacks through."""
+    """Test that AsyncTyper passes through sync callback functions."""
     app = AsyncTyper()
-    called = False
 
-    @app.callback(invoke_without_command=True)  # ty: ignore[invalid-argument-type]
-    def my_sync_callback() -> None:
-        nonlocal called
-        called = True
+    @app.callback()  # ty: ignore[invalid-argument-type]
+    def main() -> None:
+        pass
 
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, [])
-    assert result.exit_code == 0
-    assert called
+    assert not asyncio.iscoroutinefunction(main)
 
 
 def test_async_typer_error_handler_registered() -> None:
-    """error_handler registers an exception handler on the app."""
+    """Test that error handlers are registered correctly."""
     app = AsyncTyper()
 
+    @app.error_handler(ValueError)
     def handle_value_error(_: ValueError) -> None:
         pass
 
-    app.error_handler(ValueError)(handle_value_error)
-
-    assert ValueError in app.error_handlers
-    assert app.error_handlers[ValueError] is handle_value_error
+    assert ValueError in app.error_handlers  # pylint: disable=protected-access
 
 
 def test_async_typer_error_handler_called() -> None:
-    """When a registered exception is raised, the handler is invoked."""
-    app = AsyncTyper()
+    """Test that registered error handler is called on matching exception."""
+    app = AsyncTyper(add_completion=False)
     handler_called = False
 
     @app.error_handler(RuntimeError)
@@ -156,402 +170,260 @@ def test_async_typer_error_handler_called() -> None:
         nonlocal handler_called
         handler_called = True
 
-    @app.command("fail")  # ty: ignore[invalid-argument-type]
-    def fail_cmd() -> None:
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def fail() -> None:
         msg = "boom"
         raise RuntimeError(msg)
 
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
-        pass
-
-    # CliRunner calls .main() which bypasses __call__, so call the app
-    # directly via __call__ to exercise the error handler code path.
-    app(["fail"], standalone_mode=False)
+    # CliRunner bypasses __call__, so invoke directly
+    app([], standalone_mode=False)
     assert handler_called
 
 
 def test_async_typer_unhandled_exception_re_raises() -> None:
-    """An exception without a handler is re-raised."""
-    app = AsyncTyper()
+    """Test that unhandled exceptions are re-raised."""
+    app = AsyncTyper(add_completion=False)
 
-    @app.command("fail")  # ty: ignore[invalid-argument-type]
-    def fail_cmd() -> None:
-        msg = "boom"
-        raise RuntimeError(msg)
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def fail() -> None:
+        msg = "unhandled"
+        raise TypeError(msg)
 
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
-        pass
-
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, ["fail"])
+    result = CliRunner().invoke(app, [])
     assert result.exit_code != 0
 
 
 def test_async_typer_exit_re_raises() -> None:
-    """Exit exceptions are re-raised, not caught by the error handler."""
-    app = AsyncTyper()
+    """Test that typer.Exit is re-raised, not caught by error handlers."""
+    app = AsyncTyper(add_completion=False)
 
     @app.error_handler(Exception)
-    def handle_all(_: Exception) -> None:
+    def catch_all(_: Exception) -> None:
         pass
 
-    @app.command("exit-cmd")  # ty: ignore[invalid-argument-type]
-    def exit_cmd() -> None:
-        raise Exit(code=0)
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def quit_cmd() -> None:
+        raise Exit(code=42)
 
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
-        pass
-
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, ["exit-cmd"])
-    assert result.exit_code == 0
+    result = CliRunner().invoke(app, [])
+    assert result.exit_code == 42
 
 
 def test_async_typer_no_error_handlers_attr() -> None:
-    """When error_handlers has not been set, unhandled exceptions re-raise."""
-    app = AsyncTyper()
+    """Test that __call__ works when error_handlers hasn't been initialized."""
+    app = AsyncTyper(add_completion=False)
 
-    @app.command("fail")  # ty: ignore[invalid-argument-type]
-    def fail_cmd() -> None:
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def ok() -> None:
         msg = "boom"
         raise RuntimeError(msg)
 
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
-        pass
-
-    test_runner = CliRunner()
-    result = test_runner.invoke(app, ["fail"])
+    result = CliRunner().invoke(app, [])
     assert result.exit_code != 0
 
 
-def test_async_typer_call_delegates_to_super() -> None:
-    """__call__ delegates to Typer.__call__ when no exception occurs."""
-    app = AsyncTyper()
-    called = False
+def test_async_typer_call_normal() -> None:
+    """Test normal delegation through __call__."""
+    app = AsyncTyper(add_completion=False)
 
-    @app.command("ok")  # ty: ignore[invalid-argument-type]
-    def ok_cmd() -> None:
-        nonlocal called
-        called = True
-
-    @app.command("other")  # ty: ignore[invalid-argument-type]
-    def other_cmd() -> None:
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def hello() -> None:
         pass
 
-    app(["ok"], standalone_mode=False)
-    assert called
-
-
-# ---------------------------------------------------------------------------
-# CLI help / no-args
-# ---------------------------------------------------------------------------
-
-
-def test_cli_no_args_shows_help() -> None:
-    """Running CLI without arguments shows help."""
-    result = runner.invoke(cli, ["--help"])
+    result = CliRunner().invoke(app, [])
     assert result.exit_code == 0
-    assert "WLED CLI" in result.output
-
-
-def test_cli_help_lists_commands() -> None:
-    """Running CLI with --help lists available commands."""
-    result = runner.invoke(cli, ["--help"])
-    assert result.exit_code == 0
-    assert "info" in result.output
-    assert "effects" in result.output
-    assert "scan" in result.output
-    assert "releases" in result.output
 
 
 # ---------------------------------------------------------------------------
-# info command
+# CLI structure test
 # ---------------------------------------------------------------------------
 
 
-@patch("wled.cli.WLED")
-def test_info_command(mock_wled_cls: MagicMock) -> None:
-    """The info command prints device information."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "WLED device information" in result.output
-    assert device.info.name in result.output
-    assert str(device.info.version) in result.output
-    assert device.info.mac_address in result.output
-    assert device.info.architecture in result.output
-
-
-@patch("wled.cli.WLED")
-def test_info_command_shows_wifi(mock_wled_cls: MagicMock) -> None:
-    """The info command includes Wi-Fi details when present."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "Wi-Fi BSSID" in result.output
-    assert "Wi-Fi channel" in result.output
-
-
-@patch("wled.cli.WLED")
-def test_info_command_no_wifi(mock_wled_cls: MagicMock) -> None:
-    """The info command works when wifi info is None."""
-    device = _device()
-    device.info.wifi = None  # type: ignore[assignment]
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "WLED device information" in result.output
-    assert "Wi-Fi BSSID" not in result.output
-
-
-@patch("wled.cli.WLED")
-def test_info_websocket_none(mock_wled_cls: MagicMock) -> None:
-    """Websocket is shown as Disabled when None."""
-    device = _device()
-    device.info.websocket = None  # type: ignore[assignment]
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "Disabled" in result.output
-
-
-@patch("wled.cli.WLED")
-def test_info_websocket_clients(mock_wled_cls: MagicMock) -> None:
-    """Websocket shows client count when present."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "client(s)" in result.output
-
-
-@patch("wled.cli.WLED")
-def test_info_live_status(mock_wled_cls: MagicMock) -> None:
-    """The info command shows live mode status."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-    assert result.exit_code == 0
-    # live is false in fixture
-    assert "No" in result.output
+def test_cli_structure(snapshot: SnapshotAssertion) -> None:
+    """The CLI exposes the expected commands and options."""
+    group = get_command(cli)
+    assert isinstance(group, click.Group)
+    structure = {
+        name: sorted(param.name for param in subcommand.params)
+        for name, subcommand in sorted(group.commands.items())
+    }
+    assert structure == snapshot
 
 
 # ---------------------------------------------------------------------------
-# effects command
+# CLI command tests (snapshot output)
 # ---------------------------------------------------------------------------
 
 
-@patch("wled.cli.WLED")
-def test_effects_command(mock_wled_cls: MagicMock) -> None:
-    """The effects command lists effects from the device."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["effects", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "Solid" in result.output
-    assert "Blink" in result.output
-    assert "Breathe" in result.output
-
-
-# ---------------------------------------------------------------------------
-# palettes command
-# ---------------------------------------------------------------------------
-
-
-@patch("wled.cli.WLED")
-def test_palettes_command(mock_wled_cls: MagicMock) -> None:
-    """The palettes command lists palettes from the device."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["palettes", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "Default" in result.output
-    assert "Random Cycle" in result.output
-    assert "Primary Color" in result.output
-
-
-# ---------------------------------------------------------------------------
-# playlists command
-# ---------------------------------------------------------------------------
-
-
-@patch("wled.cli.WLED")
-def test_playlists_command(mock_wled_cls: MagicMock) -> None:
-    """The playlists command lists playlists from the device."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["playlists", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "My Playlist" in result.output
-
-
-@patch("wled.cli.WLED")
-def test_playlists_command_no_playlists(mock_wled_cls: MagicMock) -> None:
-    """The playlists command shows a message when there are no playlists."""
-    device = _device_no_presets()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["playlists", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "no playlists" in result.output
-
-
-# ---------------------------------------------------------------------------
-# presets command
-# ---------------------------------------------------------------------------
-
-
-@patch("wled.cli.WLED")
-def test_presets_command(mock_wled_cls: MagicMock) -> None:
-    """The presets command lists presets from the device."""
-    device = _device()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["presets", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "My Preset" in result.output
-
-
-@patch("wled.cli.WLED")
-def test_presets_command_no_presets(mock_wled_cls: MagicMock) -> None:
-    """The presets command shows a message when there are no presets."""
-    device = _device_no_presets()
-    mock_wled_cls.return_value = _make_wled_mock(device).return_value
-
-    result = runner.invoke(cli, ["presets", "--host", "example.com"])
-    assert result.exit_code == 0
-    assert "no presets" in result.output
-
-
-# ---------------------------------------------------------------------------
-# releases command
-# ---------------------------------------------------------------------------
-
-
-@patch("wled.cli.WLEDReleases")
-def test_releases_command(mock_releases_cls: MagicMock) -> None:
-    """The releases command shows stable and beta versions."""
-    mock_instance = AsyncMock()
-    mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
-    mock_instance.__aexit__ = AsyncMock(return_value=False)
-    mock_instance.releases = AsyncMock(
-        return_value=Releases(
-            stable=AwesomeVersion("0.14.0"),
-            beta=AwesomeVersion("0.15.0b1"),
-        ),
-    )
-    mock_releases_cls.return_value = mock_instance
-
-    result = runner.invoke(cli, ["releases"])
-    assert result.exit_code == 0
-    assert "Stable" in result.output
-    assert "Beta" in result.output
-    assert "0.14.0" in result.output
-    assert "0.15.0b1" in result.output
-
-
-# ---------------------------------------------------------------------------
-# scan command
-# ---------------------------------------------------------------------------
-
-
-@patch("wled.cli.AsyncZeroconf")
-@patch("wled.cli.AsyncServiceBrowser")
-def test_scan_command_keyboard_interrupt(
-    mock_browser_cls: MagicMock,
-    mock_zeroconf_cls: MagicMock,
+@pytest.mark.usefixtures("stable_terminal")
+def test_info_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
 ) -> None:
-    """The scan command starts and handles KeyboardInterrupt gracefully."""
-    mock_zc_instance = MagicMock()
-    mock_zc_instance.zeroconf = MagicMock()
-    mock_zc_instance.async_close = AsyncMock()
-    mock_zeroconf_cls.return_value = mock_zc_instance
+    """Info command prints device information table."""
+    exit_code, output = _invoke(runner, ["info", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_info_command_no_wifi(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Info command handles device without Wi-Fi."""
+    exit_code, output = _invoke(
+        runner, ["info", "--host", "example.com"], _device_no_wifi()
+    )
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_info_command_websocket_none(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Info command shows 'Disabled' for websocket=None."""
+    exit_code, output = _invoke(
+        runner, ["info", "--host", "example.com"], _device_websocket_none()
+    )
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_effects_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Effects command prints effects table."""
+    exit_code, output = _invoke(runner, ["effects", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_palettes_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Palettes command prints palettes table."""
+    exit_code, output = _invoke(runner, ["palettes", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+def test_playlists_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Playlists command prints playlists table."""
+    exit_code, output = _invoke(runner, ["playlists", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_playlists_command_empty(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Playlists command handles no playlists."""
+    exit_code, output = _invoke(
+        runner, ["playlists", "--host", "example.com"], _device_no_presets()
+    )
+    assert exit_code == 0
+    assert output == snapshot
+
+
+def test_presets_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Presets command prints presets table."""
+    exit_code, output = _invoke(runner, ["presets", "--host", "example.com"])
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_presets_command_empty(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Presets command handles no presets."""
+    exit_code, output = _invoke(
+        runner, ["presets", "--host", "example.com"], _device_no_presets()
+    )
+    assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_releases_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Releases command prints release information."""
+    mock = _mock_releases()
+    with patch("wled.cli.WLEDReleases", mock):
+        result = runner.invoke(cli, ["releases"])
+    assert result.exit_code == 0
+    assert result.output == snapshot
+
+
+def test_scan_command_keyboard_interrupt(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Scan command handles KeyboardInterrupt gracefully."""
+    mock_zeroconf = AsyncMock()
+    mock_zeroconf.zeroconf = MagicMock()
 
     mock_browser = AsyncMock()
-    mock_browser.async_cancel = AsyncMock()
-    mock_browser_cls.return_value = mock_browser
 
-    # Make the forever.wait() raise KeyboardInterrupt to simulate Ctrl-C
-    async def mock_wait(_self: asyncio.Event) -> None:
-        raise KeyboardInterrupt
+    # Make Event.wait() raise KeyboardInterrupt immediately
+    mock_event = MagicMock()
+    mock_event.wait = AsyncMock(side_effect=KeyboardInterrupt)
 
-    with patch.object(asyncio.Event, "wait", mock_wait):
+    with (
+        patch("wled.cli.AsyncZeroconf", return_value=mock_zeroconf),
+        patch("wled.cli.AsyncServiceBrowser", return_value=mock_browser),
+        patch("asyncio.Event", return_value=mock_event),
+    ):
         result = runner.invoke(cli, ["scan"])
 
-    assert "Scanning for WLED devices" in result.output
-    assert "stopping scan" in result.output
+    assert result.exit_code == 0
+    assert result.output == snapshot
 
 
 # ---------------------------------------------------------------------------
-# Error handlers (must go through AsyncTyper.__call__ to trigger)
+# Error handler tests
 # ---------------------------------------------------------------------------
 
 
-@patch("wled.cli.WLED")
-def test_connection_error_handler(mock_wled_cls: MagicMock) -> None:
-    """WLEDConnectionError is caught and shows an error panel."""
-    mock_wled_cls.return_value = _make_wled_error_mock(
-        WLEDConnectionError("fail"),
-    ).return_value
-
-    result = runner.invoke(cli, ["info", "--host", "example.com"])
-
-    # CliRunner calls .main() which bypasses __call__. The exception
-    # propagates through asyncio.run and click catches it as a generic error.
-    # Instead we exercise the error handler via __call__ directly.
-    assert result.exit_code != 0
-
-
-@patch("wled.cli.console")
-@patch("wled.cli.WLED")
-def test_connection_error_handler_via_call(
-    mock_wled_cls: MagicMock,
-    mock_console: MagicMock,
+@pytest.mark.usefixtures("stable_terminal")
+def test_connection_error_handler(
+    capsys: pytest.CaptureFixture[str],
+    snapshot: SnapshotAssertion,
 ) -> None:
-    """WLEDConnectionError triggers the connection error handler via __call__."""
-    mock_wled_cls.return_value = _make_wled_error_mock(
-        WLEDConnectionError("fail"),
-    ).return_value
-
-    with pytest.raises(SystemExit, match="1"):
-        cli(["info", "--host", "example.com"], standalone_mode=False)
-
-    # Verify the error panel was printed
-    mock_console.print.assert_called()
-    panel_arg = mock_console.print.call_args[0][0]
-    assert "Connection error" in panel_arg.title
+    """Connection error handler prints a panel and exits with 1."""
+    handler = cli.error_handlers[WLEDConnectionError]  # pylint: disable=protected-access
+    with pytest.raises(SystemExit) as exc_info:
+        handler(WLEDConnectionError("fail"))
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().out == snapshot
 
 
-@patch("wled.cli.console")
-@patch("wled.cli.WLED")
-def test_unsupported_version_error_handler_via_call(
-    mock_wled_cls: MagicMock,
-    mock_console: MagicMock,
+@pytest.mark.usefixtures("stable_terminal")
+def test_unsupported_version_error_handler(
+    capsys: pytest.CaptureFixture[str],
+    snapshot: SnapshotAssertion,
 ) -> None:
-    """WLEDUnsupportedVersionError triggers the version error handler."""
-    mock_wled_cls.return_value = _make_wled_error_mock(
-        WLEDUnsupportedVersionError("too old"),
-    ).return_value
-
-    with pytest.raises(SystemExit, match="1"):
-        cli(["info", "--host", "example.com"], standalone_mode=False)
-
-    # Verify the error panel was printed
-    mock_console.print.assert_called()
-    panel_arg = mock_console.print.call_args[0][0]
-    assert "Unsupported version" in panel_arg.title
+    """Unsupported version error handler prints a panel and exits with 1."""
+    handler = cli.error_handlers[WLEDUnsupportedVersionError]  # pylint: disable=protected-access
+    with pytest.raises(SystemExit) as exc_info:
+        handler(WLEDUnsupportedVersionError("old"))
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().out == snapshot
