@@ -22,11 +22,11 @@ Adaptation of the snippet/code from:
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable
 from functools import wraps
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ParamSpec,
     TypeVar,
 )
@@ -51,7 +51,7 @@ class AsyncTyper(SyncTyper):
     error_handlers: dict[type[Exception], HandleErrorFunc]
 
     # pylint: disable-next=too-many-arguments, too-many-locals
-    def callback(  # type: ignore[override] # noqa: PLR0913
+    def callback(  # noqa: PLR0913
         self,
         *,
         cls: type[TyperGroup] | None = None,
@@ -73,7 +73,7 @@ class AsyncTyper(SyncTyper):
     ) -> Callable[
         [Callable[_P, Coroutine[Any, Any, _R]]],
         Callable[_P, Coroutine[Any, Any, _R]],
-    ]:
+    ]:  # ty: ignore[invalid-method-override]
         """Create a new typer callback."""
         super_callback = super().callback(
             cls=cls,
@@ -111,7 +111,7 @@ class AsyncTyper(SyncTyper):
         return decorator
 
     # pylint: disable-next=too-many-arguments
-    def command(  # type: ignore[override] # noqa: PLR0913
+    def command(  # noqa: PLR0913
         self,
         name: str | None = None,
         *,
@@ -131,7 +131,7 @@ class AsyncTyper(SyncTyper):
     ) -> Callable[
         [Callable[_P, Coroutine[Any, Any, _R]]],
         Callable[_P, Coroutine[Any, Any, _R]],
-    ]:
+    ]:  # ty: ignore[invalid-method-override]
         """Create a new typer command."""
         super_command = super().command(
             name,

@@ -88,11 +88,11 @@ docs/_build/
 venv/
 ENV/
 
-# mypy
-.mypy_cache/
-
 # ruff
 .ruff_cache
+
+# ty
+.ty/
 
 # Visual Studio Code
 .vscode

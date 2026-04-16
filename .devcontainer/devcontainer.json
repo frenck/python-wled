@@ -30,10 +30,6 @@
         "coverage-gutters.xmlname": "coverage.xml",
         "python.analysis.extraPaths": ["${workspaceFolder}/src"],
         "python.defaultInterpreterPath": ".venv/bin/python",
-        "python.formatting.provider": "ruff",
-        "python.linting.enabled": true,
-        "python.linting.mypyEnabled": true,
-        "python.linting.pylintEnabled": true,
         "python.testing.cwd": "${workspaceFolder}",
         "python.testing.pytestArgs": ["--cov-report=xml"],
         "python.testing.pytestEnabled": true,
@@ -48,10 +44,11 @@
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/devcontainers/features/python:1": {
-      "installTools": false
+      "installTools": false,
+      "version": "3.14"
     }
   },
   "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
   "name": "Asynchronous Python client for WLED",
-  "updateContentCommand": ". ${NVM_DIR}/nvm.sh && nvm install && nvm use && npm install && poetry install --extras cli && poetry run pre-commit install"
+  "updateContentCommand": ". ${NVM_DIR}/nvm.sh && nvm install && nvm use && npm install && poetry install && poetry run prek install"
 }

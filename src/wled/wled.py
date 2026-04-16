@@ -44,7 +44,7 @@ class WLED:
 
     @property
     def connected(self) -> bool:
-        """Return if we are connect to the WebSocket of a WLED device.
+        """Return if we are connected to the WebSocket of a WLED device.
 
         Returns
         -------
@@ -59,7 +59,7 @@ class WLED:
 
         Raises
         ------
-            WLEDError: The configured WLED device, does not support WebSocket
+            WLEDError: The configured WLED device does not support WebSocket
                 communications.
             WLEDConnectionError: Error occurred while communicating with
                 the WLED device via the WebSocket.
@@ -72,7 +72,7 @@ class WLED:
             await self.update()
 
         if not self.session or not self._device or self._device.info.websocket is None:
-            msg = "The WLED device at {self.host} does not support WebSockets"
+            msg = f"The WLED device at {self.host} does not support WebSockets"
             raise WLEDError(msg)
 
         url = URL.build(scheme="ws", host=self.host, port=80, path="/ws")
@@ -101,7 +101,7 @@ class WLED:
         Raises:
         ------
             WLEDError: Not connected to a WebSocket.
-            WLEDConnectionError: An connection error occurred while connected
+            WLEDConnectionError: A connection error occurred while connected
                 to the WLED device.
             WLEDConnectionClosedError: The WebSocket connection to the remote WLED
                 has been closed.
@@ -146,13 +146,13 @@ class WLED:
     ) -> Any:
         """Handle a request to a WLED device.
 
-        A generic method for sending/handling HTTP requests done gainst
+        A generic method for sending/handling HTTP requests against
         the WLED device.
 
         Args:
         ----
             uri: Request URI, for example `/json/si`.
-            method: HTTP method to use for the request.E.g., "GET" or "POST".
+            method: HTTP method to use for the request. E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
 
         Returns:
@@ -162,7 +162,7 @@ class WLED:
 
         Raises:
         ------
-            WLEDConnectionError: An error occurred while communication with
+            WLEDConnectionError: An error occurred while communicating with
                 the WLED device.
             WLEDConnectionTimeoutError: A timeout occurred while communicating
                 with the WLED device.
@@ -211,7 +211,7 @@ class WLED:
             if "application/json" in content_type:
                 response_data = orjson.loads(response_data)
 
-        except asyncio.TimeoutError as exception:
+        except TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
             raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
@@ -353,7 +353,7 @@ class WLED:
             stop: LED the segment stops at, not included in range. If stop is
                 set to a lower or equal value than start (setting to 0 is
                 recommended), the segment is invalidated and deleted.
-            transition:  Duration of the crossfade between different
+            transition: Duration of the crossfade between different
                 colors/brightness levels. One unit is 100ms, so a value of 4
                 results in a transition of 400ms.
             cct: White spectrum color temperature.
@@ -573,7 +573,7 @@ class WLED:
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
     async def upgrade(self, *, version: str | AwesomeVersion) -> None:
-        """Upgrades WLED device to the specified version.
+        """Upgrade WLED device to the specified version.
 
         Args:
         ----
@@ -654,12 +654,12 @@ class WLED:
                 form = aiohttp.FormData()
                 form.add_field("file", await download.read(), filename=update_file)
                 await self.session.post(url, data=form)
-        except asyncio.TimeoutError as exception:
+        except TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested WLED version '{version}' does not exists"
+                msg = f"Requested WLED version '{version}' does not exist"
                 raise WLEDUpgradeError(msg) from exception
             msg = (
                 f"Could not download requested WLED version '{version}'"
@@ -668,7 +668,7 @@ class WLED:
             raise WLEDUpgradeError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = (
-                "Timeout occurred while communicating with GitHub"
+                "Error occurred while communicating with GitHub"
                 " for WLED version information"
             )
             raise WLEDConnectionError(msg) from exception
@@ -698,7 +698,7 @@ class WLED:
 
         Args:
         ----
-            _exc_info: Exec type.
+            _exc_info: Exception info.
 
         """
         await self.close()
@@ -726,7 +726,7 @@ class WLEDReleases:
         ------
             WLEDConnectionTimeoutError: Timeout occurred while fetching WLED
                 version information from GitHub.
-            WLEDConnectionError: Timeout occurred while communicating with
+            WLEDConnectionError: Error occurred while communicating with
                 GitHub for WLED version information.
             WLEDError: Didn't get a JSON response from GitHub while retrieving
                 version information.
@@ -742,13 +742,13 @@ class WLEDReleases:
                     "https://api.github.com/repos/Aircoookie/WLED/releases",
                     headers={"Accept": "application/json"},
                 )
-        except asyncio.TimeoutError as exception:
+        except TimeoutError as exception:
             msg = (
                 "Timeout occurred while fetching WLED releases information from GitHub"
             )
             raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = "Timeout occurred while communicating with GitHub for WLED releases"
+            msg = "Error occurred while communicating with GitHub for WLED releases"
             raise WLEDConnectionError(msg) from exception
 
         content_type = response.headers.get("Content-Type", "")
@@ -806,7 +806,7 @@ class WLEDReleases:
 
         Args:
         ----
-            _exc_info: Exec type.
+            _exc_info: Exception info.
 
         """
         await self.close()

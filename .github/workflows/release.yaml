@@ -10,48 +10,68 @@ on:
 env:
   DEFAULT_PYTHON: "3.11"
 
+permissions:
+  contents: read
+
 jobs:
   release:
-    name: Releasing to PyPi
+    name: Releasing to PyPI
     runs-on: ubuntu-latest
     environment:
       name: release
       url: https://pypi.org/p/wled
     permissions:
+      attestations: write
       contents: write
       id-token: write
     steps:
       - name: ⤵️ Check out code from GitHub
-        uses: actions/checkout@v6.0.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: 🏗 Set up Poetry
         run: pipx install poetry
       - name: 🏗 Set up Python ${{ env.DEFAULT_PYTHON }}
         id: python
-        uses: actions/setup-python@v6.2.0
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
-          cache: "poetry"
+          cache: "poetry" # zizmor: ignore[cache-poisoning] - Low risk: release-only trigger, pinned actions, PyPI verification
       - name: 🏗 Install workflow dependencies
         run: |
           poetry config virtualenvs.create true
           poetry config virtualenvs.in-project true
       - name: 🏗 Install dependencies
-        run: poetry install --extras cli --no-interaction
+        run: poetry install --no-interaction
       - name: 🏗 Set package version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          version="${{ github.event.release.tag_name }}"
+          version="${RELEASE_TAG}"
           version="${version,,}"
           version="${version#v}"
           poetry version --no-interaction "${version}"
       - name: 🏗 Build package
         run: poetry build --no-interaction
-      - name: 🚀 Publish to PyPi
-        uses: pypa/gh-action-pypi-publish@v1.14.0
+      - name: 🧭 Locate built wheel
+        run: |
+          WHEEL_PATH=$(ls dist/wled-*-py3-none-any.whl)
+          echo "WHEEL_PATH=${WHEEL_PATH}" >> "${GITHUB_ENV}"
+      - name: 📝 Generate CycloneDX SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          file: ${{ env.WHEEL_PATH }}
+          format: cyclonedx-json
+          output-file: wled.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: 📝 Attest SBOM against built artifacts
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: "dist/*"
+          sbom-path: wled.cdx.json
+      - name: 🚀 Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
         with:
           verbose: true
           print-hash: true
-      - name: ✍️ Sign published artifacts
-        uses: sigstore/gh-action-sigstore-python@v3.3.0
-        with:
-          inputs: ./dist/*.tar.gz ./dist/*.whl
-          release-signing-artifacts: true

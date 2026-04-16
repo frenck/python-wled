@@ -324,7 +324,7 @@ async def command_scan() -> None:
         table.add_row(
             f"{str(info.server).rstrip('.')}\n"
             + ", ".join(info.parsed_scoped_addresses()),
-            info.properties[b"mac"].decode(),  # type: ignore[union-attr]
+            info.properties[b"mac"].decode(),  # ty: ignore[unresolved-attribute]
         )
 
     console.print("[green]Scanning for WLED devices...")

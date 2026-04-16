@@ -7,12 +7,18 @@ on:
     - cron: "0 9 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   lock:
     name: 🔒 Lock closed issues and PRs
     runs-on: ubuntu-latest
+    permissions:
+      issues: write  # To lock issues
+      pull-requests: write  # To lock PRs
     steps:
-      - uses: dessant/lock-threads@v6.0.0
+      - uses: dessant/lock-threads@7266a7ce5c1df01b1c6db85bf8cd86c737dadbe7 # v6.0.0
         with:
           github-token: ${{ github.token }}
           issue-inactive-days: "30"

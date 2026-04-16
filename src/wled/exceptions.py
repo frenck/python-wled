@@ -14,7 +14,7 @@ class WLEDConnectionError(WLEDError):
 
 
 class WLEDConnectionTimeoutError(WLEDConnectionError):
-    """WLED connection Timeout exception."""
+    """WLED connection timeout exception."""
 
 
 class WLEDConnectionClosedError(WLEDConnectionError):

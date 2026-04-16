@@ -88,12 +88,12 @@ class Color(SerializableType):
         # Some values in the list can be strings, which indicates that the
         # color is a hex color value.
         return cls(
-            *[  # type: ignore[arg-type]
+            *[
                 tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
                 if isinstance(color, str)
                 else color
                 for color in value
-            ]
+            ]  # ty: ignore[invalid-argument-type]
         )
 
 
@@ -166,7 +166,7 @@ class Effect(BaseModel):
 
 @dataclass(frozen=True, kw_only=True)
 class Palette(BaseModel):
-    """Object holding an palette in WLED.
+    """Object holding a palette in WLED.
 
     Args:
     ----
@@ -205,7 +205,7 @@ class Segment(BaseModel):
     color: Color | None = field(default=None, metadata=field_options(alias="col"))
     """The primary, secondary (background) and tertiary colors of the segment.
 
-    Each color is an tuple of 3 or 4 bytes, which represents a RGB(W) color,
+    Each color is a tuple of 3 or 4 bytes, which represents a RGB(W) color,
     i.e. (255,170,0) or (64,64,64,64).
 
     WLED can also return hex color values as strings, this library will
@@ -529,7 +529,7 @@ class State(BaseModel):
     """The on/off state of the light."""
 
     playlist_id: int | None = field(default=-1, metadata=field_options(alias="pl"))
-    """ID of currently set playlist.."""
+    """ID of currently set playlist."""
 
     preset_id: int | None = field(default=-1, metadata=field_options(alias="ps"))
     """ID of currently set preset."""
@@ -545,7 +545,7 @@ class State(BaseModel):
     transition: int = 0
     """Duration of the crossfade between different colors/brightness levels.
 
-    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    One unit is 100ms, so a value of 4 results in a transition of 400ms.
     """
 
     live_data_override: LiveDataOverride = field(metadata=field_options(alias="lor"))
@@ -557,7 +557,7 @@ class State(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for State object."""
-        # Segments are not indexes, which is suboptimal for the user.
+        # Segments are not indexed, which is suboptimal for the user.
         # We will add the segment ID to the segment data and convert
         # the segments list to an indexed dict.
         d["seg"] = {
@@ -601,7 +601,7 @@ class Preset(BaseModel):
     transition: int = 0
     """Duration of the crossfade between different colors/brightness levels.
 
-    One unit is 100ms, so a value of 4 results in atransition of 400ms.
+    One unit is 100ms, so a value of 4 results in a transition of 400ms.
     """
 
     main_segment_id: int = field(default=0, metadata=field_options(alias="mainseg"))
@@ -624,7 +624,7 @@ class Preset(BaseModel):
     @classmethod
     def __post_deserialize__(cls, obj: Preset) -> Preset:
         """Post deserialize hook for Preset object."""
-        # If name is empty, we will replace it with the playlist ID.
+        # If name is empty, we will replace it with the preset ID.
         if not obj.name:
             obj.name = str(obj.preset_id)
         return obj
@@ -632,7 +632,7 @@ class Preset(BaseModel):
 
 @dataclass(frozen=True, kw_only=True)
 class PlaylistEntry(BaseModel):
-    """Object representing a entry in a WLED playlist."""
+    """Object representing an entry in a WLED playlist."""
 
     duration: int = field(metadata=field_options(alias="dur"))
     entry_id: int
@@ -668,7 +668,7 @@ class Playlist(BaseModel):
 
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
-        """Pre deserialize hook for State object."""
+        """Pre deserialize hook for Playlist object."""
         d |= d["playlist"]
         # Duration, presets and transitions values are separate lists stored
         # in the playlist data. We will combine those into a list of
@@ -680,7 +680,7 @@ class Playlist(BaseModel):
         if not isinstance(d["dur"], list):
             d["dur"] = [d["dur"]] * item_count
 
-        # If the transition value doesn't exists, we will set it to 0.
+        # If the transition value doesn't exist, we will set it to 0.
         if "transitions" not in d:
             d["transitions"] = [0] * item_count
         # If the transition is a single value, we will convert it to a list.
@@ -697,7 +697,7 @@ class Playlist(BaseModel):
                 "transition": transition,
             }
             for entry_id, (ps, dur, transition) in enumerate(
-                zip(d["ps"], d["dur"], d["transitions"])
+                zip(d["ps"], d["dur"], d["transitions"], strict=True)
             )
         ]
 
@@ -706,7 +706,7 @@ class Playlist(BaseModel):
     @classmethod
     def __post_deserialize__(cls, obj: Playlist) -> Playlist:
         """Post deserialize hook for Playlist object."""
-        # If name is empty, we will replace it with the playlist ID.
+        # If name is empty, we will replace it with the preset ID.
         if not obj.name:
             obj.name = str(obj.playlist_id)
         return obj

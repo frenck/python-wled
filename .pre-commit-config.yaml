@@ -8,14 +8,14 @@ repos:
         types: [python]
         entry: poetry run ruff check --fix
         require_serial: true
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
       - id: ruff-format
         name: 🐶 Ruff Formatter
         language: system
         types: [python]
         entry: poetry run ruff format
         require_serial: true
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
       - id: check-ast
         name: 🐍 Check Python AST
         language: system
@@ -35,7 +35,7 @@ repos:
         language: system
         types: [text, executable]
         entry: poetry run check-executables-have-shebangs
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
       - id: check-json
         name: ｛ Check JSON files
         language: system
@@ -82,12 +82,12 @@ repos:
         language: system
         types: [text]
         entry: poetry run end-of-file-fixer
-        stages: [pre-commit, pre-push, manual]
-      - id: mypy
-        name: 🆎 Static type checking using mypy
+        stages: [commit, push, manual]
+      - id: ty
+        name: 🆎 Static type checking using ty
         language: system
         types: [python]
-        entry: poetry run mypy
+        entry: poetry run ty check
         require_serial: true
       - id: no-commit-to-branch
         name: 🛑 Don't commit to main branch
@@ -125,9 +125,15 @@ repos:
         language: system
         types: [text]
         entry: poetry run trailing-whitespace-fixer
-        stages: [pre-commit, pre-push, manual]
+        stages: [commit, push, manual]
       - id: yamllint
         name: 🎗  Check YAML files with yamllint
         language: system
         types: [yaml]
         entry: poetry run yamllint
+      - id: zizmor
+        name: 🌈 Check GitHub Actions workflows with zizmor
+        language: system
+        types: [yaml]
+        files: ^\.github/workflows/
+        entry: poetry run zizmor

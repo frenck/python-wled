@@ -7,7 +7,7 @@ from wled import WLED, WLEDReleases
 
 
 async def main() -> None:
-    """Show example on upgrade your WLED device."""
+    """Show example of upgrading your WLED device."""
     async with WLEDReleases() as releases:
         latest = await releases.releases()
         print(f"Latest stable version: {latest.stable}")

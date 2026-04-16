@@ -17,7 +17,7 @@ class LightCapability(IntFlag):
     MANUAL_WHITE = 8
 
     # These are not used, but are reserved for future use.
-    # WLED specifications documents we should expect them,
+    # WLED specification documents indicate we should expect them,
     # therefore, we include them here.
     RESERVED_2 = 16
     RESERVED_3 = 32
@@ -43,7 +43,7 @@ class NightlightMode(IntEnum):
 
 
 class SyncGroup(IntFlag):
-    """Bitfield for udp sync groups 1-8."""
+    """Bitfield for UDP sync groups 1-8."""
 
     NONE = 0
     GROUP1 = 1
