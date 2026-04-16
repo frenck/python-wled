@@ -798,7 +798,7 @@ class WLEDReleases:
     _close_session: bool = False
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
-    async def releases(self) -> Releases:  # noqa: PLR0912
+    async def releases(self) -> Releases:  # noqa: PLR0912  # pylint: disable=too-many-branches
         """Fetch WLED version information from GitHub.
 
         Returns
