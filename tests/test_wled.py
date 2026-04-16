@@ -231,6 +231,166 @@ async def test_update_empty_presets_response() -> None:
                 await wled.update()
 
 
+async def test_update_skips_presets_when_unchanged() -> None:
+    """Test update() skips fetching presets.json when presets haven't changed."""
+    wled_data = load_fixture_json("wled")
+
+    with aioresponses() as mocked:
+        # First update: fetches both /json and /presets.json
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(wled_data),
+            content_type="application/json",
+        )
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body=json.dumps(load_fixture_json("presets")),
+            content_type="application/json",
+        )
+        # Second update: same pmt and uptime, only /json fetched
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(wled_data),
+            content_type="application/json",
+        )
+        # Third update: pmt changed, fetches /presets.json again
+        changed_data = json.loads(json.dumps(wled_data))
+        changed_data["info"]["fs"]["pmt"] = 9999999999.0
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(changed_data),
+            content_type="application/json",
+        )
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body=json.dumps({"0": {}, "1": {"n": "Updated Preset"}}),
+            content_type="application/json",
+        )
+
+        async with aiohttp.ClientSession() as session:
+            wled = WLED("example.com", session=session)
+
+            # First call: presets fetched
+            device = await wled.update()
+            assert device.presets[1].name == "My Preset"
+
+            # Second call: presets unchanged, not refetched
+            device = await wled.update()
+            assert device.presets[1].name == "My Preset"
+
+            # Third call: pmt changed, presets refetched
+            device = await wled.update()
+            assert device.presets[1].name == "Updated Preset"
+
+
+async def test_update_refetches_presets_when_info_incomplete() -> None:
+    """Test update() refetches presets when pmt is zero/missing."""
+    wled_data = load_fixture_json("wled")
+    # Set pmt to 0 so version can't be determined
+    wled_data["info"]["fs"]["pmt"] = 0
+
+    with aioresponses() as mocked:
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(wled_data),
+            content_type="application/json",
+        )
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body=json.dumps(load_fixture_json("presets")),
+            content_type="application/json",
+        )
+        # Second call: still no fs, presets refetched again
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(wled_data),
+            content_type="application/json",
+        )
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body=json.dumps(load_fixture_json("presets")),
+            content_type="application/json",
+        )
+
+        async with aiohttp.ClientSession() as session:
+            wled = WLED("example.com", session=session)
+            await wled.update()
+            # Without fs/pmt, every update refetches presets
+            await wled.update()
+
+
+async def test_listen_preset_change_via_websocket() -> None:
+    """Test listen() detects preset changes and refetches presets.json."""
+    wled_data = load_fixture_json("wled")
+
+    wled = WLED("example.com")
+    mock_client = MagicMock()
+    mock_client.closed = False
+    wled._client = mock_client  # pylint: disable=protected-access
+    wled._device = Device.from_dict(full_device_data())  # pylint: disable=protected-access
+
+    # WS message with full info (includes fs.pmt) triggers preset check
+    text_msg = MagicMock()
+    text_msg.type = aiohttp.WSMsgType.TEXT
+    text_msg.json.return_value = wled_data
+
+    close_msg = MagicMock()
+    close_msg.type = aiohttp.WSMsgType.CLOSE
+
+    mock_client.receive = AsyncMock(side_effect=[text_msg, close_msg])
+
+    with aioresponses() as mocked:
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body=json.dumps(load_fixture_json("presets")),
+            content_type="application/json",
+        )
+
+        callback = MagicMock()
+        with pytest.raises(WLEDConnectionClosedError):
+            await wled.listen(callback)
+
+        callback.assert_called_once()
+
+
+async def test_listen_preset_change_empty_response() -> None:
+    """Test listen() raises when preset refetch returns empty."""
+    wled_data = load_fixture_json("wled")
+
+    wled = WLED("example.com")
+    mock_client = MagicMock()
+    mock_client.closed = False
+    wled._client = mock_client  # pylint: disable=protected-access
+    wled._device = Device.from_dict(full_device_data())  # pylint: disable=protected-access
+
+    text_msg = MagicMock()
+    text_msg.type = aiohttp.WSMsgType.TEXT
+    text_msg.json.return_value = wled_data
+
+    mock_client.receive = AsyncMock(return_value=text_msg)
+
+    with aioresponses() as mocked:
+        mocked.get(
+            "http://example.com/presets.json",
+            status=200,
+            body="",
+            content_type="text/plain",
+        )
+
+        with pytest.raises(WLEDEmptyResponseError):
+            await wled.listen(MagicMock())
+
+
 # =========================================================================
 # Section 11: WLED client - master() method
 # =========================================================================
