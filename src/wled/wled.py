@@ -375,7 +375,7 @@ class WLED:
             intensity: The effect intensity to use on this segment.
             length: The length of this segment.
             on: A boolean, true to turn this segment on, false otherwise.
-            palette: the palette number or name to use on this segment.
+            palette: The palette number or name to use on this segment.
             reverse: Flips the segment, causing animations to change direction.
             selected: Selected segments will have their state (color/FX) updated
                 by APIs that don't support segments.

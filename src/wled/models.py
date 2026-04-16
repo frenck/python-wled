@@ -170,17 +170,7 @@ class Effect(BaseModel):
 
 @dataclass(frozen=True, kw_only=True)
 class Palette(BaseModel):
-    """Object holding a palette in WLED.
-
-    Args:
-    ----
-        data: The data from the WLED device API.
-
-    Returns:
-    -------
-        A palette object.
-
-    """
+    """Object holding a palette in WLED."""
 
     custom: bool = False
     name: str
@@ -189,17 +179,7 @@ class Palette(BaseModel):
 
 @dataclass(kw_only=True)
 class Segment(BaseModel):
-    """Object holding segment state in WLED.
-
-    Args:
-    ----
-        data: The data from the WLED device API.
-
-    Returns:
-    -------
-        A segment object.
-
-    """
+    """Object holding segment state in WLED."""
 
     brightness: int | str = field(default=0, metadata=field_options(alias="bri"))
     """Brightness of the segment.
@@ -387,17 +367,7 @@ class Leds:
 
 @dataclass(kw_only=True)
 class Wifi(BaseModel):
-    """Object holding Wi-Fi information from WLED.
-
-    Args:
-    ----
-        data: The data from the WLED device API.
-
-    Returns:
-    -------
-        A Wi-Fi object.
-
-    """
+    """Object holding Wi-Fi information from WLED."""
 
     bssid: str = "00:00:00:00:00:00"
     channel: int = 0
@@ -407,17 +377,7 @@ class Wifi(BaseModel):
 
 @dataclass(kw_only=True)
 class Filesystem(BaseModel):
-    """Object holding Filesystem information from WLED.
-
-    Args:
-    ----
-        data: The data from the WLED device API.
-
-    Returns:
-    -------
-        A Filesystem object.
-
-    """
+    """Object holding filesystem information from WLED."""
 
     last_modified: datetime | None = field(
         default=None, metadata=field_options(alias="pmt")
