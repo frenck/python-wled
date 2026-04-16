@@ -18,6 +18,7 @@ from .const import (
     LightCapability,
     LiveDataOverride,
     NightlightMode,
+    SoundSimulationType,
     SyncGroup,
 )
 from .exceptions import WLEDUnsupportedVersionError
@@ -126,6 +127,9 @@ class Nightlight(BaseModel):
     on: bool = field(default=False)
     """Nightlight currently active."""
 
+    remaining: int = field(default=-1, metadata=field_options(alias="rem"))
+    """Remaining nightlight duration in seconds. -1 if not active."""
+
     target_brightness: int = field(default=0, metadata=field_options(alias="tbri"))
     """Target brightness of nightlight feature."""
 
@@ -203,6 +207,13 @@ class Segment(BaseModel):
     ~ to increment, ~- to decrement. w~40 to increment by 40, wrapping.
     """
 
+    cct: int = field(default=0)
+    """White spectrum color temperature.
+
+    0 indicates the warmest possible color temperature,
+    255 indicates the coldest temperature.
+    """
+
     clones: int = field(default=-1, metadata=field_options(alias="cln"))
     """The segment this segment clones."""
 
@@ -216,14 +227,29 @@ class Segment(BaseModel):
     automatically convert those to RGB values to keep the data consistent.
     """
 
+    custom1: int = field(default=128, metadata=field_options(alias="c1"))
+    """Effect custom slider 1 value (0-255)."""
+
+    custom2: int = field(default=128, metadata=field_options(alias="c2"))
+    """Effect custom slider 2 value (0-255)."""
+
+    custom3: int = field(default=16, metadata=field_options(alias="c3"))
+    """Effect custom slider 3 value (0-31)."""
+
     effect_id: int | str = field(default=0, metadata=field_options(alias="fx"))
     """ID of the effect.
 
     ~ to increment, ~- to decrement, or "r" for random.
     """
 
+    expand_1d: int = field(default=0, metadata=field_options(alias="m12"))
+    """Setting of segment field 'Expand 1D FX' (0-4)."""
+
     freeze: bool = field(default=False, metadata=field_options(alias="frz"))
     """Freeze the current segment state."""
+
+    grouping: int = field(default=1, metadata=field_options(alias="grp"))
+    """How many consecutive LEDs are grouped to the same color."""
 
     intensity: int | str = field(default=0, metadata=field_options(alias="ix"))
     """Intensity of the segment.
@@ -238,11 +264,29 @@ class Segment(BaseModel):
     Stop has preference, so if it is included, length is ignored.
     """
 
+    mirror: bool = field(default=False, metadata=field_options(alias="mi"))
+    """Mirrors the segment (horizontal for 2D)."""
+
+    mirror_y: bool = field(default=False, metadata=field_options(alias="mY"))
+    """Mirrors the 2D segment in the vertical dimension."""
+
     name: str | None = field(default=None, metadata=field_options(alias="n"))
     """User-defined name of the segment."""
 
+    offset: int = field(default=0, metadata=field_options(alias="of"))
+    """How many LEDs to rotate the virtual start of the segment."""
+
     on: bool | None = field(default=None)
     """The on/off state of the segment."""
+
+    option1: bool = field(default=False, metadata=field_options(alias="o1"))
+    """Effect option 1."""
+
+    option2: bool = field(default=False, metadata=field_options(alias="o2"))
+    """Effect option 2."""
+
+    option3: bool = field(default=False, metadata=field_options(alias="o3"))
+    """Effect option 3."""
 
     palette_id: int | str = field(default=0, metadata=field_options(alias="pal"))
     """ID of the palette.
@@ -251,28 +295,31 @@ class Segment(BaseModel):
     """
 
     reverse: bool = field(default=False, metadata=field_options(alias="rev"))
-    """
-    Flips the segment (in horizontal dimension for 2D set-up),
-    causing animations to change direction.
-    """
+    """Flips the segment (horizontal for 2D), causing animations to change direction."""
+
+    reverse_y: bool = field(default=False, metadata=field_options(alias="rY"))
+    """Flips the 2D segment in the vertical dimension."""
 
     segment_id: int | None = field(default=None, metadata=field_options(alias="id"))
     """The ID of the segment."""
 
     selected: bool = field(default=False, metadata=field_options(alias="sel"))
-    """
-    Indicates if the segment is selected.
+    """Indicates if the segment is selected.
 
     Selected segments will have their state (color/FX) updated by APIs that
-    don't support segments (e.g. UDP sync, HTTP API). If no segment is selected,
-    the first segment (id:0) will behave as if selected.
-
-    WLED will report the state of the first (lowest id) segment that is selected
-    to APIs (HTTP, MQTT, Blynk...), or mainseg in case no segment is selected
-    and for the UDP API.
-
-    Live data is always applied to all LEDs regardless of segment configuration.
+    don't support segments (e.g. UDP sync, HTTP API).
     """
+
+    set_id: int = field(default=0, metadata=field_options(alias="set"))
+    """Group or set ID assigned to the segment (0-3)."""
+
+    sound_simulation: SoundSimulationType = field(
+        default=SoundSimulationType.BEAT_SIN, metadata=field_options(alias="si")
+    )
+    """Sound simulation type for audio enhanced effects."""
+
+    spacing: int = field(default=0, metadata=field_options(alias="spc"))
+    """How many LEDs are turned off and skipped between each group."""
 
     speed: int | str = field(default=0, metadata=field_options(alias="sx"))
     """Relative effect speed.
@@ -281,33 +328,27 @@ class Segment(BaseModel):
     """
 
     start: int = 0
-    """LED the segment starts at.
+    """LED the segment starts at (column for 2D)."""
 
-    For 2D set-up it determines column where segment starts,
-    from top-left corner of the matrix.
-    """
+    start_y: int = field(default=0, metadata=field_options(alias="startY"))
+    """Start row from top-left corner of the matrix (2D only)."""
 
     stop: int = 0
-    """LED the segment stops at, not included in range.
+    """LED the segment stops at, not included in range (column for 2D)."""
 
-    If stop is set to a lower or equal value than start (setting to 0 is
-    recommended), the segment is invalidated and deleted.
+    stop_y: int = field(default=0, metadata=field_options(alias="stopY"))
+    """Stop row from top-left corner of the matrix (2D only)."""
 
-    For 2D set-up it determines column where segment stops,
-    from top-left corner of the matrix.
-    """
-
-    cct: int = field(default=0)
-    """White spectrum color temperature.
-
-    0 indicates the warmest possible color temperature,
-    255 indicates the coldest temperature
-    """
+    transpose: bool = field(default=False, metadata=field_options(alias="tp"))
+    """Transposes the segment, swapping X and Y dimensions (2D only)."""
 
 
 @dataclass(kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""
+
+    cct: bool = False
+    """True if the LEDs support color temperature control."""
 
     count: int = 0
     """Total LED count."""
@@ -332,10 +373,16 @@ class Leds:
     0 if ABL is disabled.
     """
 
+    rgbw: bool = False
+    """True if the LEDs are 4-channel (RGB + White)."""
+
     segment_light_capabilities: list[LightCapability] = field(
         default_factory=list, metadata=field_options(alias="seglc")
     )
     """Capabilities of each segment."""
+
+    wv: bool = False
+    """True if the white channel slider should be displayed."""
 
 
 @dataclass(kw_only=True)
@@ -489,6 +536,11 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     upgrades (e.g. "ESP32", "ESP32_Ethernet", "ESP8266_160").
     """
 
+    sync_toggle_receive: bool = field(
+        default=False, metadata=field_options(alias="str")
+    )
+    """If true, UI toggling also toggles sync receive."""
+
     udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
     """The UDP port for realtime packets and WLED broadcast."""
 
@@ -543,6 +595,12 @@ class State(BaseModel):
 
     The state response will never have the value 0 for bri.
     """
+
+    ledmap: int = field(default=0)
+    """Currently loaded LED map. 0 is the default map."""
+
+    main_segment_id: int = field(default=0, metadata=field_options(alias="mainseg"))
+    """ID of the main segment."""
 
     nightlight: Nightlight = field(metadata=field_options(alias="nl"))
     """Nightlight state."""

@@ -1,6 +1,12 @@
 """Asynchronous Python client for WLED."""
 
-from .const import LightCapability, LiveDataOverride, NightlightMode, SyncGroup
+from .const import (
+    LightCapability,
+    LiveDataOverride,
+    NightlightMode,
+    SoundSimulationType,
+    SyncGroup,
+)
 from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -42,6 +48,7 @@ __all__ = [
     "Preset",
     "Releases",
     "Segment",
+    "SoundSimulationType",
     "State",
     "SyncGroup",
     "UDPSync",

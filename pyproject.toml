@@ -101,7 +101,7 @@ ignore-imports = true
 max-line-length = 88
 
 [tool.pylint.DESIGN]
-max-attributes = 20
+max-attributes = 40
 
 [tool.pylint.TYPECHECK]
 ignored-modules = ["orjson", "zeroconf", "zeroconf.asyncio"]

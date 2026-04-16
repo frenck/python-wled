@@ -44,6 +44,15 @@ class NightlightMode(IntEnum):
     SUNRISE = 3
 
 
+class SoundSimulationType(IntEnum):
+    """Enumeration representing sound simulation types for audio effects."""
+
+    BEAT_SIN = 0
+    WE_WILL_ROCK_YOU = 1
+    TEN_THREE = 2
+    FOURTEEN_THREE = 3
+
+
 class SyncGroup(IntFlag):
     """Bitfield for UDP sync groups 1-8."""
 
