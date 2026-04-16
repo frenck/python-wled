@@ -317,6 +317,58 @@ async def command_presets(
     console.print(table)
 
 
+@cli.command("preset")
+async def command_preset(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+    preset: Annotated[
+        str,
+        typer.Option(
+            help="Preset name or ID to activate",
+            prompt="Preset",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Activate a preset on the WLED device."""
+    async with WLED(host) as led:
+        await led.update()
+        await led.preset(preset if not preset.isdigit() else int(preset))
+    console.print(f"[green]Preset '{preset}' activated!")
+
+
+@cli.command("playlist")
+async def command_playlist(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+    playlist: Annotated[
+        str,
+        typer.Option(
+            help="Playlist name or ID to activate",
+            prompt="Playlist",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Activate a playlist on the WLED device."""
+    async with WLED(host) as led:
+        await led.update()
+        await led.playlist(playlist if not playlist.isdigit() else int(playlist))
+    console.print(f"[green]Playlist '{playlist}' activated!")
+
+
 @cli.command("releases")
 async def command_releases() -> None:
     """Show the latest release information of WLED."""

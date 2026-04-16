@@ -439,6 +439,70 @@ def test_state_command(
 
 
 @pytest.mark.usefixtures("stable_terminal")
+def test_preset_command_by_name(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Preset command activates a preset by name."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["preset", "--host", "example.com", "--preset", "My Preset"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.preset.assert_awaited_once_with("My Preset")
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_preset_command_by_id(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Preset command activates a preset by numeric ID."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["preset", "--host", "example.com", "--preset", "1"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.preset.assert_awaited_once_with(1)
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_playlist_command_by_name(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Playlist command activates a playlist by name."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["playlist", "--host", "example.com", "--playlist", "My Playlist"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.playlist.assert_awaited_once_with("My Playlist")
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_playlist_command_by_id(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Playlist command activates a playlist by numeric ID."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["playlist", "--host", "example.com", "--playlist", "2"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.playlist.assert_awaited_once_with(2)
+
+
+@pytest.mark.usefixtures("stable_terminal")
 def test_upgrade_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
