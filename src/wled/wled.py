@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import socket
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -31,6 +32,14 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class _PresetsVersion:
+    """Tracks preset modification state to avoid unnecessary fetches."""
+
+    modified_timestamp: int
+    boot_time: int
+
+
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
@@ -41,6 +50,7 @@ class WLED:
     _client: aiohttp.ClientWebSocketResponse | None = None
     _close_session: bool = False
     _device: Device | None = None
+    _presets_version: _PresetsVersion | None = None
 
     @property
     def connected(self) -> bool:
@@ -119,7 +129,19 @@ class WLED:
 
             if message.type == aiohttp.WSMsgType.TEXT:
                 message_data = message.json()
+
+                changed, new_version = self._check_presets_changed(message_data)
+                if changed:
+                    if not (presets := await self.request("/presets.json")):
+                        msg = (
+                            f"WLED device at {self.host} returned an empty API"
+                            " response on presets update",
+                        )
+                        raise WLEDEmptyResponseError(msg)
+                    message_data["presets"] = presets
+
                 device = self._device.update_from_dict(data=message_data)
+                self._presets_version = new_version
                 callback(device)
 
             if message.type in (
@@ -256,19 +278,22 @@ class WLED:
             )
             raise WLEDEmptyResponseError(msg)
 
-        if not (presets := await self.request("/presets.json")):
-            msg = (
-                f"WLED device at {self.host} returned an empty API"
-                " response on presets update",
-            )
-            raise WLEDEmptyResponseError(msg)
-        data["presets"] = presets
+        changed, new_version = self._check_presets_changed(data)
+        if changed:
+            if not (presets := await self.request("/presets.json")):
+                msg = (
+                    f"WLED device at {self.host} returned an empty API"
+                    " response on presets update",
+                )
+                raise WLEDEmptyResponseError(msg)
+            data["presets"] = presets
 
         if not self._device:
             self._device = Device.from_dict(data)
         else:
             self._device.update_from_dict(data)
 
+        self._presets_version = new_version
         return self._device
 
     async def master(
@@ -713,6 +738,52 @@ class WLED:
 
         """
         await self.close()
+
+    def _check_presets_changed(
+        self, data: dict[str, Any]
+    ) -> tuple[bool, _PresetsVersion | None]:
+        """Check if presets have changed since the last check.
+
+        Compares the preset modification timestamp (pmt) and approximate
+        boot time to detect changes. Boot time tracking is needed because
+        pmt is stored in volatile memory and resets to 0 on device restart.
+
+        Returns
+        -------
+            A tuple of (changed, new_version). If the version cannot be
+            determined from the data, returns (True, None) to trigger a
+            safe refetch.
+
+        """
+        if not isinstance(data, dict) or "info" not in data:
+            # No info in message (e.g. state-only WebSocket update),
+            # presets can't have changed.
+            return (False, self._presets_version)
+
+        info = data["info"]
+        if (
+            not (uptime := info.get("uptime"))
+            or not (fs := info.get("fs"))
+            or not (pmt := fs.get("pmt"))
+        ):
+            return (True, None)
+
+        try:
+            new_version = _PresetsVersion(
+                modified_timestamp=int(pmt),
+                boot_time=int(time.time()) - int(uptime),
+            )
+        except (ValueError, TypeError):
+            return (True, None)
+
+        if self._presets_version is None:
+            return (True, new_version)
+
+        changed = (
+            self._presets_version.modified_timestamp != new_version.modified_timestamp
+            or abs(self._presets_version.boot_time - new_version.boot_time) > 2
+        )
+        return (changed, new_version)
 
 
 @dataclass
