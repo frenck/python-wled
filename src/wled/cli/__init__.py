@@ -310,6 +310,85 @@ async def command_reset(
     console.print("[green]WLED device has been rebooted!")
 
 
+@cli.command("state")
+async def command_state(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Show the current state of the WLED device."""
+    with console.status("[cyan]Fetching WLED device state...", spinner="toggle12"):
+        async with WLED(host) as led:
+            device = await led.update()
+
+    state = device.state
+
+    state_table = Table(title="\nWLED device state", show_header=False)
+    state_table.add_column("Property", style="cyan bold")
+    state_table.add_column("Value", style="green")
+
+    state_table.add_row("Power", "On" if state.on else "Off")
+    state_table.add_row("Brightness", str(state.brightness))
+    state_table.add_row("Transition", str(state.transition))
+
+    if state.preset_id is not None and device.presets:
+        preset = device.presets.get(state.preset_id)
+        state_table.add_row(
+            "Preset", f"{preset.name} (#{state.preset_id})" if preset else "Unknown"
+        )
+
+    if state.playlist_id is not None and device.playlists:
+        playlist = device.playlists.get(state.playlist_id)
+        state_table.add_row(
+            "Playlist",
+            f"{playlist.name} (#{state.playlist_id})" if playlist else "Unknown",
+        )
+
+    state_table.add_row("Nightlight", "On" if state.nightlight.on else "Off")
+    state_table.add_row(
+        "Live override", state.live_data_override.name.replace("_", " ").title()
+    )
+
+    console.print(state_table)
+
+    seg_table = Table(title="\nSegments", show_lines=True)
+    seg_table.add_column("ID", style="cyan bold")
+    seg_table.add_column("Name")
+    seg_table.add_column("Power")
+    seg_table.add_column("Brightness")
+    seg_table.add_column("Effect")
+    seg_table.add_column("Palette")
+    seg_table.add_column("Range")
+
+    for seg in state.segments.values():
+        effect = (
+            device.effects.get(seg.effect_id)
+            if isinstance(seg.effect_id, int)
+            else None
+        )
+        palette = (
+            device.palettes.get(seg.palette_id)
+            if isinstance(seg.palette_id, int)
+            else None
+        )
+        seg_table.add_row(
+            str(seg.segment_id),
+            seg.name or "",
+            "On" if seg.on else "Off",
+            str(seg.brightness),
+            effect.name if effect else str(seg.effect_id),
+            palette.name if palette else str(seg.palette_id),
+            f"{seg.start}-{seg.stop}",
+        )
+
+    console.print(seg_table)
+
+
 @cli.command("upgrade")
 async def command_upgrade(
     host: Annotated[
