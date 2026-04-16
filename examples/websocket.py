@@ -7,7 +7,7 @@ from wled import WLED, Device
 
 
 async def main() -> None:
-    """Show example on WebSocket usage with WLED."""
+    """Show example of WebSocket usage with WLED."""
     async with WLED("10.10.11.135") as led:
         await led.connect()
         if led.connected:

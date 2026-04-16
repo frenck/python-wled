@@ -11,13 +11,16 @@ from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
     WLEDConnectionTimeoutError,
+    WLEDEmptyResponseError,
     WLEDError,
     WLEDUnsupportedVersionError,
     WLEDUpgradeError,
 )
 from .models import (
+    Color,
     Device,
     Effect,
+    Filesystem,
     Info,
     Leds,
     Nightlight,
@@ -29,13 +32,16 @@ from .models import (
     Segment,
     State,
     UDPSync,
+    Wifi,
 )
 from .wled import WLED, WLEDReleases
 
 __all__ = [
     "WLED",
+    "Color",
     "Device",
     "Effect",
+    "Filesystem",
     "Info",
     "Leds",
     "LightCapability",
@@ -55,8 +61,10 @@ __all__ = [
     "WLEDConnectionClosedError",
     "WLEDConnectionError",
     "WLEDConnectionTimeoutError",
+    "WLEDEmptyResponseError",
     "WLEDError",
     "WLEDReleases",
     "WLEDUnsupportedVersionError",
     "WLEDUpgradeError",
+    "Wifi",
 ]

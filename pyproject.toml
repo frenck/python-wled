@@ -33,7 +33,6 @@ dependencies = [
   'aiohttp (>=3.0.0)',
   'awesomeversion (>=22.1.0)',
   'backoff (>=2.2.0)',
-  'cachetools (>=4.0.0)',
   'mashumaro (>=3.13,<4.0.0)',
   'orjson (>=3.9.8)',
   'yarl (>=1.6.0)',
