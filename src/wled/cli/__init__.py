@@ -291,6 +291,25 @@ async def command_releases() -> None:
     console.print(table)
 
 
+@cli.command("reset")
+async def command_reset(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Reboot a WLED device."""
+    with console.status("[cyan]Rebooting WLED device...", spinner="toggle12"):
+        async with WLED(host) as led:
+            await led.reset()
+
+    console.print("[green]WLED device has been rebooted!")
+
+
 @cli.command("scan")
 async def command_scan() -> None:
     """Scan for WLED devices on the network."""

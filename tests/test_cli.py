@@ -370,6 +370,20 @@ def test_presets_command_empty(
 
 
 @pytest.mark.usefixtures("stable_terminal")
+def test_reset_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Reset command reboots the device."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(cli, ["reset", "--host", "example.com"])
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.reset.assert_awaited_once()
+
+
+@pytest.mark.usefixtures("stable_terminal")
 def test_releases_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,
