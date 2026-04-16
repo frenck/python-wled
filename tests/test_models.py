@@ -804,16 +804,20 @@ def test_get_awesome_version_cached() -> None:
 
 def test_releases_from_dict() -> None:
     """Test Releases deserialization."""
-    releases = Releases.from_dict({"stable": "0.14.0", "beta": "0.15.0b1"})
+    releases = Releases.from_dict(
+        {"stable": "0.14.0", "beta": "0.15.0b1", "nightly": "17.0.0-dev"}
+    )
     assert releases.stable is not None
     assert releases.beta is not None
+    assert releases.nightly is not None
 
 
 def test_releases_none_values() -> None:
     """Test Releases with None values."""
-    releases = Releases.from_dict({"stable": "", "beta": ""})
+    releases = Releases.from_dict({"stable": "", "beta": "", "nightly": ""})
     assert releases.stable is None
     assert releases.beta is None
+    assert releases.nightly is None
 
 
 # =========================================================================
