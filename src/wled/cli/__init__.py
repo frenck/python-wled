@@ -310,6 +310,37 @@ async def command_reset(
     console.print("[green]WLED device has been rebooted!")
 
 
+@cli.command("upgrade")
+async def command_upgrade(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+    version: Annotated[
+        str,
+        typer.Option(
+            help="WLED version to upgrade to",
+            prompt="Version",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Upgrade a WLED device to a specific version."""
+    async with WLED(host) as led:
+        device = await led.update()
+        console.print(f"[cyan]Current version: [bold]{device.info.version}[/bold]")
+        console.print(f"[cyan]Upgrading to: [bold]{version}[/bold]")
+
+        with console.status("[cyan]Upgrading WLED device...", spinner="toggle12"):
+            await led.upgrade(version=version)
+
+    console.print("[green]Upgrade complete! The device will reboot.")
+
+
 @cli.command("scan")
 async def command_scan() -> None:
     """Scan for WLED devices on the network."""
