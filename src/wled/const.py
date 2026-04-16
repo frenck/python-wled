@@ -4,6 +4,8 @@ from enum import IntEnum, IntFlag
 
 from awesomeversion import AwesomeVersion
 
+DEFAULT_REPO = "wled/WLED"
+
 MIN_REQUIRED_VERSION = AwesomeVersion("0.14.0")
 
 

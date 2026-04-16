@@ -85,7 +85,9 @@ def _mock_releases(
     nightly: str = "17.0.0-dev20260416",
 ) -> MagicMock:
     """Create a mock WLEDReleases that returns the given versions."""
-    releases = Releases.from_dict({"stable": stable, "beta": beta, "nightly": nightly})
+    releases = Releases.from_dict(
+        {"stable": stable, "beta": beta, "nightly": nightly, "repo": "wled/WLED"}
+    )
     instance = AsyncMock()
     instance.__aenter__.return_value = instance
     instance.__aexit__.return_value = None

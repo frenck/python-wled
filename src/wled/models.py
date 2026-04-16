@@ -891,4 +891,5 @@ class Releases(BaseModel):
 
     beta: AwesomeVersion | None
     nightly: AwesomeVersion | None
+    repo: str
     stable: AwesomeVersion | None
