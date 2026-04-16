@@ -263,6 +263,50 @@ def test_cli_structure(snapshot: SnapshotAssertion) -> None:
 
 
 @pytest.mark.usefixtures("stable_terminal")
+def test_on_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """On command turns on the device."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(cli, ["on", "--host", "example.com"])
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.master.assert_awaited_once_with(on=True)
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_off_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Off command turns off the device."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(cli, ["off", "--host", "example.com"])
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.master.assert_awaited_once_with(on=False)
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_brightness_command(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Brightness command sets device brightness."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(
+            cli, ["brightness", "--host", "example.com", "--brightness", "200"]
+        )
+    assert result.exit_code == 0
+    assert result.output == snapshot
+    mock.return_value.master.assert_awaited_once_with(brightness=200)
+
+
+@pytest.mark.usefixtures("stable_terminal")
 def test_info_command(
     runner: CliRunner,
     snapshot: SnapshotAssertion,

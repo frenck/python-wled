@@ -64,6 +64,67 @@ def unsupported_version_error_handler(
     sys.exit(1)
 
 
+@cli.command("on")
+async def command_on(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Turn on a WLED device."""
+    async with WLED(host) as led:
+        await led.master(on=True)
+    console.print("[green]WLED device turned on!")
+
+
+@cli.command("off")
+async def command_off(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+) -> None:
+    """Turn off a WLED device."""
+    async with WLED(host) as led:
+        await led.master(on=False)
+    console.print("[green]WLED device turned off!")
+
+
+@cli.command("brightness")
+async def command_brightness(
+    host: Annotated[
+        str,
+        typer.Option(
+            help="WLED device IP address or hostname",
+            prompt="Host address",
+            show_default=False,
+        ),
+    ],
+    brightness: Annotated[
+        int,
+        typer.Option(
+            help="Brightness level (0-255)",
+            prompt="Brightness",
+            show_default=False,
+            min=0,
+            max=255,
+        ),
+    ],
+) -> None:
+    """Set the brightness of a WLED device."""
+    async with WLED(host) as led:
+        await led.master(brightness=brightness)
+    console.print(f"[green]Brightness set to {brightness}!")
+
+
 @cli.command("info")
 async def command_info(
     host: Annotated[
