@@ -625,6 +625,22 @@ def test_device_unsupported_version() -> None:
         Device.from_dict(data)
 
 
+def test_device_beta_of_minimum_version_allowed() -> None:
+    """Test that a beta of the minimum required version is accepted."""
+    data = full_device_data()
+    data["info"]["ver"] = "0.14.0-b1"
+    device = Device.from_dict(data)
+    assert device.info.version is not None
+
+
+def test_device_beta_below_minimum_version_rejected() -> None:
+    """Test that a beta below the minimum required version is rejected."""
+    data = full_device_data()
+    data["info"]["ver"] = "0.13.0-b1"
+    with pytest.raises(WLEDUnsupportedVersionError):
+        Device.from_dict(data)
+
+
 def test_device_null_palettes() -> None:
     """Test that None palettes results in empty dict."""
     data = full_device_data()
