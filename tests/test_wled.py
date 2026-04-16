@@ -1452,6 +1452,14 @@ async def test_releases_success() -> None:
     """Test successful release fetching."""
     releases_data = [
         {
+            "tag_name": "nightly",
+            "published_at": "2026-04-16T03:19:12Z",
+            "prerelease": True,
+            "assets": [
+                {"name": "WLED_17.0.0-dev_ESP32.bin"},
+            ],
+        },
+        {
             "tag_name": "v0.15.0",
             "prerelease": False,
         },
@@ -1475,6 +1483,8 @@ async def test_releases_success() -> None:
             assert str(releases.stable) == "0.15.0"
             assert releases.beta is not None
             assert str(releases.beta) == "0.15.0b1"
+            assert releases.nightly is not None
+            assert str(releases.nightly) == "17.0.0-dev20260416"
 
 
 async def test_releases_with_b_in_tag_name() -> None:

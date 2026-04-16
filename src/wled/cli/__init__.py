@@ -282,6 +282,11 @@ async def command_releases() -> None:
         latest.beta,
         f"https://github.com/wled/WLED/releases/v{latest.beta}",
     )
+    table.add_row(
+        "Nightly",
+        latest.nightly,
+        "https://github.com/wled/WLED/releases/tag/nightly",
+    )
 
     console.print(table)
 

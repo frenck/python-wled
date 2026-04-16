@@ -887,4 +887,5 @@ class Releases(BaseModel):
     """Object holding WLED releases information."""
 
     beta: AwesomeVersion | None
+    nightly: AwesomeVersion | None
     stable: AwesomeVersion | None

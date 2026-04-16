@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import socket
 import time
 from dataclasses import dataclass
@@ -797,7 +798,7 @@ class WLEDReleases:
     _close_session: bool = False
 
     @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
-    async def releases(self) -> Releases:
+    async def releases(self) -> Releases:  # noqa: PLR0912
         """Fetch WLED version information from GitHub.
 
         Returns
@@ -847,25 +848,44 @@ class WLEDReleases:
             raise WLEDError(msg)
 
         releases = orjson.loads(contents)
-        version_latest = None
-        version_latest_beta = None
+        version_stable = None
+        version_beta = None
+        version_nightly = None
         for release in releases:
+            tag = release["tag_name"]
+
+            # Nightly release uses a fixed "nightly" tag with the version
+            # embedded in the asset filenames (e.g. WLED_17.0.0-dev_ESP32.bin).
+            # The publish date is appended to distinguish daily builds.
+            if tag == "nightly" and version_nightly is None:
+                for asset in release.get("assets", []):
+                    if match := re.search(r"WLED_(.+?)_", asset.get("name", "")):
+                        version_nightly = match.group(1)
+                        break
+                if version_nightly and (published := release.get("published_at", "")):
+                    version_nightly += published[:10].replace("-", "")
+                continue
+
             if (
                 release["prerelease"] is False
-                and "b" not in release["tag_name"].lower()
-                and version_latest is None
+                and "b" not in tag.lower()
+                and version_stable is None
             ):
-                version_latest = release["tag_name"].lstrip("vV")
+                version_stable = tag.lstrip("vV")
             if (
-                release["prerelease"] is True or "b" in release["tag_name"].lower()
-            ) and version_latest_beta is None:
-                version_latest_beta = release["tag_name"].lstrip("vV")
-            if version_latest is not None and version_latest_beta is not None:
+                release["prerelease"] is True or "b" in tag.lower()
+            ) and version_beta is None:
+                version_beta = tag.lstrip("vV")
+
+            if version_stable is not None and version_beta is not None:
                 break
 
-        return Releases(
-            beta=version_latest_beta,
-            stable=version_latest,
+        return Releases.from_dict(
+            {
+                "beta": version_beta or "",
+                "nightly": version_nightly or "",
+                "stable": version_stable or "",
+            }
         )
 
     async def close(self) -> None:
