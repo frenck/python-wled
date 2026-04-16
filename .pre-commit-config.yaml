@@ -124,6 +124,7 @@ repos:
         name: ✄  Trim Trailing Whitespace
         language: system
         types: [text]
+        exclude: ^tests/(?:.*/)?__snapshots__/
         entry: poetry run trailing-whitespace-fixer
         stages: [commit, push, manual]
       - id: yamllint
