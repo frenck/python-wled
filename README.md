@@ -95,7 +95,7 @@ To install all packages, including all development requirements:
 
 ```bash
 npm install
-poetry install
+poetry install --all-extras
 ```
 
 As this repository uses the [prek][prek] framework, all changes
