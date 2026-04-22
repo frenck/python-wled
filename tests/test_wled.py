@@ -1332,6 +1332,42 @@ async def test_upgrade_success() -> None:
             await wled.upgrade(version="0.15.0")
 
 
+async def test_upgrade_uses_device_repo() -> None:
+    """Test upgrade downloads firmware from the repo reported by the device."""
+    with aioresponses() as mocked:
+        async with aiohttp.ClientSession() as session:
+            wled_data = load_fixture_json("wled")
+            wled_data["info"]["arch"] = "esp32"
+            wled_data["info"]["ver"] = "0.14.0"
+            wled_data["info"]["repo"] = "MoonModules/WLED"
+            mocked.get(
+                "http://example.com/json",
+                status=200,
+                body=json.dumps(wled_data),
+                content_type="application/json",
+            )
+            mocked.get(
+                "http://example.com/presets.json",
+                status=200,
+                body=json.dumps(load_fixture_json("presets")),
+                content_type="application/json",
+            )
+            wled = WLED("example.com", session=session)
+            await wled.update()
+            mocked.get(
+                "https://github.com/MoonModules/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+                status=200,
+                body=b"fake firmware",
+            )
+            mocked.post(
+                "http://example.com/update",
+                status=200,
+                body="OK",
+                content_type="text/plain",
+            )
+            await wled.upgrade(version="0.15.0")
+
+
 async def test_upgrade_ethernet_board() -> None:
     """Test upgrade with Ethernet board (empty bssid)."""
     with aioresponses() as mocked:

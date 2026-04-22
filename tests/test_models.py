@@ -315,6 +315,20 @@ def test_info_version_deserialized() -> None:
     assert str(info.version) == "0.14.0"
 
 
+def test_info_repo_defaults_to_default_repo() -> None:
+    """Test repo defaults to DEFAULT_REPO when not present in response."""
+    from wled.const import DEFAULT_REPO
+
+    info = Info.from_dict(_base_info())
+    assert info.repo == DEFAULT_REPO
+
+
+def test_info_repo_uses_device_value_when_present() -> None:
+    """Test repo is taken from the device response when present."""
+    info = Info.from_dict(_base_info(repo="MoonModules/WLED"))
+    assert info.repo == "MoonModules/WLED"
+
+
 # =========================================================================
 # State model
 # =========================================================================
