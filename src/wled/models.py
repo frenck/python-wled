@@ -14,6 +14,7 @@ from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
+    DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
@@ -488,6 +489,11 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
+
+    repo: str = field(default=DEFAULT_REPO, metadata=field_options(alias="repo"))
+    """GitHub repository in 'org/repo' format reported by the device firmware.
+    Used in preference to the default repo when fetching releases or upgrading.
+    """
 
     release: str | None = None
     """The release name of the firmware build.
