@@ -23,6 +23,7 @@ from wled.models import (
 from wled.utils import get_awesome_version
 
 from .conftest import full_device_data, load_fixture_json
+from .const import DEFAULT_REPO
 
 # =========================================================================
 # Helper functions
@@ -317,8 +318,6 @@ def test_info_version_deserialized() -> None:
 
 def test_info_repo_defaults_to_default_repo() -> None:
     """Test repo defaults to DEFAULT_REPO when not present in response."""
-    from wled.const import DEFAULT_REPO
-
     info = Info.from_dict(_base_info())
     assert info.repo == DEFAULT_REPO
 
