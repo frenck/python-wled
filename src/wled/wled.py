@@ -654,9 +654,11 @@ class WLED:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
 
-        # Prefer the repo reported by the device itself; older firmware that does
-        # not include the field will have fallen back to DEFAULT_REPO already.
-        repo = self._device.info.repo
+        # Prefer the repo reported by the device itself only when the caller
+        # did not override the default repository. Older firmware that does not
+        # include the field will already have fallen back to DEFAULT_REPO.
+        if repo == DEFAULT_REPO:
+            repo = self._device.info.repo
 
         # Determine if this is an Ethernet board
         ethernet = ""
