@@ -6,8 +6,10 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
+import orjson
 import pytest
 from aioresponses import aioresponses
+from yarl import URL
 
 from wled import WLED, Device, Releases
 from wled.const import LiveDataOverride
@@ -26,6 +28,20 @@ from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
 # =========================================================================
 # Section 1: Existing tests (preserved)
 # =========================================================================
+
+
+def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
+    """Assert a POST request payload sent to WLED."""
+    mocked.assert_called_with(
+        url=URL(path),
+        method="POST",
+        data=orjson.dumps(expected),
+        headers={
+            "Accept": "application/json, text/plain, */*",
+            "Content-Type": "application/json",
+        },
+        allow_redirects=True,
+    )
 
 
 async def test_json_request() -> None:
@@ -408,6 +424,9 @@ async def test_master_brightness() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.master(brightness=200)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"bri": 200, "v": True}
+        )
 
 
 async def test_master_on() -> None:
@@ -422,6 +441,9 @@ async def test_master_on() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.master(on=True)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"on": True, "v": True}
+        )
 
 
 async def test_master_transition() -> None:
@@ -436,6 +458,9 @@ async def test_master_transition() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.master(transition=10)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"tt": 10, "v": True}
+        )
 
 
 async def test_master_all_params() -> None:
@@ -450,6 +475,11 @@ async def test_master_all_params() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.master(brightness=100, on=True, transition=5)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"bri": 100, "on": True, "tt": 5, "v": True},
+        )
 
 
 # =========================================================================
@@ -479,6 +509,11 @@ async def test_segment_basic() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, brightness=200, on=True)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"bri": 200, "on": True, "id": 0}], "v": True},
+        )
 
 
 async def test_segment_effect_by_name() -> None:
@@ -493,6 +528,11 @@ async def test_segment_effect_by_name() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, effect="Blink")
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"fx": 1, "id": 0}], "v": True},
+        )
 
 
 async def test_segment_palette_by_name() -> None:
@@ -507,6 +547,11 @@ async def test_segment_palette_by_name() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, palette="Random Cycle")
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"pal": 1, "id": 0}], "v": True},
+        )
 
 
 async def test_segment_color_primary() -> None:
@@ -521,6 +566,11 @@ async def test_segment_color_primary() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, color_primary=(255, 0, 0))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"col": [[255, 0, 0]], "id": 0}], "v": True},
+        )
 
 
 async def test_segment_color_secondary_only() -> None:
@@ -535,6 +585,11 @@ async def test_segment_color_secondary_only() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, color_secondary=(0, 255, 0))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"col": [[255, 159, 0], [0, 255, 0]], "id": 0}], "v": True},
+        )
 
 
 async def test_segment_color_tertiary_only() -> None:
@@ -549,6 +604,14 @@ async def test_segment_color_tertiary_only() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, color_tertiary=(0, 0, 255))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {
+                "seg": [{"col": [[255, 159, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+                "v": True,
+            },
+        )
 
 
 async def test_segment_all_colors() -> None:
@@ -568,6 +631,14 @@ async def test_segment_all_colors() -> None:
                 color_secondary=(0, 255, 0),
                 color_tertiary=(0, 0, 255),
             )
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {
+                "seg": [{"col": [[255, 0, 0], [0, 255, 0], [0, 0, 255]], "id": 0}],
+                "v": True,
+            },
+        )
 
 
 async def test_segment_with_transition() -> None:
@@ -582,6 +653,11 @@ async def test_segment_with_transition() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, brightness=100, transition=5)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"bri": 100, "id": 0}], "tt": 5, "v": True},
+        )
 
 
 async def test_segment_calls_update_when_no_device() -> None:
@@ -597,6 +673,11 @@ async def test_segment_calls_update_when_no_device() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.segment(0, on=True)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"on": True, "id": 0}], "v": True},
+        )
 
 
 async def test_segment_no_device_raises() -> None:
@@ -623,6 +704,14 @@ async def test_segment_individual() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, individual=[(255, 0, 0), (0, 255, 0)])
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {
+                "seg": [{"i": [[255, 0, 0], [0, 255, 0]], "id": 0}],
+                "v": True,
+            },
+        )
 
 
 async def test_segment_color_tertiary_no_secondary_in_state() -> None:
@@ -653,6 +742,14 @@ async def test_segment_color_tertiary_no_secondary_in_state() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, color_tertiary=(0, 0, 255))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {
+                "seg": [{"col": [[255, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+                "v": True,
+            },
+        )
 
 
 async def test_segment_secondary_no_color_in_state() -> None:
@@ -684,6 +781,11 @@ async def test_segment_secondary_no_color_in_state() -> None:
             )
             # color is None, so it should use (0,0,0) fallback
             await wled.segment(0, color_secondary=(0, 255, 0))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"seg": [{"col": [[0, 0, 0], [0, 255, 0]], "id": 0}], "v": True},
+        )
 
 
 async def test_segment_tertiary_no_color_in_state() -> None:
@@ -714,6 +816,14 @@ async def test_segment_tertiary_no_color_in_state() -> None:
                 content_type="application/json",
             )
             await wled.segment(0, color_tertiary=(0, 0, 255))
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {
+                "seg": [{"col": [[0, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+                "v": True,
+            },
+        )
 
 
 # =========================================================================
@@ -733,6 +843,9 @@ async def test_preset_by_id() -> None:
                 content_type="application/json",
             )
             await wled.preset(1)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 1, "v": True}
+        )
 
 
 async def test_preset_by_name() -> None:
@@ -747,6 +860,9 @@ async def test_preset_by_name() -> None:
                 content_type="application/json",
             )
             await wled.preset("My Preset")
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 1, "v": True}
+        )
 
 
 async def test_preset_by_object() -> None:
@@ -763,6 +879,9 @@ async def test_preset_by_object() -> None:
             assert wled._device is not None  # pylint: disable=protected-access
             preset_obj = wled._device.presets[1]  # pylint: disable=protected-access
             await wled.preset(preset_obj)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 1, "v": True}
+        )
 
 
 async def test_preset_name_not_found() -> None:
@@ -777,6 +896,11 @@ async def test_preset_name_not_found() -> None:
                 content_type="application/json",
             )
             await wled.preset("NonExistent")
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"ps": "NonExistent", "v": True},
+        )
 
 
 async def test_playlist_by_id() -> None:
@@ -791,6 +915,9 @@ async def test_playlist_by_id() -> None:
                 content_type="application/json",
             )
             await wled.playlist(2)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 2, "v": True}
+        )
 
 
 async def test_playlist_by_name() -> None:
@@ -805,6 +932,9 @@ async def test_playlist_by_name() -> None:
                 content_type="application/json",
             )
             await wled.playlist("My Playlist")
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 2, "v": True}
+        )
 
 
 async def test_playlist_by_object() -> None:
@@ -821,6 +951,9 @@ async def test_playlist_by_object() -> None:
             assert wled._device is not None  # pylint: disable=protected-access
             playlist_obj = wled._device.playlists[2]  # pylint: disable=protected-access
             await wled.playlist(playlist_obj)
+        assert_post_payload(
+            mocked, "http://example.com/json/state", {"ps": 2, "v": True}
+        )
 
 
 async def test_playlist_name_not_found() -> None:
@@ -835,6 +968,11 @@ async def test_playlist_name_not_found() -> None:
                 content_type="application/json",
             )
             await wled.playlist("NonExistent")
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"ps": "NonExistent", "v": True},
+        )
 
 
 async def test_transition() -> None:
@@ -849,6 +987,11 @@ async def test_transition() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.transition(10)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"transition": 10, "v": True},
+        )
 
 
 async def test_live() -> None:
@@ -863,6 +1006,11 @@ async def test_live() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.live(LiveDataOverride.ON)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"lor": LiveDataOverride.ON.value, "v": True},
+        )
 
 
 async def test_sync_send() -> None:
@@ -877,6 +1025,11 @@ async def test_sync_send() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.sync(send=True)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"udpn": {"send": True}, "v": True},
+        )
 
 
 async def test_sync_receive() -> None:
@@ -891,6 +1044,11 @@ async def test_sync_receive() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.sync(receive=True)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"udpn": {"recv": True}, "v": True},
+        )
 
 
 async def test_nightlight_on() -> None:
@@ -905,6 +1063,11 @@ async def test_nightlight_on() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.nightlight(on=True)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"nl": {"on": True}, "v": True},
+        )
 
 
 async def test_nightlight_all_params() -> None:
@@ -919,6 +1082,11 @@ async def test_nightlight_all_params() -> None:
         async with aiohttp.ClientSession() as session:
             wled = WLED("example.com", session=session)
             await wled.nightlight(duration=30, fade=True, on=True, target_brightness=50)
+        assert_post_payload(
+            mocked,
+            "http://example.com/json/state",
+            {"nl": {"dur": 30, "fade": True, "on": True, "tbri": 50}, "v": True},
+        )
 
 
 # =========================================================================
