@@ -25,10 +25,6 @@ from wled.wled import WLEDReleases
 
 from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
 
-# =========================================================================
-# Section 1: Existing tests (preserved)
-# =========================================================================
-
 
 def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
     """Assert a POST request payload sent to WLED."""
@@ -39,6 +35,11 @@ def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None
         raise AssertionError(msg)
     request_call = requests[-1]
     assert orjson.loads(request_call.kwargs["data"]) == expected
+
+
+# =========================================================================
+# Section 1: Existing tests (preserved)
+# =========================================================================
 
 
 async def test_json_request(responses: aioresponses, wled: WLED) -> None:
@@ -188,6 +189,7 @@ async def test_update_empty_json_response(responses: aioresponses, wled: WLED) -
             body="",
             content_type="text/plain",
         )
+
     with pytest.raises(WLEDEmptyResponseError):
         await wled.update()
 
@@ -278,31 +280,9 @@ async def test_update_refetches_presets_when_info_incomplete(
     # Set pmt to 0 so version can't be determined
     wled_data["info"]["fs"]["pmt"] = 0
 
-    responses.get(
-        "http://example.com/json",
-        status=200,
-        body=json.dumps(wled_data),
-        content_type="application/json",
-    )
-    responses.get(
-        "http://example.com/presets.json",
-        status=200,
-        body=json.dumps(load_fixture_json("presets")),
-        content_type="application/json",
-    )
+    mock_json_and_presets(responses, wled_data)
     # Second call: still no fs, presets refetched again
-    responses.get(
-        "http://example.com/json",
-        status=200,
-        body=json.dumps(wled_data),
-        content_type="application/json",
-    )
-    responses.get(
-        "http://example.com/presets.json",
-        status=200,
-        body=json.dumps(load_fixture_json("presets")),
-        content_type="application/json",
-    )
+    mock_json_and_presets(responses, wled_data)
 
     await wled.update()
     # Without fs/pmt, every update refetches presets
@@ -391,7 +371,9 @@ async def test_master_brightness(responses: aioresponses, wled: WLED) -> None:
     await wled.master(brightness=200)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"bri": 200, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {"bri": 200, "v": True},
     )
 
 
@@ -407,7 +389,9 @@ async def test_master_on(responses: aioresponses, wled: WLED) -> None:
     await wled.master(on=True)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"on": True, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {"on": True, "v": True},
     )
 
 
@@ -479,7 +463,12 @@ async def test_segment_basic(responses: aioresponses, wled: WLED) -> None:
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"bri": 200, "on": True, "id": 0}], "v": True},
+        {
+            "seg": [
+                {"bri": 200, "on": True, "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -498,7 +487,12 @@ async def test_segment_effect_by_name(responses: aioresponses, wled: WLED) -> No
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"fx": 1, "id": 0}], "v": True},
+        {
+            "seg": [
+                {"fx": 1, "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -517,7 +511,12 @@ async def test_segment_palette_by_name(responses: aioresponses, wled: WLED) -> N
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"pal": 1, "id": 0}], "v": True},
+        {
+            "seg": [
+                {"pal": 1, "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -536,7 +535,12 @@ async def test_segment_color_primary(responses: aioresponses, wled: WLED) -> Non
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"col": [[255, 0, 0]], "id": 0}], "v": True},
+        {
+            "seg": [
+                {"col": [[255, 0, 0]], "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -557,7 +561,18 @@ async def test_segment_color_secondary_only(
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"col": [[255, 159, 0], [0, 255, 0]], "id": 0}], "v": True},
+        {
+            "seg": [
+                {
+                    "col": [
+                        [255, 159, 0],
+                        [0, 255, 0],
+                    ],
+                    "id": 0,
+                }
+            ],
+            "v": True,
+        },
     )
 
 
@@ -577,7 +592,16 @@ async def test_segment_color_tertiary_only(responses: aioresponses, wled: WLED) 
         responses,
         "http://example.com/json/state",
         {
-            "seg": [{"col": [[255, 159, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+            "seg": [
+                {
+                    "col": [
+                        [255, 159, 0],
+                        [0, 0, 0],
+                        [0, 0, 255],
+                    ],
+                    "id": 0,
+                }
+            ],
             "v": True,
         },
     )
@@ -604,7 +628,16 @@ async def test_segment_all_colors(responses: aioresponses, wled: WLED) -> None:
         responses,
         "http://example.com/json/state",
         {
-            "seg": [{"col": [[255, 0, 0], [0, 255, 0], [0, 0, 255]], "id": 0}],
+            "seg": [
+                {
+                    "col": [
+                        [255, 0, 0],
+                        [0, 255, 0],
+                        [0, 0, 255],
+                    ],
+                    "id": 0,
+                }
+            ],
             "v": True,
         },
     )
@@ -625,7 +658,13 @@ async def test_segment_with_transition(responses: aioresponses, wled: WLED) -> N
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"bri": 100, "id": 0}], "tt": 5, "v": True},
+        {
+            "seg": [
+                {"bri": 100, "id": 0},
+            ],
+            "tt": 5,
+            "v": True,
+        },
     )
 
 
@@ -646,7 +685,12 @@ async def test_segment_calls_update_when_no_device(
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"on": True, "id": 0}], "v": True},
+        {
+            "seg": [
+                {"on": True, "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -675,7 +719,12 @@ async def test_segment_individual(responses: aioresponses, wled: WLED) -> None:
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"i": [[255, 0, 0], [0, 255, 0]], "id": 0}], "v": True},
+        {
+            "seg": [
+                {"i": [[255, 0, 0], [0, 255, 0]], "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -700,7 +749,9 @@ async def test_segment_color_tertiary_no_secondary_in_state(
         responses,
         "http://example.com/json/state",
         {
-            "seg": [{"col": [[255, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+            "seg": [
+                {"col": [[255, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0},
+            ],
             "v": True,
         },
     )
@@ -727,7 +778,12 @@ async def test_segment_secondary_no_color_in_state(
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"seg": [{"col": [[0, 0, 0], [0, 255, 0]], "id": 0}], "v": True},
+        {
+            "seg": [
+                {"col": [[0, 0, 0], [0, 255, 0]], "id": 0},
+            ],
+            "v": True,
+        },
     )
 
 
@@ -752,7 +808,9 @@ async def test_segment_tertiary_no_color_in_state(
         responses,
         "http://example.com/json/state",
         {
-            "seg": [{"col": [[0, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0}],
+            "seg": [
+                {"col": [[0, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 0},
+            ],
             "v": True,
         },
     )
@@ -776,7 +834,12 @@ async def test_preset_by_id(responses: aioresponses, wled: WLED) -> None:
     await wled.preset(1)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 1, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 1,
+            "v": True,
+        },
     )
 
 
@@ -793,7 +856,12 @@ async def test_preset_by_name(responses: aioresponses, wled: WLED) -> None:
     await wled.preset("My Preset")
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 1, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 1,
+            "v": True,
+        },
     )
 
 
@@ -811,7 +879,12 @@ async def test_preset_by_object(responses: aioresponses, wled: WLED) -> None:
     await wled.preset(preset_obj)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 1, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 1,
+            "v": True,
+        },
     )
 
 
@@ -828,7 +901,12 @@ async def test_preset_name_not_found(responses: aioresponses, wled: WLED) -> Non
     await wled.preset("NonExistent")
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": "NonExistent", "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": "NonExistent",
+            "v": True,
+        },
     )
 
 
@@ -845,7 +923,12 @@ async def test_playlist_by_id(responses: aioresponses, wled: WLED) -> None:
     await wled.playlist(2)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 2, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 2,
+            "v": True,
+        },
     )
 
 
@@ -862,7 +945,12 @@ async def test_playlist_by_name(responses: aioresponses, wled: WLED) -> None:
     await wled.playlist("My Playlist")
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 2, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 2,
+            "v": True,
+        },
     )
 
 
@@ -881,7 +969,12 @@ async def test_playlist_by_object(responses: aioresponses, wled: WLED) -> None:
     await wled.playlist(playlist_obj)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": 2, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": 2,
+            "v": True,
+        },
     )
 
 
@@ -898,7 +991,12 @@ async def test_playlist_name_not_found(responses: aioresponses, wled: WLED) -> N
     await wled.playlist("NonExistent")
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"ps": "NonExistent", "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "ps": "NonExistent",
+            "v": True,
+        },
     )
 
 
@@ -914,7 +1012,9 @@ async def test_transition(responses: aioresponses, wled: WLED) -> None:
     await wled.transition(10)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"transition": 10, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {"transition": 10, "v": True},
     )
 
 
@@ -932,7 +1032,10 @@ async def test_live(responses: aioresponses, wled: WLED) -> None:
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"lor": LiveDataOverride.ON.value, "v": True},
+        {
+            "lor": LiveDataOverride.ON.value,
+            "v": True,
+        },
     )
 
 
@@ -948,7 +1051,12 @@ async def test_sync_send(responses: aioresponses, wled: WLED) -> None:
     await wled.sync(send=True)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"udpn": {"send": True}, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "udpn": {"send": True},
+            "v": True,
+        },
     )
 
 
@@ -964,7 +1072,12 @@ async def test_sync_receive(responses: aioresponses, wled: WLED) -> None:
     await wled.sync(receive=True)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"udpn": {"recv": True}, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "udpn": {"recv": True},
+            "v": True,
+        },
     )
 
 
@@ -980,7 +1093,12 @@ async def test_nightlight_on(responses: aioresponses, wled: WLED) -> None:
     await wled.nightlight(on=True)
 
     assert_post_payload(
-        responses, "http://example.com/json/state", {"nl": {"on": True}, "v": True}
+        responses,
+        "http://example.com/json/state",
+        {
+            "nl": {"on": True},
+            "v": True,
+        },
     )
 
 
@@ -998,7 +1116,15 @@ async def test_nightlight_all_params(responses: aioresponses, wled: WLED) -> Non
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"nl": {"dur": 30, "fade": True, "on": True, "tbri": 50}, "v": True},
+        {
+            "nl": {
+                "dur": 30,
+                "fade": True,
+                "on": True,
+                "tbri": 50,
+            },
+            "v": True,
+        },
     )
 
 
@@ -1015,6 +1141,7 @@ async def test_reset(responses: aioresponses, wled: WLED) -> None:
         body="OK",
         content_type="text/plain",
     )
+
     await wled.reset()
 
 
@@ -1103,7 +1230,6 @@ async def test_connect_no_websocket_support(
     wled_data = load_fixture_json("wled")
     wled_data["info"]["ws"] = -1
     mock_json_and_presets(responses, wled_data)
-
     await wled.update()
 
     with pytest.raises(WLEDError, match="does not support WebSockets"):
@@ -1233,8 +1359,9 @@ async def test_disconnect_not_connected() -> None:
 
 async def test_post_state_adds_v_true(responses: aioresponses, wled: WLED) -> None:
     """Test POST to /json/state adds v=True to data."""
-    state_response = json.dumps(load_fixture_json("wled")["state"])
     mock_json_and_presets(responses)
+
+    state_response = json.dumps(load_fixture_json("wled")["state"])
     responses.post(
         "http://example.com/json/state",
         status=200,
@@ -1243,6 +1370,12 @@ async def test_post_state_adds_v_true(responses: aioresponses, wled: WLED) -> No
     )
     await wled.update()  # Need device for state update path
     await wled.request("/json/state", method="POST", data={"on": True})
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"on": True, "v": True},
+    )
 
 
 async def test_client_error_raises_connection_error(
