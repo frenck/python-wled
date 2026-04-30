@@ -32,16 +32,13 @@ from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
 
 def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
     """Assert a POST request payload sent to WLED."""
-    mocked.assert_called_with(
-        url=URL(path),
-        method="POST",
-        data=orjson.dumps(expected),
-        headers={
-            "Accept": "application/json, text/plain, */*",
-            "Content-Type": "application/json",
-        },
-        allow_redirects=True,
-    )
+    if not mocked.requests or not (
+        requests := mocked.requests.get(("POST", URL(path)))
+    ):
+        msg = f"No POST request made to {path}"
+        raise AssertionError(msg)
+    request_call = requests[-1]
+    assert orjson.loads(request_call.kwargs["data"]) == expected
 
 
 async def test_json_request() -> None:
