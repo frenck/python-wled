@@ -7,6 +7,7 @@ from typing import Any
 
 import aiohttp
 import pytest
+import pytest_asyncio
 from aioresponses import aioresponses
 
 from wled import WLED
@@ -28,18 +29,26 @@ def full_device_data() -> dict[str, Any]:
     return data
 
 
-def mock_json_and_presets(mocked: aioresponses) -> None:
+def mock_json_and_presets(
+    mocked: aioresponses,
+    wled_data: dict[str, Any] | None = None,
+    presets_data: dict[str, Any] | None = None,
+) -> None:
     """Register the two GET endpoints that WLED.update() calls."""
+    if wled_data is None:
+        wled_data = load_fixture_json("wled")
     mocked.get(
         "http://example.com/json",
         status=200,
-        body=json.dumps(load_fixture_json("wled")),
+        body=json.dumps(wled_data),
         content_type="application/json",
     )
+    if presets_data is None:
+        presets_data = load_fixture_json("presets")
     mocked.get(
         "http://example.com/presets.json",
         status=200,
-        body=json.dumps(load_fixture_json("presets")),
+        body=json.dumps(presets_data),
         content_type="application/json",
     )
 
@@ -57,8 +66,16 @@ def responses() -> Generator[aioresponses, None, None]:
         yield mocker
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
+async def session() -> AsyncGenerator[aiohttp.ClientSession, None]:
+    """Yield a new aiohttp client session."""
+    async with aiohttp.ClientSession() as aio_session:
+        yield aio_session
+
+
+@pytest_asyncio.fixture
 async def wled() -> AsyncGenerator[WLED, None]:
     """Yield a WLED client wired to example.com with default settings."""
-    async with aiohttp.ClientSession() as session:
-        yield WLED("example.com", session=session)
+    wled_instance = WLED("example.com")
+    yield wled_instance
+    await wled_instance.close()
