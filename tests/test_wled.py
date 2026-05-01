@@ -494,6 +494,10 @@ async def prepare_wled_with_device(
             {"individual": [(255, 0, 0), (0, 255, 0)]},
             {"i": [[255, 0, 0], [0, 255, 0]], "id": 0},
         ),
+        # TThe name parameter tetss
+        ({"name": "Curtain"}, {"n": "Curtain", "id": 0}),
+        ({"name": ""}, {"n": "", "id": 0}),
+        ({"name": None, "brightness": 200}, {"bri": 200, "id": 0}),
     ],
     ids=[
         "basic",
@@ -504,6 +508,9 @@ async def prepare_wled_with_device(
         "color_tertiary",
         "all_colors",
         "individual",
+        "name_set",
+        "name_clear_empty_string",
+        "name_none_explicit",
     ],
 )
 async def test_segment(
