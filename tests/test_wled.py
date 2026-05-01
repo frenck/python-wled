@@ -1259,16 +1259,16 @@ async def test_connect_calls_update_when_no_device(
     """Test connect() calls update() if no device is loaded."""
     mock_json_and_presets(responses)
 
-    await wled.update()
+    mock_client = MagicMock(closed=False)
+    mock_client.close = AsyncMock()
 
-    # Device has ws=0, so connect should try to ws_connect
-    assert wled.session is not None
-    with patch.object(wled.session, "ws_connect", new_callable=AsyncMock) as mock_ws:
-        mock_client = MagicMock(closed=False)
-        mock_client.close = AsyncMock()
+    with patch.object(
+        aiohttp.ClientSession, "ws_connect", new_callable=AsyncMock
+    ) as mock_ws:
         mock_ws.return_value = mock_client
+        assert wled._device is None  # pylint: disable=protected-access
         await wled.connect()
-        mock_ws.assert_called_once()
+        assert wled._device is not None  # pylint: disable=protected-access
 
 
 async def test_listen_not_connected() -> None:
