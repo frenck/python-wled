@@ -195,24 +195,26 @@ async def test_update_empty_json_response(responses: aioresponses, wled: WLED) -
         await wled.update()
 
 
-async def test_update_invalid_json_response(
-    responses: aioresponses, wled: WLED
+@pytest.mark.parametrize("body", ["AAAA", b"\xff\xfe"])
+async def test_update_corrupt_json_response(
+    responses: aioresponses, wled: WLED, body: str | bytes
 ) -> None:
-    """Test update() raises on invalid /json response."""
+    """Test update() raises on corrupt (invalid JSON or non-UTF-8) /json response."""
     responses.get(
         "http://example.com/json",
         status=200,
-        body="AAAA",
+        body=body,
         content_type="application/json",
     )
     with pytest.raises(WLEDInvalidResponseError):
         await wled.update()
 
 
-async def test_update_invalid_presets_response(
-    responses: aioresponses, wled: WLED
+@pytest.mark.parametrize("body", ["AAAA", b"\xff\xfe"])
+async def test_update_corrupt_presets_response(
+    responses: aioresponses, wled: WLED, body: str | bytes
 ) -> None:
-    """Test update() raises on invalid /presets.json response."""
+    """Test update() raises on corrupt /presets.json response."""
     wled_data = load_fixture_json("wled")
     responses.get(
         "http://example.com/json",
@@ -223,44 +225,7 @@ async def test_update_invalid_presets_response(
     responses.get(
         "http://example.com/presets.json",
         status=200,
-        body="AAAA",
-        content_type="application/json",
-    )
-    with pytest.raises(WLEDInvalidResponseError):
-        await wled.update()
-
-
-async def test_update_non_utf8_json_response(
-    responses: aioresponses,
-    wled: WLED,
-) -> None:
-    """Test update() raises on non-UTF-8 /json response."""
-    responses.get(
-        "http://example.com/json",
-        status=200,
-        body=b"\xff\xfe",
-        content_type="application/json",
-    )
-    with pytest.raises(WLEDInvalidResponseError):
-        await wled.update()
-
-
-async def test_update_non_utf8_presets_response(
-    responses: aioresponses,
-    wled: WLED,
-) -> None:
-    """Test update() raises on non-UTF-8 /presets.json response."""
-    wled_data = load_fixture_json("wled")
-    responses.get(
-        "http://example.com/json",
-        status=200,
-        body=json.dumps(wled_data),
-        content_type="application/json",
-    )
-    responses.get(
-        "http://example.com/presets.json",
-        status=200,
-        body=b"\xff\xfe",
+        body=body,
         content_type="application/json",
     )
     with pytest.raises(WLEDInvalidResponseError):
