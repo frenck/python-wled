@@ -19,6 +19,7 @@ from wled.exceptions import (
     WLEDConnectionTimeoutError,
     WLEDEmptyResponseError,
     WLEDError,
+    WLEDInvalidResponseError,
     WLEDUpgradeError,
 )
 from wled.wled import WLEDReleases
@@ -191,6 +192,78 @@ async def test_update_empty_json_response(responses: aioresponses, wled: WLED) -
         )
 
     with pytest.raises(WLEDEmptyResponseError):
+        await wled.update()
+
+
+async def test_update_invalid_json_response(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() raises on invalid /json response."""
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body="AAAA",
+        content_type="application/json",
+    )
+    with pytest.raises(WLEDInvalidResponseError):
+        await wled.update()
+
+
+async def test_update_invalid_presets_response(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() raises on invalid /presets.json response."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body="AAAA",
+        content_type="application/json",
+    )
+    with pytest.raises(WLEDInvalidResponseError):
+        await wled.update()
+
+
+async def test_update_non_utf8_json_response(
+    responses: aioresponses,
+    wled: WLED,
+) -> None:
+    """Test update() raises on non-UTF-8 /json response."""
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=b"\xff\xfe",
+        content_type="application/json",
+    )
+    with pytest.raises(WLEDInvalidResponseError):
+        await wled.update()
+
+
+async def test_update_non_utf8_presets_response(
+    responses: aioresponses,
+    wled: WLED,
+) -> None:
+    """Test update() raises on non-UTF-8 /presets.json response."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=b"\xff\xfe",
+        content_type="application/json",
+    )
+    with pytest.raises(WLEDInvalidResponseError):
         await wled.update()
 
 

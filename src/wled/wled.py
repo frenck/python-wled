@@ -21,6 +21,7 @@ from .exceptions import (
     WLEDConnectionTimeoutError,
     WLEDEmptyResponseError,
     WLEDError,
+    WLEDInvalidResponseError,
     WLEDUpgradeError,
 )
 from .models import Device, Playlist, Preset, Releases
@@ -233,10 +234,20 @@ class WLED:
                     {"message": contents.decode("utf8")},
                 )
 
-            response_data = await response.text()
+            try:
+                response_data = await response.text()
+            except UnicodeDecodeError as exception:
+                msg = f"Received a non-UTF-8 response from request: {method} {uri}"
+                raise WLEDInvalidResponseError(msg) from exception
             if "application/json" in content_type:
-                response_data = orjson.loads(response_data)
-
+                try:
+                    response_data = orjson.loads(response_data)
+                except orjson.JSONDecodeError as exception:
+                    msg = (
+                        "Received an invalid JSON response "
+                        f"from request: {method} {uri}"
+                    )
+                    raise WLEDInvalidResponseError(msg) from exception
         except TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
             raise WLEDConnectionTimeoutError(msg) from exception
