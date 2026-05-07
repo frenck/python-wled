@@ -622,8 +622,19 @@ async def test_segment_tertiary_no_color_in_state(
 # =========================================================================
 
 
-async def test_preset_by_id(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a preset by integer ID."""
+@pytest.mark.parametrize(
+    ("preset_input", "expected_ps"),
+    [
+        (1, 1),
+        ("My Preset", 1),
+        ("NonExistent", "NonExistent"),
+    ],
+    ids=["by_id", "by_name", "name_not_found"],
+)
+async def test_preset(
+    responses: aioresponses, wled: WLED, preset_input: int | str, expected_ps: int | str
+) -> None:
+    """Test setting preset by ID, name, or non-existent name."""
     await prepare_wled_with_device(responses, wled)
     responses.post(
         "http://example.com/json/state",
@@ -632,37 +643,12 @@ async def test_preset_by_id(responses: aioresponses, wled: WLED) -> None:
         content_type="application/json",
     )
 
-    await wled.preset(1)
+    await wled.preset(preset_input)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {
-            "ps": 1,
-            "v": True,
-        },
-    )
-
-
-async def test_preset_by_name(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a preset by name."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.preset("My Preset")
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "ps": 1,
-            "v": True,
-        },
+        {"ps": expected_ps, "v": True},
     )
 
 
@@ -689,8 +675,22 @@ async def test_preset_by_object(responses: aioresponses, wled: WLED) -> None:
     )
 
 
-async def test_preset_name_not_found(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a preset by name that does not exist passes string."""
+@pytest.mark.parametrize(
+    ("playlist_input", "expected_ps"),
+    [
+        (2, 2),
+        ("My Playlist", 2),
+        ("NonExistent", "NonExistent"),
+    ],
+    ids=["by_id", "by_name", "name_not_found"],
+)
+async def test_playlist(
+    responses: aioresponses,
+    wled: WLED,
+    playlist_input: int | str,
+    expected_ps: int | str,
+) -> None:
+    """Test setting playlist by ID, name, or non-existent name."""
     await prepare_wled_with_device(responses, wled)
     responses.post(
         "http://example.com/json/state",
@@ -699,59 +699,12 @@ async def test_preset_name_not_found(responses: aioresponses, wled: WLED) -> Non
         content_type="application/json",
     )
 
-    await wled.preset("NonExistent")
+    await wled.playlist(playlist_input)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {
-            "ps": "NonExistent",
-            "v": True,
-        },
-    )
-
-
-async def test_playlist_by_id(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a playlist by integer ID."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.playlist(2)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "ps": 2,
-            "v": True,
-        },
-    )
-
-
-async def test_playlist_by_name(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a playlist by name."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.playlist("My Playlist")
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "ps": 2,
-            "v": True,
-        },
+        {"ps": expected_ps, "v": True},
     )
 
 
@@ -774,28 +727,6 @@ async def test_playlist_by_object(responses: aioresponses, wled: WLED) -> None:
         "http://example.com/json/state",
         {
             "ps": 2,
-            "v": True,
-        },
-    )
-
-
-async def test_playlist_name_not_found(responses: aioresponses, wled: WLED) -> None:
-    """Test setting a playlist by name that does not exist passes string."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.playlist("NonExistent")
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "ps": "NonExistent",
             "v": True,
         },
     )
