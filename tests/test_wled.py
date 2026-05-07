@@ -153,6 +153,27 @@ async def test_http_error500(responses: aioresponses, wled: WLED) -> None:
         assert await wled.request("/")
 
 
+@pytest.mark.parametrize(
+    ("body", "content_type"),
+    [
+        (b"\xff\xfe", "text/plain"),
+        (b"not-json", "application/json"),
+    ],
+)
+async def test_http_error_invalid_response(
+    responses: aioresponses, wled: WLED, body: bytes, content_type: str
+) -> None:
+    """Test HTTP error with unparsable body raises WLEDInvalidResponseError."""
+    responses.get(
+        "http://example.com/",
+        status=500,
+        body=body,
+        content_type=content_type,
+    )
+    with pytest.raises(WLEDInvalidResponseError, match=r"GET /"):
+        await wled.request("/")
+
+
 # =========================================================================
 # Section 10: WLED client - update() method
 # =========================================================================
@@ -206,7 +227,7 @@ async def test_update_corrupt_json_response(
         body=body,
         content_type="application/json",
     )
-    with pytest.raises(WLEDInvalidResponseError):
+    with pytest.raises(WLEDInvalidResponseError, match=r"GET /json"):
         await wled.update()
 
 
@@ -228,7 +249,7 @@ async def test_update_corrupt_presets_response(
         body=body,
         content_type="application/json",
     )
-    with pytest.raises(WLEDInvalidResponseError):
+    with pytest.raises(WLEDInvalidResponseError, match=r"GET /presets\.json"):
         await wled.update()
 
 
