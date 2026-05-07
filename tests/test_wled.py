@@ -126,26 +126,23 @@ async def test_timeout(responses: aioresponses, wled: WLED) -> None:
         assert await wled.request("/")
 
 
-async def test_http_error404(responses: aioresponses, wled: WLED) -> None:
-    """Test HTTP 404 response handling."""
+@pytest.mark.parametrize(
+    ("status", "body", "content_type"),
+    [
+        (404, "OMG KITTIENS!", "text/plain"),
+        (500, '{"status":"nok"}', "application/json"),
+    ],
+    ids=["404", "500"],
+)
+async def test_http_error(
+    responses: aioresponses, wled: WLED, status: int, body: str, content_type: str
+) -> None:
+    """Test HTTP error response handling."""
     responses.get(
         "http://example.com/",
-        status=404,
-        body="OMG PUPPIES!",
-        content_type="text/plain",
-    )
-
-    with pytest.raises(WLEDError):
-        assert await wled.request("/")
-
-
-async def test_http_error500(responses: aioresponses, wled: WLED) -> None:
-    """Test HTTP 500 response handling."""
-    responses.get(
-        "http://example.com/",
-        status=500,
-        body='{"status":"nok"}',
-        content_type="application/json",
+        status=status,
+        body=body,
+        content_type=content_type,
     )
 
     with pytest.raises(WLEDError):
@@ -359,73 +356,36 @@ async def test_listen_preset_change_empty_response(
 # =========================================================================
 
 
-async def test_master_brightness(responses: aioresponses, wled: WLED) -> None:
-    """Test setting master brightness."""
+@pytest.mark.parametrize(
+    ("kwargs", "expected_payload"),
+    [
+        ({"brightness": 200}, {"bri": 200, "v": True}),
+        ({"on": True}, {"on": True, "v": True}),
+        ({"transition": 10}, {"tt": 10, "v": True}),
+        (
+            {"brightness": 100, "on": True, "transition": 5},
+            {"bri": 100, "on": True, "tt": 5, "v": True},
+        ),
+    ],
+    ids=["brightness", "on", "transition", "all_params"],
+)
+async def test_master(
+    responses: aioresponses, wled: WLED, kwargs: dict, expected_payload: dict
+) -> None:
+    """Test setting master parameters."""
     responses.post(
         "http://example.com/json/state",
         status=200,
-        body='{"on": true, "bri": 200}',
+        body="{}",
         content_type="application/json",
     )
 
-    await wled.master(brightness=200)
+    await wled.master(**kwargs)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {"bri": 200, "v": True},
-    )
-
-
-async def test_master_on(responses: aioresponses, wled: WLED) -> None:
-    """Test setting master on/off."""
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body='{"on": true}',
-        content_type="application/json",
-    )
-
-    await wled.master(on=True)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {"on": True, "v": True},
-    )
-
-
-async def test_master_transition(responses: aioresponses, wled: WLED) -> None:
-    """Test setting master transition."""
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body='{"on": true}',
-        content_type="application/json",
-    )
-
-    await wled.master(transition=10)
-
-    assert_post_payload(
-        responses, "http://example.com/json/state", {"tt": 10, "v": True}
-    )
-
-
-async def test_master_all_params(responses: aioresponses, wled: WLED) -> None:
-    """Test setting all master parameters at once."""
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body='{"on": true, "bri": 100}',
-        content_type="application/json",
-    )
-
-    await wled.master(brightness=100, on=True, transition=5)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {"bri": 100, "on": True, "tt": 5, "v": True},
+        expected_payload,
     )
 
 
@@ -448,106 +408,49 @@ async def prepare_wled_with_device(
     return wled
 
 
-async def test_segment_basic(responses: aioresponses, wled: WLED) -> None:
-    """Test basic segment control."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, brightness=200, on=True)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {"bri": 200, "on": True, "id": 0},
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_effect_by_name(responses: aioresponses, wled: WLED) -> None:
-    """Test setting segment effect by name."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, effect="Blink")
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {"fx": 1, "id": 0},
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_palette_by_name(responses: aioresponses, wled: WLED) -> None:
-    """Test setting segment palette by name."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, palette="Random Cycle")
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {"pal": 1, "id": 0},
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_color_primary(responses: aioresponses, wled: WLED) -> None:
-    """Test setting primary color."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, color_primary=(255, 0, 0))
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {"col": [[255, 0, 0]], "id": 0},
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_color_secondary_only(
-    responses: aioresponses, wled: WLED
+@pytest.mark.parametrize(
+    ("kwargs", "expected_seg"),
+    [
+        ({"brightness": 200, "on": True}, {"bri": 200, "on": True, "id": 0}),
+        ({"effect": "Blink"}, {"fx": 1, "id": 0}),
+        ({"palette": "Random Cycle"}, {"pal": 1, "id": 0}),
+        ({"color_primary": (255, 0, 0)}, {"col": [[255, 0, 0]], "id": 0}),
+        (
+            {"color_secondary": (0, 255, 0)},
+            {"col": [[255, 159, 0], [0, 255, 0]], "id": 0},
+        ),
+        (
+            {"color_tertiary": (0, 0, 255)},
+            {"col": [[255, 159, 0], [0, 0, 0], [0, 0, 255]], "id": 0},
+        ),
+        (
+            {
+                "color_primary": (255, 0, 0),
+                "color_secondary": (0, 255, 0),
+                "color_tertiary": (0, 0, 255),
+            },
+            {"col": [[255, 0, 0], [0, 255, 0], [0, 0, 255]], "id": 0},
+        ),
+        (
+            {"individual": [(255, 0, 0), (0, 255, 0)]},
+            {"i": [[255, 0, 0], [0, 255, 0]], "id": 0},
+        ),
+    ],
+    ids=[
+        "basic",
+        "effect_by_name",
+        "palette_by_name",
+        "color_primary",
+        "color_secondary",
+        "color_tertiary",
+        "all_colors",
+        "individual",
+    ],
+)
+async def test_segment(
+    responses: aioresponses, wled: WLED, kwargs: dict, expected_seg: dict
 ) -> None:
-    """Test setting secondary color fills primary from current state."""
+    """Test segment control."""
     await prepare_wled_with_device(responses, wled)
     responses.post(
         "http://example.com/json/state",
@@ -556,90 +459,12 @@ async def test_segment_color_secondary_only(
         content_type="application/json",
     )
 
-    await wled.segment(0, color_secondary=(0, 255, 0))
+    await wled.segment(0, **kwargs)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {
-            "seg": [
-                {
-                    "col": [
-                        [255, 159, 0],
-                        [0, 255, 0],
-                    ],
-                    "id": 0,
-                }
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_color_tertiary_only(responses: aioresponses, wled: WLED) -> None:
-    """Test setting tertiary color fills primary and secondary."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, color_tertiary=(0, 0, 255))
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {
-                    "col": [
-                        [255, 159, 0],
-                        [0, 0, 0],
-                        [0, 0, 255],
-                    ],
-                    "id": 0,
-                }
-            ],
-            "v": True,
-        },
-    )
-
-
-async def test_segment_all_colors(responses: aioresponses, wled: WLED) -> None:
-    """Test setting all three colors at once."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(
-        0,
-        color_primary=(255, 0, 0),
-        color_secondary=(0, 255, 0),
-        color_tertiary=(0, 0, 255),
-    )
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {
-                    "col": [
-                        [255, 0, 0],
-                        [0, 255, 0],
-                        [0, 0, 255],
-                    ],
-                    "id": 0,
-                }
-            ],
-            "v": True,
-        },
+        {"seg": [expected_seg], "v": True},
     )
 
 
@@ -702,30 +527,6 @@ async def test_segment_no_device_raises(wled: WLED) -> None:
         pytest.raises(WLEDError, match="Unable to communicate"),
     ):
         await wled.segment(0, on=True)
-
-
-async def test_segment_individual(responses: aioresponses, wled: WLED) -> None:
-    """Test setting individual LED colors."""
-    await prepare_wled_with_device(responses, wled)
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.segment(0, individual=[(255, 0, 0), (0, 255, 0)])
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "seg": [
-                {"i": [[255, 0, 0], [0, 255, 0]], "id": 0},
-            ],
-            "v": True,
-        },
-    )
 
 
 async def test_segment_color_tertiary_no_secondary_in_state(
@@ -1039,8 +840,18 @@ async def test_live(responses: aioresponses, wled: WLED) -> None:
     )
 
 
-async def test_sync_send(responses: aioresponses, wled: WLED) -> None:
-    """Test setting sync send."""
+@pytest.mark.parametrize(
+    ("kwargs", "expected_payload"),
+    [
+        ({"send": True}, {"udpn": {"send": True}, "v": True}),
+        ({"receive": True}, {"udpn": {"recv": True}, "v": True}),
+    ],
+    ids=["send", "receive"],
+)
+async def test_sync(
+    responses: aioresponses, wled: WLED, kwargs: dict, expected_payload: dict
+) -> None:
+    """Test setting sync parameters."""
     responses.post(
         "http://example.com/json/state",
         status=200,
@@ -1048,20 +859,30 @@ async def test_sync_send(responses: aioresponses, wled: WLED) -> None:
         content_type="application/json",
     )
 
-    await wled.sync(send=True)
+    await wled.sync(**kwargs)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {
-            "udpn": {"send": True},
-            "v": True,
-        },
+        expected_payload,
     )
 
 
-async def test_sync_receive(responses: aioresponses, wled: WLED) -> None:
-    """Test setting sync receive."""
+@pytest.mark.parametrize(
+    ("kwargs", "expected_nl"),
+    [
+        ({"on": True}, {"on": True}),
+        (
+            {"duration": 30, "fade": True, "on": True, "target_brightness": 50},
+            {"dur": 30, "fade": True, "on": True, "tbri": 50},
+        ),
+    ],
+    ids=["on", "all_params"],
+)
+async def test_nightlight(
+    responses: aioresponses, wled: WLED, kwargs: dict, expected_nl: dict
+) -> None:
+    """Test setting nightlight parameters."""
     responses.post(
         "http://example.com/json/state",
         status=200,
@@ -1069,62 +890,12 @@ async def test_sync_receive(responses: aioresponses, wled: WLED) -> None:
         content_type="application/json",
     )
 
-    await wled.sync(receive=True)
+    await wled.nightlight(**kwargs)
 
     assert_post_payload(
         responses,
         "http://example.com/json/state",
-        {
-            "udpn": {"recv": True},
-            "v": True,
-        },
-    )
-
-
-async def test_nightlight_on(responses: aioresponses, wled: WLED) -> None:
-    """Test turning on nightlight."""
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.nightlight(on=True)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "nl": {"on": True},
-            "v": True,
-        },
-    )
-
-
-async def test_nightlight_all_params(responses: aioresponses, wled: WLED) -> None:
-    """Test nightlight with all parameters."""
-    responses.post(
-        "http://example.com/json/state",
-        status=200,
-        body="{}",
-        content_type="application/json",
-    )
-
-    await wled.nightlight(duration=30, fade=True, on=True, target_brightness=50)
-
-    assert_post_payload(
-        responses,
-        "http://example.com/json/state",
-        {
-            "nl": {
-                "dur": 30,
-                "fade": True,
-                "on": True,
-                "tbri": 50,
-            },
-            "v": True,
-        },
+        {"nl": expected_nl, "v": True},
     )
 
 
