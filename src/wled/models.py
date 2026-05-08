@@ -793,6 +793,30 @@ class Device(BaseModel):
             return WLED_CUSTOM_PALETTE_ID_BASE
         return WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
 
+    @staticmethod
+    def _add_usermod_palettes(palettes: dict[int, Any], info: dict[str, Any]) -> None:
+        """Add usermod palettes to the palettes dict.
+
+        Args:
+        ----
+            palettes: The palettes dict to update with usermod palette entries.
+            info: The device info dict containing umpalcount and umpalnames.
+
+        """
+        usermod_palette_names: list[str] = info.get("umpalnames", [])
+        for i in range(info.get("umpalcount", 0)):
+            palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
+            palette_name = (
+                usermod_palette_names[i]
+                if i < len(usermod_palette_names)
+                else f"Usermod {i + 1}"
+            )
+            palettes[palette_id] = {
+                "palette_id": palette_id,
+                "name": palette_name,
+                "custom": False,
+            }
+
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
@@ -804,12 +828,11 @@ class Device(BaseModel):
                 f"{version.major}.{version.minor}.{version.patch}"
             )
             if base < MIN_REQUIRED_VERSION:
-                msg = (
+                raise WLEDUnsupportedVersionError(
                     f"Unsupported firmware version {version_str}. "
                     f"Minimum required version is {MIN_REQUIRED_VERSION}. "
                     f"Please update your WLED device."
                 )
-                raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
             d["effects"] = {
@@ -845,21 +868,7 @@ class Device(BaseModel):
             # Usermod palettes are not included in the palettes list,
             # but their count and names are reported via umpalcount and umpalnames.
             # Their IDs always count down from 255 (fixed in firmware).
-            info = d.get("info", {})
-            usermod_palette_count = info.get("umpalcount", 0)
-            usermod_palette_names = info.get("umpalnames", [])
-            for i in range(usermod_palette_count):
-                palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
-                palette_name = (
-                    usermod_palette_names[i]
-                    if i < len(usermod_palette_names)
-                    else f"Usermod {i + 1}"
-                )
-                d["palettes"][palette_id] = {
-                    "palette_id": palette_id,
-                    "name": palette_name,
-                    "custom": False,
-                }
+            cls._add_usermod_palettes(d["palettes"], d.get("info", {}))
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
