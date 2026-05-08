@@ -792,19 +792,6 @@ class Device(BaseModel):
             return WLED_CUSTOM_PALETTE_ID_BASE
         return WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
 
-    def _synthesize_all_palettes(self) -> None:
-        """Re-synthesize all custom and usermod palette entries from self.info."""
-        custom_pals = self._build_custom_palettes(
-            self.info.custom_palette_count, self.info.version
-        )
-        usermod_pals = self._build_usermod_palettes(
-            self.info.usermod_palette_count, self.info.usermod_palette_names
-        )
-        for pal_data in custom_pals.values():
-            self.palettes[pal_data["palette_id"]] = Palette(**pal_data)
-        for pal_data in usermod_pals.values():
-            self.palettes[pal_data["palette_id"]] = Palette(**pal_data)
-
     @staticmethod
     def _build_usermod_palettes(
         umpalcount: int,
@@ -825,11 +812,7 @@ class Device(BaseModel):
         result: dict[int, dict[str, Any]] = {}
         for i in range(umpalcount):
             palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
-            palette_name = (
-                umpalnames[i]
-                if i < len(umpalnames)
-                else f"Usermod {i + 1}"
-            )
+            palette_name = umpalnames[i] if i < len(umpalnames) else f"Usermod {i + 1}"
             result[palette_id] = {
                 "palette_id": palette_id,
                 "name": palette_name,
@@ -897,20 +880,18 @@ class Device(BaseModel):
             }
 
         if _palettes := d.get("palettes"):
-            d["palettes"] = {
+            buildin_palettes = {
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
-            # Add custom and usermod palettes which are not in the base list
             info = d.get("info", {})
-            d["palettes"].update(
-                cls._build_custom_palettes(info.get("cpalcount", 0), version)
+            custom_palettes = cls._build_custom_palettes(
+                info.get("cpalcount", 0), version
             )
-            d["palettes"].update(
-                cls._build_usermod_palettes(
-                    info.get("umpalcount", 0), info.get("umpalnames", [])
-                )
+            usermod_pallettes = cls._build_usermod_palettes(
+                info.get("umpalcount", 0), info.get("umpalnames", [])
             )
+            d["palettes"] = buildin_palettes | custom_palettes | usermod_pallettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
@@ -969,11 +950,20 @@ class Device(BaseModel):
             }
 
         if _palettes := data.get("palettes"):
-            self.palettes = {
+            build_in_palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
             }
-            self._synthesize_all_palettes()
+            custom_pals = self._build_custom_palettes(
+                self.info.custom_palette_count, self.info.version
+            )
+            usermod_pals = self._build_usermod_palettes(
+                self.info.usermod_palette_count, self.info.usermod_palette_names
+            )
+            result = {}
+            for pal_id, pal_data in (custom_pals | usermod_pals).items():
+                result[pal_id] = Palette(**pal_data)
+            self.palettes = build_in_palettes | result
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
