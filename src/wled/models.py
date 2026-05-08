@@ -14,6 +14,7 @@ from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
+    CUSTOM_PALETTE_ID_CHANGE_VERSION,
     MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
@@ -23,6 +24,16 @@ from .const import (
 )
 from .exceptions import WLEDUnsupportedVersionError
 from .utils import get_awesome_version
+
+# For palette ID space layout, see:
+# https://github.com/wled/WLED/blob/665d66f45eba17b42a30d99689430b7297ff2559/wled00/const.h#L19
+# https://github.com/wled/WLED/commit/fd6f568023fca8500e4cb40712b913a8612b827d
+# Since WLED 16.0.0, palette ID space was reorganized:
+# - Usermod palettes: IDs 255-201 (55 slots)
+# - User custom palettes: IDs 200-FIXED_PALETTE_COUNT+1 (129 slots)
+# In versions < 16.0.0, custom palettes counted down from 255.
+WLED_CUSTOM_PALETTE_ID_BASE = 200
+WLED_CUSTOM_PALETTE_ID_BASE_LEGACY = 255
 
 
 class AwesomeVersionSerializationStrategy(SerializationStrategy, use_annotations=True):
@@ -764,11 +775,48 @@ class Device(BaseModel):
     playlists: dict[int, Playlist] = field(default_factory=dict)
     presets: dict[int, Preset] = field(default_factory=dict)
 
+    @staticmethod
+    def _build_custom_palettes(
+        cpalcount: int,
+        version: AwesomeVersion | None,
+    ) -> dict[int, dict[str, Any]]:
+        """Build custom palettes dict.
+
+        Args:
+        ----
+            cpalcount: Number of custom palettes.
+            version: The firmware version (used to determine palette ID base).
+
+        Returns:
+        -------
+            A dict of custom palette entries keyed by palette ID.
+
+        """
+        custom_palette_base = (
+            WLED_CUSTOM_PALETTE_ID_BASE
+            if version
+            and get_awesome_version(f"{version.major}.{version.minor}.{version.patch}")
+            >= CUSTOM_PALETTE_ID_CHANGE_VERSION
+            else WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
+        )
+        result: dict[int, dict[str, Any]] = {}
+        for i in range(cpalcount):
+            palette_id = custom_palette_base - i
+            result[palette_id] = {
+                "palette_id": palette_id,
+                "name": f"Custom {i + 1}",
+                "custom": True,
+            }
+        return result
+
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
-        if version_str := d.get("info", {}).get("ver"):
-            version = get_awesome_version(version_str)
+        # Extract version once at the top to avoid recomputation
+        version_str = d.get("info", {}).get("ver")
+        version = get_awesome_version(version_str) if version_str else None
+
+        if version:
             # Compare base version (major.minor.patch) to allow pre-release
             # builds (e.g. 0.14.0-b1) of the minimum required version.
             base = get_awesome_version(
@@ -789,20 +837,13 @@ class Device(BaseModel):
             }
 
         if _palettes := d.get("palettes"):
-            d["palettes"] = {
+            built_in_palettes = {
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
-            # Custom palettes are not included in the palettes list,
-            # but their count is reported via cpalcount. Their IDs
-            # count down from 255.
-            for i in range(d.get("info", {}).get("cpalcount", 0)):
-                palette_id = 255 - i
-                d["palettes"][palette_id] = {
-                    "palette_id": palette_id,
-                    "name": f"Custom {i + 1}",
-                    "custom": True,
-                }
+            cpalcount = d.get("info", {}).get("cpalcount", 0)
+            custom_palettes = cls._build_custom_palettes(cpalcount, version)
+            d["palettes"] = built_in_palettes | custom_palettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
@@ -850,6 +891,10 @@ class Device(BaseModel):
             The updated Device object.
 
         """
+        # Update info first so palette synthesis uses fresh data
+        if _info := data.get("info"):
+            self.info = Info.from_dict(_info)
+
         if _effects := data.get("effects"):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
@@ -857,15 +902,17 @@ class Device(BaseModel):
             }
 
         if _palettes := data.get("palettes"):
-            self.palettes = {
+            built_in_palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
             }
-            for i in range(self.info.custom_palette_count):
-                palette_id = 255 - i
-                self.palettes[palette_id] = Palette(
-                    palette_id=palette_id, name=f"Custom {i + 1}", custom=True
-                )
+            custom_palettes = self._build_custom_palettes(
+                self.info.custom_palette_count, self.info.version
+            )
+            result = {}
+            for pal_id, pal_data in custom_palettes.items():
+                result[pal_id] = Palette(**pal_data)
+            self.palettes = built_in_palettes | result
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
@@ -893,9 +940,6 @@ class Device(BaseModel):
             }
             # Nobody cares about 0.
             self.playlists.pop(0, None)
-
-        if _info := data.get("info"):
-            self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
             self.state = State.from_dict(_state)

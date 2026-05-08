@@ -8,6 +8,8 @@ DEFAULT_REPO = "wled/WLED"
 
 MIN_REQUIRED_VERSION = AwesomeVersion("0.14.0")
 
+CUSTOM_PALETTE_ID_CHANGE_VERSION = AwesomeVersion("16.0.0")
+
 
 class LightCapability(IntFlag):
     """Enumeration representing the capabilities of a light in WLED."""
