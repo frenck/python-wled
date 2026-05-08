@@ -835,13 +835,13 @@ class Device(BaseModel):
             }
 
         if _palettes := d.get("palettes"):
-            buildin_palettes = {
+            built_in_palettes = {
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
             cpalcount = d.get("info", {}).get("cpalcount", 0)
             custom_palettes = cls._build_custom_palettes(cpalcount, version)
-            d["palettes"] = buildin_palettes | custom_palettes
+            d["palettes"] = built_in_palettes | custom_palettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
@@ -896,7 +896,7 @@ class Device(BaseModel):
             }
 
         if _palettes := data.get("palettes"):
-            build_in_palettes = {
+            built_in_palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
             }
@@ -906,7 +906,7 @@ class Device(BaseModel):
             result = {}
             for pal_id, pal_data in custom_palettes.items():
                 result[pal_id] = Palette(**pal_data)
-            self.palettes = build_in_palettes | result
+            self.palettes = built_in_palettes | result
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
