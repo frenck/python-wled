@@ -828,11 +828,12 @@ class Device(BaseModel):
                 f"{version.major}.{version.minor}.{version.patch}"
             )
             if base < MIN_REQUIRED_VERSION:
-                raise WLEDUnsupportedVersionError(
+                msg = (
                     f"Unsupported firmware version {version_str}. "
                     f"Minimum required version is {MIN_REQUIRED_VERSION}. "
                     f"Please update your WLED device."
                 )
+                raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
             d["effects"] = {
