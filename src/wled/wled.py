@@ -373,6 +373,7 @@ class WLED:
         | None = None,
         intensity: int | None = None,
         length: int | None = None,
+        name: str | None = None,
         on: bool | None = None,
         palette: int | str | None = None,
         reverse: bool | None = None,
@@ -398,6 +399,8 @@ class WLED:
             individual: A list of colors to use for each LED in the segment.
             intensity: The effect intensity to use on this segment.
             length: The length of this segment.
+            name: The name of the segment. Pass an empty string to clear the
+                name. None leaves the name unchanged.
             on: A boolean, true to turn this segment on, false otherwise.
             palette: The palette number or name to use on this segment.
             reverse: Flips the segment, causing animations to change direction.
@@ -434,6 +437,7 @@ class WLED:
             "i": individual,
             "ix": intensity,
             "len": length,
+            "n": name,
             "on": on,
             "pal": palette,
             "rev": reverse,
