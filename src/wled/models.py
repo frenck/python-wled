@@ -25,7 +25,6 @@ from .const import (
 from .exceptions import WLEDUnsupportedVersionError
 from .utils import get_awesome_version
 
-
 # For palette ID space layout, see:
 # https://github.com/wled/WLED/blob/665d66f45eba17b42a30d99689430b7297ff2559/wled00/const.h#L19
 # https://github.com/wled/WLED/commit/fd6f568023fca8500e4cb40712b913a8612b827d
