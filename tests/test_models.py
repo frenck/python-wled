@@ -697,6 +697,76 @@ def test_device_update_from_dict_palettes() -> None:
     assert device.palettes[254].custom is True
 
 
+def test_device_custom_palette_ids_legacy_version() -> None:
+    """Test custom palette IDs for WLED < 16.0.0 (IDs count down from 255)."""
+    data = full_device_data()
+    # Explicitly set version < 16.0.0
+    data["info"]["ver"] = "0.14.0"
+    device = Device.from_dict(data)
+    # cpalcount is 2 in fixture, so IDs should be 255 and 254
+    assert device.palettes[255].custom is True
+    assert device.palettes[255].name == "Custom 1"
+    assert device.palettes[254].custom is True
+    assert device.palettes[254].name == "Custom 2"
+
+
+def test_device_custom_palette_ids_new_version() -> None:
+    """Test custom palette IDs for WLED >= 16.0.0 (IDs count down from 200)."""
+    data = full_device_data()
+    # Set version >= 16.0.0
+    data["info"]["ver"] = "16.0.0"
+    device = Device.from_dict(data)
+    # cpalcount is 2 in fixture, so IDs should be 200 and 199
+    assert device.palettes[200].custom is True
+    assert device.palettes[200].name == "Custom 1"
+    assert device.palettes[199].custom is True
+    assert device.palettes[199].name == "Custom 2"
+
+
+def test_device_custom_palette_ids_newer_version() -> None:
+    """Test custom palette IDs for WLED >= 16.0.0 (edge case with newer version)."""
+    data = full_device_data()
+    # Set version to newer than 16.0.0
+    data["info"]["ver"] = "16.5.0"
+    device = Device.from_dict(data)
+    # cpalcount is 2 in fixture, so IDs should be 200 and 199
+    assert device.palettes[200].custom is True
+    assert device.palettes[200].name == "Custom 1"
+    assert device.palettes[199].custom is True
+    assert device.palettes[199].name == "Custom 2"
+
+
+def test_device_update_from_dict_palettes_version_16() -> None:
+    """Test update_from_dict updates palettes for WLED >= 16.0.0."""
+    data = full_device_data()
+    data["info"]["ver"] = "16.0.0"
+    device = Device.from_dict(data)
+    device.update_from_dict({"palettes": ["NewPalette"]})
+    # 1 standard + 2 custom (from cpalcount in fixture)
+    assert len(device.palettes) == 3
+    assert device.palettes[0].name == "NewPalette"
+    assert device.palettes[200].custom is True
+    assert device.palettes[199].custom is True
+
+
+def test_device_usermod_palettes() -> None:
+    """Test usermod palettes are correctly added to device palettes."""
+    data = full_device_data()
+    # Usermod palettes are available in WLED >= 16.0.0
+    data["info"]["ver"] = "16.0.0"
+    data["info"]["umpalcount"] = 2
+    data["info"]["umpalnames"] = ["Plasma Effect", "Rainbow Shift"]
+    device = Device.from_dict(data)
+    # 3 standard + 2 custom (ID 200, 199) + 2 usermod (ID 255, 254) = 7
+    assert len(device.palettes) == 7
+    assert device.palettes[255].custom is False
+    assert device.palettes[255].name == "Plasma Effect"
+    assert device.palettes[254].custom is False
+    assert device.palettes[254].name == "Rainbow Shift"
+    assert device.palettes[200].custom is True
+    assert device.palettes[200].name == "Custom 1"
+
+
 def test_device_update_from_dict_presets() -> None:
     """Test update_from_dict updates presets and playlists."""
     data = full_device_data()
