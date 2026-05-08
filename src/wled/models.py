@@ -794,60 +794,64 @@ class Device(BaseModel):
 
     def _synthesize_all_palettes(self) -> None:
         """Re-synthesize all custom and usermod palette entries from self.info."""
-        custom_palette_base = self._get_custom_palette_base_id()
-        for i in range(self.info.custom_palette_count):
-            palette_id = custom_palette_base - i
-            self.palettes[palette_id] = Palette(
-                palette_id=palette_id, name=f"Custom {i + 1}", custom=True
-            )
-        for i in range(self.info.usermod_palette_count):
-            palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
-            palette_name = (
-                self.info.usermod_palette_names[i]
-                if i < len(self.info.usermod_palette_names)
-                else f"Usermod {i + 1}"
-            )
-            self.palettes[palette_id] = Palette(
-                palette_id=palette_id, name=palette_name, custom=False
-            )
+        custom_pals = self._build_custom_palettes(
+            self.info.custom_palette_count, self.info.version
+        )
+        usermod_pals = self._build_usermod_palettes(
+            self.info.usermod_palette_count, self.info.usermod_palette_names
+        )
+        for pal_data in custom_pals.values():
+            self.palettes[pal_data["palette_id"]] = Palette(**pal_data)
+        for pal_data in usermod_pals.values():
+            self.palettes[pal_data["palette_id"]] = Palette(**pal_data)
 
     @staticmethod
-    def _add_usermod_palettes(palettes: dict[int, Any], info: dict[str, Any]) -> None:
-        """Add usermod palettes to the palettes dict.
+    def _build_usermod_palettes(
+        umpalcount: int,
+        umpalnames: list[str],
+    ) -> dict[int, dict[str, Any]]:
+        """Build usermod palettes dict.
 
         Args:
         ----
-            palettes: The palettes dict to update with usermod palette entries.
-            info: The device info dict containing umpalcount and umpalnames.
+            umpalcount: Number of usermod palettes.
+            umpalnames: List of usermod palette names.
+
+        Returns:
+        -------
+            A dict of usermod palette entries keyed by palette ID.
 
         """
-        usermod_palette_names: list[str] = info.get("umpalnames", [])
-        for i in range(info.get("umpalcount", 0)):
+        result: dict[int, dict[str, Any]] = {}
+        for i in range(umpalcount):
             palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
             palette_name = (
-                usermod_palette_names[i]
-                if i < len(usermod_palette_names)
+                umpalnames[i]
+                if i < len(umpalnames)
                 else f"Usermod {i + 1}"
             )
-            palettes[palette_id] = {
+            result[palette_id] = {
                 "palette_id": palette_id,
                 "name": palette_name,
                 "custom": False,
             }
+        return result
 
     @staticmethod
-    def _add_custom_palettes(
-        palettes: dict[int, Any],
-        info: dict[str, Any],
+    def _build_custom_palettes(
+        cpalcount: int,
         version: AwesomeVersion | None,
-    ) -> None:
-        """Add custom palettes to the palettes dict.
+    ) -> dict[int, dict[str, Any]]:
+        """Build custom palettes dict.
 
         Args:
         ----
-            palettes: The palettes dict to update with custom palette entries.
-            info: The device info dict containing cpalcount.
+            cpalcount: Number of custom palettes.
             version: The firmware version (used to determine palette ID base).
+
+        Returns:
+        -------
+            A dict of custom palette entries keyed by palette ID.
 
         """
         custom_palette_base = (
@@ -855,13 +859,15 @@ class Device(BaseModel):
             if version and version >= CUSTOM_PALETTE_ID_CHANGE_VERSION
             else WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
         )
-        for i in range(info.get("cpalcount", 0)):
+        result: dict[int, dict[str, Any]] = {}
+        for i in range(cpalcount):
             palette_id = custom_palette_base - i
-            palettes[palette_id] = {
+            result[palette_id] = {
                 "palette_id": palette_id,
                 "name": f"Custom {i + 1}",
                 "custom": True,
             }
+        return result
 
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
@@ -895,14 +901,16 @@ class Device(BaseModel):
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
-            # Custom palettes are not included in the palettes list,
-            # but their count is reported via cpalcount.
-            # Their IDs depend on firmware version.
-            cls._add_custom_palettes(d["palettes"], d.get("info", {}), version)
-            # Usermod palettes are not included in the palettes list,
-            # but their count and names are reported via umpalcount and umpalnames.
-            # Their IDs always count down from 255 (fixed in firmware).
-            cls._add_usermod_palettes(d["palettes"], d.get("info", {}))
+            # Add custom and usermod palettes which are not in the base list
+            info = d.get("info", {})
+            d["palettes"].update(
+                cls._build_custom_palettes(info.get("cpalcount", 0), version)
+            )
+            d["palettes"].update(
+                cls._build_usermod_palettes(
+                    info.get("umpalcount", 0), info.get("umpalnames", [])
+                )
+            )
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
