@@ -786,12 +786,6 @@ class Device(BaseModel):
     playlists: dict[int, Playlist] = field(default_factory=dict)
     presets: dict[int, Preset] = field(default_factory=dict)
 
-    def _get_custom_palette_base_id(self) -> int:
-        """Get the base ID for custom palettes based on firmware version."""
-        if self.info.version and self.info.version >= CUSTOM_PALETTE_ID_CHANGE_VERSION:
-            return WLED_CUSTOM_PALETTE_ID_BASE
-        return WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
-
     @staticmethod
     def _build_usermod_palettes(
         umpalcount: int,
