@@ -794,7 +794,9 @@ class Device(BaseModel):
         """
         custom_palette_base = (
             WLED_CUSTOM_PALETTE_ID_BASE
-            if version and version >= CUSTOM_PALETTE_ID_CHANGE_VERSION
+            if version
+            and get_awesome_version(f"{version.major}.{version.minor}.{version.patch}")
+            >= CUSTOM_PALETTE_ID_CHANGE_VERSION
             else WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
         )
         result: dict[int, dict[str, Any]] = {}

@@ -690,10 +690,12 @@ def test_device_update_from_dict_effects() -> None:
     [
         ("0.14.0", [255, 254]),
         ("15.0.0", [255, 254]),
+        ("16.0.0b1", [200, 199]),
         ("16.0.0", [200, 199]),
         ("16.5.0", [200, 199]),
         ("17.0.0", [200, 199]),
     ],
+    ids=lambda x: x[0],
 )
 def test_device_custom_palette_ids_by_version(
     version: str, expected_palette_ids: list[int]
