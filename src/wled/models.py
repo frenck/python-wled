@@ -823,7 +823,7 @@ class Device(BaseModel):
         version_str = d.get("info", {}).get("ver")
         version = get_awesome_version(version_str) if version_str else None
 
-        if version_str:
+        if version:
             # Compare base version (major.minor.patch) to allow pre-release
             # builds (e.g. 0.14.0-b1) of the minimum required version.
             base = get_awesome_version(
