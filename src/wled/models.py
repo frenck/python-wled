@@ -792,6 +792,25 @@ class Device(BaseModel):
             return WLED_CUSTOM_PALETTE_ID_BASE
         return WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
 
+    def _synthesize_all_palettes(self) -> None:
+        """Re-synthesize all custom and usermod palette entries from self.info."""
+        custom_palette_base = self._get_custom_palette_base_id()
+        for i in range(self.info.custom_palette_count):
+            palette_id = custom_palette_base - i
+            self.palettes[palette_id] = Palette(
+                palette_id=palette_id, name=f"Custom {i + 1}", custom=True
+            )
+        for i in range(self.info.usermod_palette_count):
+            palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
+            palette_name = (
+                self.info.usermod_palette_names[i]
+                if i < len(self.info.usermod_palette_names)
+                else f"Usermod {i + 1}"
+            )
+            self.palettes[palette_id] = Palette(
+                palette_id=palette_id, name=palette_name, custom=False
+            )
+
     @staticmethod
     def _add_usermod_palettes(palettes: dict[int, Any], info: dict[str, Any]) -> None:
         """Add usermod palettes to the palettes dict.
@@ -814,6 +833,34 @@ class Device(BaseModel):
                 "palette_id": palette_id,
                 "name": palette_name,
                 "custom": False,
+            }
+
+    @staticmethod
+    def _add_custom_palettes(
+        palettes: dict[int, Any],
+        info: dict[str, Any],
+        version: AwesomeVersion | None,
+    ) -> None:
+        """Add custom palettes to the palettes dict.
+
+        Args:
+        ----
+            palettes: The palettes dict to update with custom palette entries.
+            info: The device info dict containing cpalcount.
+            version: The firmware version (used to determine palette ID base).
+
+        """
+        custom_palette_base = (
+            WLED_CUSTOM_PALETTE_ID_BASE
+            if version and version >= CUSTOM_PALETTE_ID_CHANGE_VERSION
+            else WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
+        )
+        for i in range(info.get("cpalcount", 0)):
+            palette_id = custom_palette_base - i
+            palettes[palette_id] = {
+                "palette_id": palette_id,
+                "name": f"Custom {i + 1}",
+                "custom": True,
             }
 
     @classmethod
@@ -850,22 +897,8 @@ class Device(BaseModel):
             }
             # Custom palettes are not included in the palettes list,
             # but their count is reported via cpalcount.
-            # Their IDs depend on firmware version:
-            # - < 16.0.0: count down from 255
-            # - >= 16.0.0: count down from 200
-            custom_palette_base = (
-                WLED_CUSTOM_PALETTE_ID_BASE
-                if version and version >= CUSTOM_PALETTE_ID_CHANGE_VERSION
-                else WLED_CUSTOM_PALETTE_ID_BASE_LEGACY
-            )
-            for i in range(d.get("info", {}).get("cpalcount", 0)):
-                palette_id = custom_palette_base - i
-                d["palettes"][palette_id] = {
-                    "palette_id": palette_id,
-                    "name": f"Custom {i + 1}",
-                    "custom": True,
-                }
-
+            # Their IDs depend on firmware version.
+            cls._add_custom_palettes(d["palettes"], d.get("info", {}), version)
             # Usermod palettes are not included in the palettes list,
             # but their count and names are reported via umpalcount and umpalnames.
             # Their IDs always count down from 255 (fixed in firmware).
@@ -932,24 +965,7 @@ class Device(BaseModel):
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
             }
-            custom_palette_base = self._get_custom_palette_base_id()
-            for i in range(self.info.custom_palette_count):
-                palette_id = custom_palette_base - i
-                self.palettes[palette_id] = Palette(
-                    palette_id=palette_id, name=f"Custom {i + 1}", custom=True
-                )
-
-            # Add usermod palettes if available from info
-            for i in range(self.info.usermod_palette_count):
-                palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
-                palette_name = (
-                    self.info.usermod_palette_names[i]
-                    if i < len(self.info.usermod_palette_names)
-                    else f"Usermod {i + 1}"
-                )
-                self.palettes[palette_id] = Palette(
-                    palette_id=palette_id, name=palette_name, custom=False
-                )
+            self._synthesize_all_palettes()
 
         if _presets := data.get("presets"):
             # The preset data contains both presets and playlists,
