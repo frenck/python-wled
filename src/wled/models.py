@@ -32,6 +32,7 @@ from .utils import get_awesome_version
 # - Usermod palettes: IDs 255-201 (55 slots)
 # - User custom palettes: IDs 200-FIXED_PALETTE_COUNT+1 (129 slots)
 # In versions < 16.0.0, custom palettes counted down from 255.
+WLED_USERMOD_PALETTE_ID_BASE = 255
 WLED_CUSTOM_PALETTE_ID_BASE = 200
 WLED_CUSTOM_PALETTE_ID_BASE_LEGACY = 255
 
@@ -497,6 +498,16 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     palette_count: int = field(default=0, metadata=field_options(alias="palcount"))
     """Number of palettes configured."""
 
+    usermod_palette_count: int = field(
+        default=0, metadata=field_options(alias="umpalcount")
+    )
+    """Number of usermod palettes configured."""
+
+    usermod_palette_names: list[str] = field(
+        default_factory=list, metadata=field_options(alias="umpalnames")
+    )
+    """Names of usermod palettes."""
+
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
 
@@ -776,6 +787,34 @@ class Device(BaseModel):
     presets: dict[int, Preset] = field(default_factory=dict)
 
     @staticmethod
+    def _build_usermod_palettes(
+        umpalcount: int,
+        umpalnames: list[str],
+    ) -> dict[int, dict[str, Any]]:
+        """Build usermod palettes dict.
+
+        Args:
+        ----
+            umpalcount: Number of usermod palettes.
+            umpalnames: List of usermod palette names.
+
+        Returns:
+        -------
+            A dict of usermod palette entries keyed by palette ID.
+
+        """
+        result: dict[int, dict[str, Any]] = {}
+        for i in range(umpalcount):
+            palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
+            palette_name = umpalnames[i] if i < len(umpalnames) else f"Usermod {i + 1}"
+            result[palette_id] = {
+                "palette_id": palette_id,
+                "name": palette_name,
+                "custom": False,
+            }
+        return result
+
+    @staticmethod
     def _build_custom_palettes(
         cpalcount: int,
         version: AwesomeVersion | None,
@@ -842,9 +881,13 @@ class Device(BaseModel):
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
             }
-            cpalcount = d.get("info", {}).get("cpalcount", 0)
+            info = d.get("info", {})
+            cpalcount = info.get("cpalcount", 0)
             custom_palettes = cls._build_custom_palettes(cpalcount, version)
-            d["palettes"] = built_in_palettes | custom_palettes
+            usermod_pallettes = cls._build_usermod_palettes(
+                info.get("umpalcount", 0), info.get("umpalnames", [])
+            )
+            d["palettes"] = built_in_palettes | custom_palettes | usermod_pallettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
@@ -911,8 +954,11 @@ class Device(BaseModel):
             custom_palettes = self._build_custom_palettes(
                 self.info.custom_palette_count, self.info.version
             )
+            usermod_palettes = self._build_usermod_palettes(
+                self.info.usermod_palette_count, self.info.usermod_palette_names
+            )
             result = {}
-            for pal_id, pal_data in custom_palettes.items():
+            for pal_id, pal_data in (custom_palettes | usermod_palettes).items():
                 result[pal_id] = Palette(**pal_data)
             self.palettes = built_in_palettes | result
 
