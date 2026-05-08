@@ -15,9 +15,9 @@ from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
-    MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
+    MIN_REQUIRED_VERSION,
     NightlightMode,
     SoundSimulationType,
     SyncGroup,
@@ -819,8 +819,11 @@ class Device(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
-        if version_str := d.get("info", {}).get("ver"):
-            version = get_awesome_version(version_str)
+        # Extract version once at the top to avoid recomputation
+        version_str = d.get("info", {}).get("ver")
+        version = get_awesome_version(version_str) if version_str else None
+
+        if version_str:
             # Compare base version (major.minor.patch) to allow pre-release
             # builds (e.g. 0.14.0-b1) of the minimum required version.
             base = get_awesome_version(
@@ -850,8 +853,6 @@ class Device(BaseModel):
             # Their IDs depend on firmware version:
             # - < 16.0.0: count down from 255
             # - >= 16.0.0: count down from 200
-            version_str = d.get("info", {}).get("ver")
-            version = get_awesome_version(version_str) if version_str else None
             custom_palette_base = (
                 WLED_CUSTOM_PALETTE_ID_BASE
                 if version and version >= CUSTOM_PALETTE_ID_CHANGE_VERSION
@@ -916,6 +917,10 @@ class Device(BaseModel):
             The updated Device object.
 
         """
+        # Update info first so palette synthesis uses fresh data
+        if _info := data.get("info"):
+            self.info = Info.from_dict(_info)
+
         if _effects := data.get("effects"):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
@@ -972,9 +977,6 @@ class Device(BaseModel):
             }
             # Nobody cares about 0.
             self.playlists.pop(0, None)
-
-        if _info := data.get("info"):
-            self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
             self.state = State.from_dict(_state)

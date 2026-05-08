@@ -749,6 +749,38 @@ def test_device_usermod_palettes() -> None:
     assert device.palettes[200].name == "Custom 1"
 
 
+def test_device_update_from_dict_usermod_palettes() -> None:
+    """Test update_from_dict re-synthesizes usermod palettes from self.info."""
+    data = full_device_data()
+    data["info"]["ver"] = "16.0.0"
+    data["info"]["umpalcount"] = 2
+    data["info"]["umpalnames"] = ["Plasma Effect", "Rainbow Shift"]
+    device = Device.from_dict(data)
+
+    # Verify initial state has usermod palettes
+    assert device.palettes[255].custom is False
+    assert device.palettes[255].name == "Plasma Effect"
+    assert device.palettes[254].custom is False
+    assert device.palettes[254].name == "Rainbow Shift"
+    assert device.palettes[200].custom is True
+
+    # Update with new palette list (re-synthesizes all palettes)
+    device.update_from_dict({"palettes": ["NewPalette"]})
+
+    # Verify standard palette was updated
+    assert device.palettes[0].name == "NewPalette"
+
+    # Verify usermod palettes were re-synthesized with stored names from self.info
+    assert device.palettes[255].custom is False
+    assert device.palettes[255].name == "Plasma Effect"
+    assert device.palettes[254].custom is False
+    assert device.palettes[254].name == "Rainbow Shift"
+
+    # Verify custom palettes still present with correct IDs
+    assert device.palettes[200].custom is True
+    assert device.palettes[200].name == "Custom 1"
+
+
 def test_device_update_from_dict_presets() -> None:
     """Test update_from_dict updates presets and playlists."""
     data = full_device_data()
