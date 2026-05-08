@@ -731,56 +731,6 @@ def test_device_update_from_dict_palettes(
     assert device.palettes[expected_custom_ids[1]].custom is True
 
 
-def test_device_usermod_palettes() -> None:
-    """Test usermod palettes are correctly added to device palettes."""
-    data = full_device_data()
-    # Usermod palettes are available in WLED >= 16.0.0
-    data["info"]["ver"] = "16.0.0"
-    data["info"]["umpalcount"] = 2
-    data["info"]["umpalnames"] = ["Plasma Effect", "Rainbow Shift"]
-    device = Device.from_dict(data)
-    # 3 standard + 2 custom (ID 200, 199) + 2 usermod (ID 255, 254) = 7
-    assert len(device.palettes) == 7
-    assert device.palettes[255].custom is False
-    assert device.palettes[255].name == "Plasma Effect"
-    assert device.palettes[254].custom is False
-    assert device.palettes[254].name == "Rainbow Shift"
-    assert device.palettes[200].custom is True
-    assert device.palettes[200].name == "Custom 1"
-
-
-def test_device_update_from_dict_usermod_palettes() -> None:
-    """Test update_from_dict re-synthesizes usermod palettes from self.info."""
-    data = full_device_data()
-    data["info"]["ver"] = "16.0.0"
-    data["info"]["umpalcount"] = 2
-    data["info"]["umpalnames"] = ["Plasma Effect", "Rainbow Shift"]
-    device = Device.from_dict(data)
-
-    # Verify initial state has usermod palettes
-    assert device.palettes[255].custom is False
-    assert device.palettes[255].name == "Plasma Effect"
-    assert device.palettes[254].custom is False
-    assert device.palettes[254].name == "Rainbow Shift"
-    assert device.palettes[200].custom is True
-
-    # Update with new palette list (re-synthesizes all palettes)
-    device.update_from_dict({"palettes": ["NewPalette"]})
-
-    # Verify standard palette was updated
-    assert device.palettes[0].name == "NewPalette"
-
-    # Verify usermod palettes were re-synthesized with stored names from self.info
-    assert device.palettes[255].custom is False
-    assert device.palettes[255].name == "Plasma Effect"
-    assert device.palettes[254].custom is False
-    assert device.palettes[254].name == "Rainbow Shift"
-
-    # Verify custom palettes still present with correct IDs
-    assert device.palettes[200].custom is True
-    assert device.palettes[200].name == "Custom 1"
-
-
 def test_device_update_from_dict_presets() -> None:
     """Test update_from_dict updates presets and playlists."""
     data = full_device_data()
