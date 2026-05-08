@@ -884,10 +884,10 @@ class Device(BaseModel):
             info = d.get("info", {})
             cpalcount = info.get("cpalcount", 0)
             custom_palettes = cls._build_custom_palettes(cpalcount, version)
-            usermod_pallettes = cls._build_usermod_palettes(
+            usermod_palettes = cls._build_usermod_palettes(
                 info.get("umpalcount", 0), info.get("umpalnames", [])
             )
-            d["palettes"] = built_in_palettes | custom_palettes | usermod_pallettes
+            d["palettes"] = built_in_palettes | custom_palettes | usermod_palettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
