@@ -15,9 +15,9 @@ from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
+    MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
-    MIN_REQUIRED_VERSION,
     NightlightMode,
     SoundSimulationType,
     SyncGroup,
