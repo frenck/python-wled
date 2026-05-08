@@ -494,7 +494,7 @@ async def prepare_wled_with_device(
             {"individual": [(255, 0, 0), (0, 255, 0)]},
             {"i": [[255, 0, 0], [0, 255, 0]], "id": 0},
         ),
-        # The name parameter tests
+        # The name parameter cases
         ({"name": "Curtain"}, {"n": "Curtain", "id": 0}),
         ({"name": ""}, {"n": "", "id": 0}),
         ({"name": None, "brightness": 200}, {"bri": 200, "id": 0}),
