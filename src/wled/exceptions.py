@@ -9,6 +9,10 @@ class WLEDEmptyResponseError(Exception):
     """WLED empty API response exception."""
 
 
+class WLEDInvalidResponseError(WLEDError):
+    """WLED invalid API response exception."""
+
+
 class WLEDConnectionError(WLEDError):
     """WLED connection exception."""
 
