@@ -891,6 +891,10 @@ class Device(BaseModel):
             The updated Device object.
 
         """
+        # Update info first so palette synthesis uses fresh data
+        if _info := data.get("info"):
+            self.info = Info.from_dict(_info)
+
         if _effects := data.get("effects"):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
@@ -936,9 +940,6 @@ class Device(BaseModel):
             }
             # Nobody cares about 0.
             self.playlists.pop(0, None)
-
-        if _info := data.get("info"):
-            self.info = Info.from_dict(_info)
 
         if _state := data.get("state"):
             self.state = State.from_dict(_state)
