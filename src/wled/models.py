@@ -35,6 +35,9 @@ from .utils import get_awesome_version
 WLED_USERMOD_PALETTE_ID_BASE = 255
 WLED_CUSTOM_PALETTE_ID_BASE = 200
 WLED_CUSTOM_PALETTE_ID_BASE_LEGACY = 255
+WLED_USERMOD_PALETTE_MAX_COUNT = (
+    WLED_USERMOD_PALETTE_ID_BASE - WLED_CUSTOM_PALETTE_ID_BASE
+)
 
 
 class AwesomeVersionSerializationStrategy(SerializationStrategy, use_annotations=True):
@@ -503,8 +506,8 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """Number of usermod palettes configured."""
 
-    usermod_palette_names: list[str] = field(
-        default_factory=list, metadata=field_options(alias="umpalnames")
+    usermod_palette_names: list[str] | None = field(
+        default=None, metadata=field_options(alias="umpalnames")
     )
     """Names of usermod palettes."""
 
@@ -789,24 +792,35 @@ class Device(BaseModel):
     @staticmethod
     def _build_usermod_palettes(
         umpalcount: int,
-        umpalnames: list[str],
+        umpalnames: list[str] | None,
+        version: AwesomeVersion | None,
     ) -> dict[int, dict[str, Any]]:
         """Build usermod palettes dict.
 
         Args:
         ----
             umpalcount: Number of usermod palettes.
-            umpalnames: List of usermod palette names.
+            umpalnames: List of usermod palette names (None if not present in JSON).
+            version: The firmware version (gating feature to >= 16.0.0).
 
         Returns:
         -------
             A dict of usermod palette entries keyed by palette ID.
 
         """
+        is_v16_plus = (
+            version is not None
+            and get_awesome_version(f"{version.major}.{version.minor}.{version.patch}")
+            >= CUSTOM_PALETTE_ID_CHANGE_VERSION
+        )
+        if not is_v16_plus:
+            return {}
+        names = umpalnames or []
         result: dict[int, dict[str, Any]] = {}
-        for i in range(umpalcount):
+        safe_count = min(umpalcount, WLED_USERMOD_PALETTE_MAX_COUNT)
+        for i in range(safe_count):
             palette_id = WLED_USERMOD_PALETTE_ID_BASE - i
-            palette_name = umpalnames[i] if i < len(umpalnames) else f"Usermod {i + 1}"
+            palette_name = names[i] if i < len(names) else f"Usermod {i + 1}"
             result[palette_id] = {
                 "palette_id": palette_id,
                 "name": palette_name,
@@ -885,7 +899,7 @@ class Device(BaseModel):
             cpalcount = info.get("cpalcount", 0)
             custom_palettes = cls._build_custom_palettes(cpalcount, version)
             usermod_palettes = cls._build_usermod_palettes(
-                info.get("umpalcount", 0), info.get("umpalnames", [])
+                info.get("umpalcount", 0), info.get("umpalnames"), version
             )
             d["palettes"] = built_in_palettes | custom_palettes | usermod_palettes
         elif _palettes is None:
@@ -955,7 +969,9 @@ class Device(BaseModel):
                 self.info.custom_palette_count, self.info.version
             )
             usermod_palettes = self._build_usermod_palettes(
-                self.info.usermod_palette_count, self.info.usermod_palette_names
+                self.info.usermod_palette_count,
+                self.info.usermod_palette_names,
+                self.info.version,
             )
             result = {}
             for pal_id, pal_data in (custom_palettes | usermod_palettes).items():
