@@ -98,6 +98,7 @@
   "effects": [
     "Solid",
     "Blink",
+    "RSVD",
     "Breathe"
   ],
   "palettes": [
