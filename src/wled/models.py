@@ -776,25 +776,6 @@ class Device(BaseModel):
     presets: dict[int, Preset] = field(default_factory=dict)
 
     @staticmethod
-    def _build_effects_map(effects: list[str]) -> dict[int, dict[str, Any]]:
-        """Build effects dict, filtering out RSVD placeholders.
-
-        Args:
-        ----
-            effects: List of effect names from WLED API.
-
-        Returns:
-        -------
-            Dict mapping effect_id to effect metadata, excluding RSVD entries.
-
-        """
-        return {
-            effect_id: {"effect_id": effect_id, "name": name}
-            for effect_id, name in enumerate(effects)
-            if "RSVD" not in name
-        }
-
-    @staticmethod
     def _build_custom_palettes(
         cpalcount: int,
         version: AwesomeVersion | None,
@@ -850,7 +831,11 @@ class Device(BaseModel):
                 raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
-            d["effects"] = cls._build_effects_map(_effects)
+            d["effects"] = {
+                effect_id: {"effect_id": effect_id, "name": name}
+                for effect_id, name in enumerate(_effects)
+                if "RSVD" not in name
+            }
 
         if _palettes := d.get("palettes"):
             built_in_palettes = {
@@ -913,8 +898,9 @@ class Device(BaseModel):
 
         if _effects := data.get("effects"):
             self.effects = {
-                effect_id: Effect(**effect_data)
-                for effect_id, effect_data in self._build_effects_map(_effects).items()
+                effect_id: Effect(effect_id=effect_id, name=name)
+                for effect_id, name in enumerate(_effects)
+                if "RSVD" not in name
             }
 
         if _palettes := data.get("palettes"):
