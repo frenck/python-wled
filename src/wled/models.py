@@ -834,7 +834,7 @@ class Device(BaseModel):
             d["effects"] = {
                 effect_id: {"effect_id": effect_id, "name": name}
                 for effect_id, name in enumerate(_effects)
-                if not name.strip().upper().startswith("RSVD")
+                if "RSVD" not in name
             }
 
         if _palettes := d.get("palettes"):
@@ -900,7 +900,7 @@ class Device(BaseModel):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
                 for effect_id, name in enumerate(_effects)
-                if not name.strip().upper().startswith("RSVD")
+                if "RSVD" not in name
             }
 
         if _palettes := data.get("palettes"):
