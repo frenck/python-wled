@@ -601,7 +601,8 @@ def test_device_from_dict_full() -> None:
     assert len(device.effects) == 3
     assert device.effects[0].name == "Solid"
     assert device.effects[1].name == "Blink"
-    assert device.effects[2].name == "Breathe"
+    assert device.effects[3].name == "Breathe"
+    assert 2 not in device.effects  # RSVD placeholder is filtered out
 
     # Palettes (3 standard + 2 custom)
     assert len(device.palettes) == 5
@@ -680,9 +681,23 @@ def test_device_update_from_dict_effects() -> None:
     """Test update_from_dict updates effects."""
     data = full_device_data()
     device = Device.from_dict(data)
-    device.update_from_dict({"effects": ["NewEffect1", "NewEffect2"]})
+    device.update_from_dict({"effects": ["NewEffect1", "RSVD", "NewEffect2"]})
     assert len(device.effects) == 2
+    assert 1 not in device.effects
     assert device.effects[0].name == "NewEffect1"
+    assert device.effects[2].name == "NewEffect2"
+
+
+def test_device_filters_reserved_effects() -> None:
+    """Test that RSVD placeholder effects are filtered out."""
+    data = full_device_data()
+    data["effects"] = ["Solid", "RSVD", "Breathe", "RSVD"]
+    device = Device.from_dict(data)
+    assert len(device.effects) == 2
+    assert 1 not in device.effects
+    assert 3 not in device.effects
+    assert device.effects[0].name == "Solid"
+    assert device.effects[2].name == "Breathe"
 
 
 @pytest.mark.parametrize(
