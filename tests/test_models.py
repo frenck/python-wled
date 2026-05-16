@@ -896,10 +896,10 @@ def test_releases_none_values() -> None:
 )
 def test_device_fixture(
     fixture: str,
-    snapshot: SnapshotAssertion,
+    snapshot_dataclass: SnapshotAssertion,
 ) -> None:
     """Test Device parsing against real-world WLED responses."""
     data = load_fixture_json(fixture)
     data["presets"] = {}
     device = Device.from_dict(data)
-    assert device == snapshot
+    assert device == snapshot_dataclass
