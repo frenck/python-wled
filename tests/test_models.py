@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -922,6 +921,6 @@ def test_device_version_fixture(
 
     The responses captured from each WLED release.
     """
-    data = json.loads((_VERSIONS_DIR / f"{version_fixture}.json").read_text())
+    data = load_fixture_json(f"versions/{version_fixture}")
     device = Device.from_dict(data)
     assert device == snapshot
