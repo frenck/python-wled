@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -901,5 +903,25 @@ def test_device_fixture(
     """Test Device parsing against real-world WLED responses."""
     data = load_fixture_json(fixture)
     data["presets"] = {}
+    device = Device.from_dict(data)
+    assert device == snapshot
+
+
+_VERSIONS_DIR = Path(__file__).parent / "fixtures" / "versions"
+
+
+@pytest.mark.parametrize(
+    "version_fixture",
+    [p.stem for p in sorted(_VERSIONS_DIR.glob("*.json"))],
+)
+def test_device_version_fixture(
+    version_fixture: str,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Test Device parsing against real /json.
+
+    The responses captured from each WLED release.
+    """
+    data = json.loads((_VERSIONS_DIR / f"{version_fixture}.json").read_text())
     device = Device.from_dict(data)
     assert device == snapshot
