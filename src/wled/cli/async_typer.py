@@ -22,6 +22,7 @@ Adaptation of the snippet/code from:
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import Callable
 from functools import wraps
 from typing import (
@@ -96,7 +97,7 @@ class AsyncTyper(SyncTyper):
         def decorator(
             func: Callable[_P, Coroutine[Any, Any, _R]],
         ) -> Callable[_P, Coroutine[Any, Any, _R]]:
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
 
                 @wraps(func)
                 def sync_func(*_args: _P.args, **_kwargs: _P.kwargs) -> _R:
@@ -151,7 +152,7 @@ class AsyncTyper(SyncTyper):
         def decorator(
             func: Callable[_P, Coroutine[Any, Any, _R]],
         ) -> Callable[_P, Coroutine[Any, Any, _R]]:
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
 
                 @wraps(func)
                 def sync_func(*_args: _P.args, **_kwargs: _P.kwargs) -> _R:
