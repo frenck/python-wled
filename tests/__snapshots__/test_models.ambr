@@ -6897,6 +6897,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=321),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.14.3'>,
       websocket=0,
       wifi=Wifi(
@@ -8106,6 +8108,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=72),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.14.4'>,
       websocket=1,
       wifi=Wifi(
@@ -9319,6 +9323,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=12),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.0'>,
       websocket=0,
       wifi=Wifi(
@@ -10532,6 +10538,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=129),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.1'>,
       websocket=0,
       wifi=Wifi(
@@ -11745,6 +11753,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=119),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.2'>,
       websocket=0,
       wifi=Wifi(
@@ -12958,6 +12968,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=47),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.3'>,
       websocket=0,
       wifi=Wifi(
@@ -14171,6 +14183,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=40),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.4'>,
       websocket=0,
       wifi=Wifi(
@@ -15528,6 +15542,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=75),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion CalVer '16.0.0'>,
       websocket=0,
       wifi=Wifi(
