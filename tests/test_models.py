@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -23,7 +22,7 @@ from wled.models import (
 )
 from wled.utils import get_awesome_version
 
-from .conftest import full_device_data, load_fixture_json
+from .conftest import FIXTURES_DIR, full_device_data, load_fixture_json
 
 # =========================================================================
 # Helper functions
@@ -906,7 +905,7 @@ def test_device_fixture(
     assert device == snapshot_dataclass
 
 
-_VERSIONS_DIR = Path(__file__).parent / "fixtures" / "versions"
+_VERSIONS_DIR = FIXTURES_DIR / "versions"
 
 
 @pytest.mark.parametrize(
@@ -919,7 +918,7 @@ def test_device_version_fixture(
 ) -> None:
     """Test Device parsing against real /json.
 
-    The responses captured from each WLED release.
+    The responses were captured from each WLED release.
     """
     data = load_fixture_json(f"versions/{version_fixture}")
     device = Device.from_dict(data)
