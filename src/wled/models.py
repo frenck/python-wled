@@ -885,6 +885,7 @@ class Device(BaseModel):
         }
 
     @classmethod
+    # pylint: disable-next=too-many-arguments,too-many-positional-arguments
     def _build_palette_dict(
         cls,
         palettes_list: list[str],
