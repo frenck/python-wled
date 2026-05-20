@@ -3,7 +3,7 @@
 # pylint: disable=redefined-outer-name
 from __future__ import annotations
 
-import asyncio
+import inspect
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -120,7 +120,7 @@ def test_async_typer_command_wraps_async() -> None:
     async def greet() -> None:
         pass
 
-    assert asyncio.iscoroutinefunction(greet)
+    assert inspect.iscoroutinefunction(greet)
 
 
 def test_async_typer_command_wraps_sync() -> None:
@@ -131,7 +131,7 @@ def test_async_typer_command_wraps_sync() -> None:
     def greet() -> None:
         pass
 
-    assert not asyncio.iscoroutinefunction(greet)
+    assert not inspect.iscoroutinefunction(greet)
 
 
 def test_async_typer_callback_wraps_async() -> None:
@@ -142,7 +142,7 @@ def test_async_typer_callback_wraps_async() -> None:
     async def main() -> None:
         pass
 
-    assert asyncio.iscoroutinefunction(main)
+    assert inspect.iscoroutinefunction(main)
 
 
 def test_async_typer_callback_wraps_sync() -> None:
@@ -153,7 +153,7 @@ def test_async_typer_callback_wraps_sync() -> None:
     def main() -> None:
         pass
 
-    assert not asyncio.iscoroutinefunction(main)
+    assert not inspect.iscoroutinefunction(main)
 
 
 def test_async_typer_error_handler_registered() -> None:

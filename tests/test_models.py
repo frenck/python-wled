@@ -897,13 +897,13 @@ def test_releases_none_values() -> None:
 )
 def test_device_fixture(
     fixture: str,
-    snapshot: SnapshotAssertion,
+    snapshot_dataclass: SnapshotAssertion,
 ) -> None:
     """Test Device parsing against real-world WLED responses."""
     data = load_fixture_json(fixture)
     data["presets"] = {}
     device = Device.from_dict(data)
-    assert device == snapshot
+    assert device == snapshot_dataclass
 
 
 _VERSIONS_DIR = Path(__file__).parent / "fixtures" / "versions"
@@ -915,7 +915,7 @@ _VERSIONS_DIR = Path(__file__).parent / "fixtures" / "versions"
 )
 def test_device_version_fixture(
     version_fixture: str,
-    snapshot: SnapshotAssertion,
+    snapshot_dataclass: SnapshotAssertion,
 ) -> None:
     """Test Device parsing against real /json.
 
@@ -923,4 +923,4 @@ def test_device_version_fixture(
     """
     data = load_fixture_json(f"versions/{version_fixture}")
     device = Device.from_dict(data)
-    assert device == snapshot
+    assert device == snapshot_dataclass
