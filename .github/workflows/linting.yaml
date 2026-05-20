@@ -218,3 +218,28 @@ jobs:
         run: poetry install --extras cli --no-interaction
       - name: 🚀 Run zizmor
         run: poetry run zizmor .github/workflows/
+
+  vulture:
+    name: vulture
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: 🏗 Set up Poetry
+        run: pipx install poetry
+      - name: 🏗 Set up Python ${{ env.DEFAULT_PYTHON }}
+        id: python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+          cache: "poetry"
+      - name: 🏗 Install workflow dependencies
+        run: |
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      - name: 🏗 Install Python dependencies
+        run: poetry install --extras cli --no-interaction
+      - name: 🚀 Run vulture
+        run: poetry run vulture

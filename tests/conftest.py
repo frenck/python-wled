@@ -101,12 +101,12 @@ class CustomDataclassPlugin(AmberDataSerializerPlugin):
     """Syrupy plugin that serializes dataclass instances recursively in Amber format."""
 
     @classmethod
-    def is_data_serializable(cls, data: "SerializableData") -> bool:
+    def is_data_serializable(cls, data: SerializableData) -> bool:
         """Return True for dataclass instances (excludes dataclass types themselves)."""
         return dataclasses.is_dataclass(data) and not isinstance(data, type)
 
     @classmethod
-    def serialize(cls, data: "SerializableData", **kwargs: Any) -> str:
+    def serialize(cls, data: SerializableData, **kwargs: Any) -> str:
         """Serialize a dataclass instance into Amber format."""
         keys = sorted(f.name for f in dataclasses.fields(data))
         return CustomDataclassSerializer.serialize_custom_iterable(
