@@ -762,6 +762,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=79769),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.15.0-b3'>,
       websocket=1,
       wifi=Wifi(
@@ -1995,6 +1997,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=966),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.14.4'>,
       websocket=None,
       wifi=Wifi(
@@ -3257,6 +3261,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=461),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion PEP 440 '1.0.0b4'>,
       websocket=None,
       wifi=Wifi(
@@ -4466,6 +4472,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=461),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion SemVer '0.99.0'>,
       websocket=0,
       wifi=Wifi(
@@ -5675,6 +5683,8 @@
       sync_toggle_receive=False,
       udp_port=21324,
       uptime=datetime.timedelta(seconds=461),
+      usermod_palette_count=0,
+      usermod_palette_names=None,
       version=<AwesomeVersion PEP 440 '0.99.0b1'>,
       websocket=None,
       wifi=Wifi(
