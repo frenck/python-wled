@@ -22,7 +22,7 @@ from wled.models import (
 )
 from wled.utils import get_awesome_version
 
-from .conftest import full_device_data, load_fixture_json
+from .conftest import FIXTURES_DIR, full_device_data, load_fixture_json
 
 # =========================================================================
 # Helper functions
@@ -901,5 +901,25 @@ def test_device_fixture(
     """Test Device parsing against real-world WLED responses."""
     data = load_fixture_json(fixture)
     data["presets"] = {}
+    device = Device.from_dict(data)
+    assert device == snapshot_dataclass
+
+
+_VERSIONS_DIR = FIXTURES_DIR / "versions"
+
+
+@pytest.mark.parametrize(
+    "version_fixture",
+    [p.stem for p in sorted(_VERSIONS_DIR.glob("*.json"))],
+)
+def test_device_version_fixture(
+    version_fixture: str,
+    snapshot_dataclass: SnapshotAssertion,
+) -> None:
+    """Test Device parsing against real /json.
+
+    The responses were captured from each WLED release.
+    """
+    data = load_fixture_json(f"versions/{version_fixture}")
     device = Device.from_dict(data)
     assert device == snapshot_dataclass
