@@ -567,8 +567,6 @@ async def command_scan() -> None:
         """Retrieve and display service info."""
         info = AsyncServiceInfo(service_type, name)
         await info.async_request(zeroconf, 3000)
-        if info is None:
-            return
 
         console.print(f"[cyan bold]Found service {info.server}: is a WLED device 🎉")
 
