@@ -70,6 +70,7 @@ safety = "3.7.0"
 syrupy = "5.1.0"
 ty = "0.0.31"
 typer = "0.24.1"
+vulture = "2.16"
 yamllint = "1.38.0"
 zizmor = "1.24.1"
 
@@ -144,6 +145,10 @@ max-complexity = 25
 
 [tool.codespell]
 ignore-words-list = "abl"
+
+[tool.vulture]
+paths = ["src/wled", "tests"]
+min_confidence = 80
 
 [build-system]
 requires = ["poetry-core>=2.0"]

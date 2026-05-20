@@ -127,6 +127,13 @@ repos:
         exclude: ^tests/(?:.*/)?__snapshots__/
         entry: poetry run trailing-whitespace-fixer
         stages: [commit, push, manual]
+      - id: vulture
+        name: 🦅 Hunt for dead code with vulture
+        language: system
+        types: [python]
+        entry: poetry run vulture
+        pass_filenames: false
+        always_run: true
       - id: yamllint
         name: 🎗  Check YAML files with yamllint
         language: system
