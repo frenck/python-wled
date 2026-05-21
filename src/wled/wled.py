@@ -636,14 +636,15 @@ class WLED:
         self,
         *,
         version: str | AwesomeVersion,
-        repo: str = DEFAULT_REPO,
+        repo: str | None = None,
     ) -> None:
         """Upgrade WLED device to the specified version.
 
         Args:
         ----
             version: The version to upgrade to.
-            repo: GitHub repository to download firmware from.
+            repo: GitHub repository to download firmware from. If not specified,
+                the repository reported by the device firmware is used.
 
         Raises:
         ------
@@ -681,6 +682,9 @@ class WLED:
         if self._device.info.version == version:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
+
+        if repo is None:
+            repo = self._device.info.repo
 
         # Determine if this is an Ethernet board
         ethernet = ""
