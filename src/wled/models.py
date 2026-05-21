@@ -338,8 +338,8 @@ class Segment(BaseModel):
     """Transposes the segment, swapping X and Y dimensions (2D only)."""
 
 
+# RGB or RGBW color tuple used when updating a segment.
 SegmentColor = tuple[int, int, int, int] | tuple[int, int, int]
-"""RGB or RGBW color tuple used when updating a segment."""
 
 
 @dataclass(kw_only=True)
