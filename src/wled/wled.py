@@ -683,8 +683,8 @@ class WLED:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
 
-        if repo is None:
-            repo = self._device.info.repo
+        repo = (repo if repo is not None else self._device.info.repo).strip()
+        repo = repo or DEFAULT_REPO
 
         # Determine if this is an Ethernet board
         ethernet = ""

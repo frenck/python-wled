@@ -1261,16 +1261,18 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
 
 
 @pytest.mark.parametrize(
-    ("repo", "download_repo"),
+    ("device_repo", "repo", "download_repo"),
     [
-        (None, "MoonModules/WLED"),
-        (DEFAULT_REPO, DEFAULT_REPO),
+        ("MoonModules/WLED", None, "MoonModules/WLED"),
+        ("MoonModules/WLED", DEFAULT_REPO, DEFAULT_REPO),
+        (" ", None, DEFAULT_REPO),
     ],
-    ids=["device_repo", "explicit_repo"],
+    ids=["device_repo", "explicit_repo", "blank_device_repo"],
 )
 async def test_upgrade_repo_selection(
     responses: aioresponses,
     wled: WLED,
+    device_repo: str,
     repo: str | None,
     download_repo: str,
 ) -> None:
@@ -1278,7 +1280,7 @@ async def test_upgrade_repo_selection(
     wled_data = load_fixture_json("wled")
     wled_data["info"]["arch"] = "esp32"
     wled_data["info"]["ver"] = "0.14.0"
-    wled_data["info"]["repo"] = "MoonModules/WLED"
+    wled_data["info"]["repo"] = device_repo
     mock_json_and_presets(responses, wled_data)
     await wled.update()
     responses.get(
