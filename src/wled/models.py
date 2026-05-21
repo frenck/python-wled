@@ -346,10 +346,13 @@ SegmentColor = tuple[int, int, int, int] | tuple[int, int, int]
 class SegmentUpdate:
     """Patch payload for :meth:`wled.WLED.segment`.
 
-    Every field is optional; only fields that are not ``None`` are sent to the
-    WLED device. For ``name``, an empty string clears the name while ``None``
-    leaves it unchanged.
+    Every field except ``segment_id`` is optional; only fields that are not
+    ``None`` are sent to the WLED device. For ``name``, an empty string clears
+    the name while ``None`` leaves it unchanged.
     """
+
+    segment_id: int
+    """ID of the segment to update."""
 
     brightness: int | None = None
     """Brightness of the segment, between 0 and 255."""
@@ -407,12 +410,6 @@ class SegmentUpdate:
 
     Setting this to a value at or below ``start`` (``0`` is recommended)
     invalidates and deletes the segment.
-    """
-
-    transition: int | None = None
-    """Duration of the crossfade.
-
-    One unit is 100ms, so a value of 4 results in a 400ms transition.
     """
 
     cct: int | None = None

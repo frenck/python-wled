@@ -433,27 +433,8 @@ class WLED:
 
         return colors
 
-    async def segment(self, segment_id: int, update: SegmentUpdate) -> None:
-        """Change state of a WLED Light segment.
-
-        Args:
-        ----
-            segment_id: The ID of the segment to adjust.
-            update: The patch describing which fields to change. Only fields
-                set to a non-``None`` value are sent to the device.
-
-        Raises:
-        ------
-            WLEDError: Something went wrong setting the segment state.
-
-        """
-        if self._device is None:
-            await self.update()
-
-        if self._device is None:
-            msg = "Unable to communicate with WLED to get the current state"
-            raise WLEDError(msg)
-
+    def _build_segment_payload(self, update: SegmentUpdate) -> dict[str, Any]:
+        """Build the JSON payload for a single segment update."""
         segment: dict[str, Any] = {
             "bri": update.brightness,
             "cln": update.clones,
@@ -475,20 +456,58 @@ class WLED:
         segment = {k: v for k, v in segment.items() if v is not None}
 
         if colors := self._build_color_list(
-            segment_id,
+            update.segment_id,
             update.color_primary,
             update.color_secondary,
             update.color_tertiary,
         ):
             segment["col"] = colors
 
-        state: dict[str, Any] = {}
         if segment:
-            segment["id"] = segment_id
-            state["seg"] = [segment]
+            segment["id"] = update.segment_id
 
-        if update.transition is not None:
-            state["tt"] = update.transition
+        return segment
+
+    async def segment(
+        self,
+        updates: list[SegmentUpdate],
+        *,
+        transition: int | None = None,
+    ) -> None:
+        """Change state of one or more WLED Light segments.
+
+        Args:
+        ----
+            updates: One :class:`SegmentUpdate` per segment to adjust. Only
+                fields set to a non-``None`` value are sent to the device.
+            transition: Duration of the crossfade between different
+                colors/brightness levels. One unit is 100ms, so a value of 4
+                results in a transition of 400ms.
+
+        Raises:
+        ------
+            WLEDError: Something went wrong setting the segment state.
+
+        """
+        if self._device is None:
+            await self.update()
+
+        if self._device is None:
+            msg = "Unable to communicate with WLED to get the current state"
+            raise WLEDError(msg)
+
+        segments = [
+            payload
+            for update in updates
+            if (payload := self._build_segment_payload(update))
+        ]
+
+        state: dict[str, Any] = {}
+        if segments:
+            state["seg"] = segments
+
+        if transition is not None:
+            state["tt"] = transition
 
         await self.request("/json/state", method="POST", data=state)
 
