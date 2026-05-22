@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import logging
 import re
 import socket
 import time
@@ -32,6 +34,8 @@ if TYPE_CHECKING:
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -632,7 +636,7 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(  # noqa: PLR0912
+    async def upgrade(  # noqa: PLR0912, PLR0915  # pylint: disable=too-many-statements
         self,
         *,
         version: str | AwesomeVersion,
@@ -715,6 +719,10 @@ class WLED:
             f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
         )
 
+        expected_sha256 = await self._fetch_firmware_digest(
+            repo=repo, version=str(version), asset_name=update_file
+        )
+
         try:
             async with (
                 asyncio.timeout(
@@ -725,8 +733,18 @@ class WLED:
                     raise_for_status=True,
                 ) as download,
             ):
+                firmware = await download.read()
+                if expected_sha256 is not None:
+                    actual_sha256 = hashlib.sha256(firmware).hexdigest()
+                    if actual_sha256 != expected_sha256:
+                        msg = (
+                            f"Firmware integrity check failed for {update_file}: "
+                            f"expected SHA256 {expected_sha256}, "
+                            f"got {actual_sha256}"
+                        )
+                        raise WLEDUpgradeError(msg)
                 form = aiohttp.FormData()
-                form.add_field("file", await download.read(), filename=update_file)
+                form.add_field("file", firmware, filename=update_file)
                 await self.session.post(url, data=form)
         except TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
@@ -746,6 +764,92 @@ class WLED:
                 " for WLED version information"
             )
             raise WLEDConnectionError(msg) from exception
+
+    async def _fetch_firmware_digest(  # noqa: PLR0911  # pylint: disable=too-many-return-statements
+        self, *, repo: str, version: str, asset_name: str
+    ) -> str | None:
+        """Fetch the expected SHA256 digest for a firmware asset from the GitHub API.
+
+        Returns the hex digest string if available, or None if it cannot be
+        determined (e.g. old release without digest, tag not found, API error).
+        Callers should proceed with the upgrade when None is returned.
+        """
+        assert self.session is not None  # noqa: S101  # guaranteed by upgrade()
+        api_url = f"https://api.github.com/repos/{repo}/releases/tags/v{version}"
+        try:
+            async with asyncio.timeout(self.request_timeout):
+                response = await self.session.get(
+                    api_url,
+                    headers={"Accept": "application/json"},
+                )
+        except TimeoutError:
+            _LOGGER.warning(
+                "Timeout fetching release metadata from GitHub; "
+                "skipping firmware integrity check"
+            )
+            return None
+        except (aiohttp.ClientError, socket.gaierror):
+            _LOGGER.warning(
+                "Connection error fetching release metadata from GitHub; "
+                "skipping firmware integrity check"
+            )
+            return None
+
+        if response.status == 404:
+            _LOGGER.warning(
+                "Release tag v%s not found on GitHub API; "
+                "skipping firmware integrity check",
+                version,
+            )
+            return None
+
+        if response.status // 100 in [4, 5]:
+            _LOGGER.warning(
+                "GitHub API returned HTTP %d for release metadata; "
+                "skipping firmware integrity check",
+                response.status,
+            )
+            return None
+
+        content_type = response.headers.get("Content-Type", "")
+        if "application/json" not in content_type:
+            _LOGGER.warning(
+                "Unexpected content type '%s' from GitHub API; "
+                "skipping firmware integrity check",
+                content_type,
+            )
+            return None
+
+        release = orjson.loads(await response.read())
+        for asset in release.get("assets", []):
+            if asset.get("name") == asset_name:
+                digest: str | None = asset.get("digest")
+                if digest is None:
+                    _LOGGER.debug(
+                        "No digest for asset %s in release v%s; "
+                        "skipping firmware integrity check",
+                        asset_name,
+                        version,
+                    )
+                    return None
+                prefix = "sha256:"
+                if digest.startswith(prefix):
+                    return digest[len(prefix) :]
+                _LOGGER.warning(
+                    "Unrecognised digest format '%s' for asset %s; "
+                    "skipping firmware integrity check",
+                    digest,
+                    asset_name,
+                )
+                return None
+
+        _LOGGER.debug(
+            "Asset %s not found in release v%s assets; "
+            "skipping firmware integrity check",
+            asset_name,
+            version,
+        )
+        return None
 
     async def reset(self) -> None:
         """Reboot WLED device."""

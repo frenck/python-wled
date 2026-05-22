@@ -1162,6 +1162,31 @@ async def test_client_error_raises_connection_error(
 # Section 17: WLED client - upgrade() method
 # =========================================================================
 
+FAKE_FIRMWARE = b"fake firmware"
+FAKE_FIRMWARE_SHA256 = (
+    "0eb580d67f17f6586407d4b9e0ae216a91b228e49cac8858b5283cd6da8ad0c1"
+)
+
+
+def mock_github_release_api(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    responses: aioresponses,
+    repo: str = "wled/WLED",
+    version: str = "0.15.0",
+    asset_name: str = "WLED_0.15.0_ESP32.bin",
+    digest: str | None = f"sha256:{FAKE_FIRMWARE_SHA256}",
+    status: int = 200,
+) -> None:
+    """Mock the GitHub releases/tags API for a given repo/version."""
+    asset = {"name": asset_name}
+    if digest is not None:
+        asset["digest"] = digest
+    responses.get(
+        f"https://api.github.com/repos/{repo}/releases/tags/v{version}",
+        status=status,
+        body=json.dumps({"tag_name": f"v{version}", "assets": [asset]}),
+        content_type="application/json",
+    )
+
 
 async def prepare_wled_for_upgrade(  # pylint: disable=too-many-arguments, too-many-positional-arguments
     responses: aioresponses,
@@ -1217,11 +1242,11 @@ async def test_upgrade_calls_update_when_no_device(
 ) -> None:
     """Test upgrade() calls update() if no device loaded."""
     mock_json_and_presets(responses)
-    # Mock the download and upload
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
         status=200,
-        body=b"fake firmware",
+        body=FAKE_FIRMWARE,
     )
     responses.post(
         "http://example.com/update",
@@ -1246,10 +1271,11 @@ async def test_upgrade_no_session_raises() -> None:
 async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
     """Test successful upgrade."""
     await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
         status=200,
-        body=b"fake firmware",
+        body=FAKE_FIRMWARE,
     )
     responses.post(
         "http://example.com/update",
@@ -1263,10 +1289,11 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
 async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with Ethernet board (empty bssid)."""
     await prepare_wled_for_upgrade(responses, wled, wifi_bssid="")
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32_Ethernet.bin")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32_Ethernet.bin",
         status=200,
-        body=b"fake firmware",
+        body=FAKE_FIRMWARE,
     )
     responses.post(
         "http://example.com/update",
@@ -1286,10 +1313,11 @@ async def test_upgrade_esp02_gzip(responses: aioresponses, wled: WLED) -> None:
     wled_data["info"]["fs"]["t"] = 512
     mock_json_and_presets(responses, wled_data)
     await wled.update()
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP02.bin.gz")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP02.bin.gz",
         status=200,
-        body=b"fake firmware",
+        body=FAKE_FIRMWARE,
     )
     responses.post(
         "http://example.com/update",
@@ -1303,6 +1331,7 @@ async def test_upgrade_esp02_gzip(responses: aioresponses, wled: WLED) -> None:
 async def test_upgrade_404(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with 404 download raises WLEDUpgradeError."""
     await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, version="0.99.0", status=404)
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.99.0/WLED_0.99.0_ESP32.bin",
         status=404,
@@ -1314,6 +1343,7 @@ async def test_upgrade_404(responses: aioresponses, wled: WLED) -> None:
 async def test_upgrade_other_http_error(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with non-404 HTTP error raises WLEDUpgradeError."""
     await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
         status=500,
@@ -1325,6 +1355,7 @@ async def test_upgrade_other_http_error(responses: aioresponses, wled: WLED) -> 
 async def test_upgrade_connection_error(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with connection error raises WLEDConnectionError."""
     await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
         exception=aiohttp.ClientError("fail"),
@@ -1336,6 +1367,7 @@ async def test_upgrade_connection_error(responses: aioresponses, wled: WLED) -> 
 async def test_upgrade_timeout(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with timeout raises WLEDConnectionTimeoutError."""
     await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
     wled.request_timeout = 0.001
     responses.get(
         "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
@@ -1343,6 +1375,138 @@ async def test_upgrade_timeout(responses: aioresponses, wled: WLED) -> None:
     )
     with pytest.raises(WLEDConnectionTimeoutError):
         await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_digest_mismatch_raises(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade raises WLEDUpgradeError when firmware digest does not match."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(
+        responses,
+        asset_name="WLED_0.15.0_ESP32.bin",
+        digest="sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    with pytest.raises(WLEDUpgradeError, match="integrity check failed"):
+        await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_no_digest_in_asset_proceeds(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade proceeds without error when asset has no digest (null)."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(
+        responses,
+        asset_name="WLED_0.15.0_ESP32.bin",
+        digest=None,
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body="OK",
+        content_type="text/plain",
+    )
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_asset_not_in_release_proceeds(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade proceeds when the firmware asset is not listed in the release."""
+    await prepare_wled_for_upgrade(responses, wled)
+    # Return a release with a different asset name (not matching our firmware file)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.15.0",
+        status=200,
+        body=json.dumps({"tag_name": "v0.15.0", "assets": [{"name": "other.bin"}]}),
+        content_type="application/json",
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body="OK",
+        content_type="text/plain",
+    )
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_github_api_404_proceeds(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade proceeds when the GitHub API returns 404 for the release tag."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, version="0.15.0", status=404)
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body="OK",
+        content_type="text/plain",
+    )
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_github_api_server_error_proceeds(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade proceeds (gracefully) when GitHub API returns a 5xx error."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, version="0.15.0", status=500)
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body="OK",
+        content_type="text/plain",
+    )
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_github_api_connection_error_proceeds(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade proceeds when GitHub API call raises a connection error."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.15.0",
+        exception=aiohttp.ClientError("fail"),
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body="OK",
+        content_type="text/plain",
+    )
+    await wled.upgrade(version="0.15.0")
 
 
 # =========================================================================
