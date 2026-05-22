@@ -70,14 +70,16 @@ to `wled/WLED`.
 Release assets must use the WLED release file naming convention:
 
 ```text
-WLED_{version}_{release}.bin
+{brand}_{version}_{release}.bin
 ```
 
-`version` is the release tag without the leading `v`, and `release` is the
-device-reported release name from `device.info.release`. The official
-[WLED releases][wled-releases] show examples of this format. For example, a
-device reporting `repo="example/WLED"` and `release="ESP32"` upgraded to
-version `0.15.0` expects this release asset:
+`brand` is the device-reported brand from `device.info.brand`, `version` is the
+release tag without the leading `v`, and `release` is the device-reported
+release name from `device.info.release`. The official
+[WLED releases][wled-releases] show examples of this format using the default
+brand `WLED`. For example, a device reporting `repo="example/WLED"`,
+`brand="WLED"`, and `release="ESP32"` upgraded to version `0.15.0` expects this
+release asset:
 
 ```text
 https://github.com/example/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin
