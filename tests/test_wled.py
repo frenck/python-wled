@@ -1261,19 +1261,24 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
 
 
 @pytest.mark.parametrize(
-    ("device_repo", "repo", "download_repo"),
+    ("device_repo", "call_kwargs", "download_repo"),
     [
-        ("MoonModules/WLED", None, "MoonModules/WLED"),
-        ("MoonModules/WLED", DEFAULT_REPO, DEFAULT_REPO),
-        (" ", None, DEFAULT_REPO),
+        pytest.param("MoonModules/WLED", {}, "MoonModules/WLED", id="device_repo"),
+        pytest.param(
+            "MoonModules/WLED", {"repo": DEFAULT_REPO}, DEFAULT_REPO, id="explicit_repo"
+        ),
+        pytest.param(" ", {}, DEFAULT_REPO, id="missing_device_repo"),
+        pytest.param(" ", {}, DEFAULT_REPO, id="blank_device_repo"),
+        pytest.param(
+            "FORK_A/WLED", {"repo": "FORK_B/WLED"}, "FORK_B/WLED", id="migrate_to_fork"
+        ),
     ],
-    ids=["device_repo", "explicit_repo", "blank_device_repo"],
 )
 async def test_upgrade_repo_selection(
     responses: aioresponses,
     wled: WLED,
     device_repo: str,
-    repo: str | None,
+    call_kwargs: dict,
     download_repo: str,
 ) -> None:
     """Test upgrade selects the expected firmware repository."""
@@ -1295,10 +1300,7 @@ async def test_upgrade_repo_selection(
         body="OK",
         content_type="text/plain",
     )
-    if repo is None:
-        await wled.upgrade(version="0.15.0")
-    else:
-        await wled.upgrade(version="0.15.0", repo=repo)
+    await wled.upgrade(version="0.15.0", **call_kwargs)
 
 
 async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> None:
