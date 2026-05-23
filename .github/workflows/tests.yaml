@@ -62,13 +62,12 @@ jobs:
           python-version: ${{ env.DEFAULT_PYTHON }}
       - name: 🏗 Install uv
         run: pipx install uv
-      - name: 🏗 Install dependencies (minimum versions)
-        run: >
-          uv pip install --system --resolution=lowest-direct
-          -e ".[cli]"
-          aioresponses pytest pytest-asyncio pytest-cov covdefaults syrupy
+      - name: 🏗 Install package (minimum dependency versions)
+        run: uv pip install --system --resolution=lowest-direct -e ".[cli]"
+      - name: 🏗 Install test dependencies
+        run: uv pip install --system aioresponses pytest pytest-asyncio syrupy
       - name: 🚀 Run pytest
-        run: pytest tests
+        run: pytest tests --no-cov
 
   coverage:
     runs-on: ubuntu-latest
