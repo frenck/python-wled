@@ -636,7 +636,7 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(  # noqa: PLR0912, PLR0915  # pylint: disable=too-many-statements
+    async def upgrade(
         self,
         *,
         version: str | AwesomeVersion,
@@ -722,7 +722,23 @@ class WLED:
         expected_sha256 = await self._fetch_firmware_digest(
             repo=repo, version=str(version), asset_name=update_file
         )
+        await self._download_and_flash_firmware(
+            download_url=download_url,
+            flash_url=url,
+            update_file=update_file,
+            expected_sha256=expected_sha256,
+        )
 
+    async def _download_and_flash_firmware(
+        self,
+        *,
+        download_url: str,
+        flash_url: URL,
+        update_file: str,
+        expected_sha256: str | None,
+    ) -> None:
+        """Download firmware, verify its SHA256 digest, and POST it to the device."""
+        assert self.session is not None  # noqa: S101  # guaranteed by upgrade()
         try:
             async with (
                 asyncio.timeout(
@@ -745,7 +761,7 @@ class WLED:
                         raise WLEDUpgradeError(msg)
                 form = aiohttp.FormData()
                 form.add_field("file", firmware, filename=update_file)
-                await self.session.post(url, data=form)
+                await self.session.post(flash_url, data=form)
         except TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
@@ -753,10 +769,7 @@ class WLED:
             if exception.status == 404:
                 msg = f"Requested firmware file {update_file} does not exist"
                 raise WLEDUpgradeError(msg) from exception
-            msg = (
-                f"Could not download requested WLED version '{version}'"
-                f" from {download_url}"
-            )
+            msg = f"Could not download requested WLED version from {download_url}"
             raise WLEDUpgradeError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = (
@@ -765,7 +778,7 @@ class WLED:
             )
             raise WLEDConnectionError(msg) from exception
 
-    async def _fetch_firmware_digest(  # noqa: PLR0911  # pylint: disable=too-many-return-statements
+    async def _fetch_firmware_digest(
         self, *, repo: str, version: str, asset_name: str
     ) -> str | None:
         """Fetch the expected SHA256 digest for a firmware asset from the GitHub API.
@@ -821,6 +834,14 @@ class WLED:
             return None
 
         release = orjson.loads(await response.read())
+        return self._parse_asset_digest(
+            release=release, asset_name=asset_name, version=version
+        )
+
+    def _parse_asset_digest(
+        self, *, release: dict[str, Any], asset_name: str, version: str
+    ) -> str | None:
+        """Extract the SHA256 hex digest for a named asset from a release payload."""
         for asset in release.get("assets", []):
             if asset.get("name") == asset_name:
                 digest: str | None = asset.get("digest")
