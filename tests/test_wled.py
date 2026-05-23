@@ -1509,6 +1509,42 @@ async def test_upgrade_github_api_connection_error_proceeds(
     await wled.upgrade(version="0.15.0")
 
 
+async def test_upgrade_device_http_error(responses: aioresponses, wled: WLED) -> None:
+    """Test upgrade raises WLEDUpgradeError when the device rejects the POST."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=500,
+    )
+    with pytest.raises(WLEDUpgradeError, match="Device rejected"):
+        await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_device_connection_error(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade raises WLEDConnectionError when device POST fails."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_github_release_api(responses, asset_name="WLED_0.15.0_ESP32.bin")
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FAKE_FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        exception=aiohttp.ClientError("device gone"),
+    )
+    with pytest.raises(WLEDConnectionError):
+        await wled.upgrade(version="0.15.0")
+
+
 # =========================================================================
 # Section 18: WLEDReleases class
 # =========================================================================
