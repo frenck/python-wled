@@ -24,7 +24,11 @@ from wled.exceptions import (
 )
 from wled.wled import WLEDReleases
 
-from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
+from .conftest import (
+    full_device_data,
+    load_fixture_json,
+    mock_json_and_presets,
+)
 
 
 def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
@@ -1261,23 +1265,31 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
 
 
 @pytest.mark.parametrize(
-    ("device_repo", "call_kwargs", "download_repo"),
+    ("info_override", "call_kwargs", "download_repo"),
     [
-        pytest.param("MoonModules/WLED", {}, "MoonModules/WLED", id="device_repo"),
         pytest.param(
-            "MoonModules/WLED", {"repo": DEFAULT_REPO}, DEFAULT_REPO, id="explicit_repo"
+            {"repo": "MoonModules/WLED"}, {}, "MoonModules/WLED", id="device_repo"
         ),
-        pytest.param(" ", {}, DEFAULT_REPO, id="missing_device_repo"),
-        pytest.param(" ", {}, DEFAULT_REPO, id="blank_device_repo"),
         pytest.param(
-            "FORK_A/WLED", {"repo": "FORK_B/WLED"}, "FORK_B/WLED", id="migrate_to_fork"
+            {"repo": "MoonModules/WLED"},
+            {"repo": DEFAULT_REPO},
+            DEFAULT_REPO,
+            id="explicit_repo",
+        ),
+        pytest.param({"repo": " "}, {}, DEFAULT_REPO, id="missing_device_repo"),
+        pytest.param({}, {}, DEFAULT_REPO, id="blank_device_repo"),
+        pytest.param(
+            {"repo": "FORK_A/WLED"},
+            {"repo": "FORK_B/WLED"},
+            "FORK_B/WLED",
+            id="migrate_to_fork",
         ),
     ],
 )
 async def test_upgrade_repo_selection(
     responses: aioresponses,
     wled: WLED,
-    device_repo: str,
+    info_override: dict,
     call_kwargs: dict,
     download_repo: str,
 ) -> None:
@@ -1285,7 +1297,7 @@ async def test_upgrade_repo_selection(
     wled_data = load_fixture_json("wled")
     wled_data["info"]["arch"] = "esp32"
     wled_data["info"]["ver"] = "0.14.0"
-    wled_data["info"]["repo"] = device_repo
+    wled_data["info"].update(info_override)
     mock_json_and_presets(responses, wled_data)
     await wled.update()
     responses.get(
