@@ -65,7 +65,7 @@ jobs:
       - name: 🏗 Install package (minimum dependency versions)
         run: uv pip install --system --resolution=lowest-direct -e ".[cli]"
       - name: 🏗 Install test dependencies
-        run: uv pip install --system aioresponses pytest pytest-asyncio syrupy
+        run: uv pip install --system aioresponses pytest pytest-asyncio pytest-cov syrupy
       - name: 🚀 Run pytest
         run: pytest tests --no-cov
 
