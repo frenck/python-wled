@@ -10,6 +10,7 @@ from awesomeversion import AwesomeVersion
 from syrupy.assertion import SnapshotAssertion
 
 from wled import Device, Playlist, Preset, Releases
+from wled.const import DEFAULT_REPO
 from wled.exceptions import WLEDUnsupportedVersionError
 from wled.models import (
     AwesomeVersionSerializationStrategy,
@@ -313,6 +314,18 @@ def test_info_version_deserialized() -> None:
     info = Info.from_dict(_base_info(ver="0.14.0"))
     assert info.version is not None
     assert str(info.version) == "0.14.0"
+
+
+def test_info_repo_defaults_to_default_repo() -> None:
+    """Test repo defaults to DEFAULT_REPO when not present."""
+    info = Info.from_dict(_base_info())
+    assert info.repo == DEFAULT_REPO
+
+
+def test_info_repo_uses_device_value_when_present() -> None:
+    """Test repo is deserialized from the device response."""
+    info = Info.from_dict(_base_info(repo="MoonModules/WLED"))
+    assert info.repo == "MoonModules/WLED"
 
 
 # =========================================================================
