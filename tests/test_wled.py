@@ -360,42 +360,41 @@ async def test_update_skips_effects_when_unchanged(
     changed_data["info"]["fxcount"] += 1
     changed_data["effects"] = wled_data["effects"] + ["New Effect"]
 
-    with patch("wled.wled.time.time", return_value=1_000_000.0):
-        # First update: fetches /json, /json/effects, /presets.json
-        mock_json_and_presets(responses, wled_data)
-        # Second update: same fxcount and boot_time — only /json fetched
-        responses.get(
-            "http://example.com/json",
-            status=200,
-            body=json.dumps(wled_data),
-            content_type="application/json",
-        )
-        # Third update: fxcount increased — /json/effects refetched with extra effect
-        responses.get(
-            "http://example.com/json",
-            status=200,
-            body=json.dumps(changed_data),
-            content_type="application/json",
-        )
-        responses.get(
-            "http://example.com/json/effects",
-            status=200,
-            body=json.dumps(changed_data["effects"]),
-            content_type="application/json",
-        )
+    # First update: fetches /json, /json/effects, /presets.json
+    mock_json_and_presets(responses, wled_data)
+    # Second update: same fxcount and boot_time — only /json fetched
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    # Third update: fxcount increased — /json/effects refetched with extra effect
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(changed_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(changed_data["effects"]),
+        content_type="application/json",
+    )
 
-        device1 = await wled.update()
-        assert device1.info.effect_count == wled_data["info"]["fxcount"]
-        initial_effect_count = len(device1.effects)
+    device1 = await wled.update()
+    assert device1.info.effect_count == wled_data["info"]["fxcount"]
+    initial_effect_count = len(device1.effects)
 
-        device2 = await wled.update()
-        assert device2.info.effect_count == wled_data["info"]["fxcount"]
-        assert len(device2.effects) == initial_effect_count  # no re-fetch, unchanged
+    device2 = await wled.update()
+    assert device2.info.effect_count == wled_data["info"]["fxcount"]
+    assert len(device2.effects) == initial_effect_count  # no re-fetch, unchanged
 
-        device3 = await wled.update()
-        assert device3.info.effect_count == changed_data["info"]["fxcount"]
-        # "New Effect" added after fxcount bump — re-fetch brought it in
-        assert len(device3.effects) == initial_effect_count + 1
+    device3 = await wled.update()
+    assert device3.info.effect_count == changed_data["info"]["fxcount"]
+    # "New Effect" added after fxcount bump — re-fetch brought it in
+    assert len(device3.effects) == initial_effect_count + 1
 
 
 async def test_update_refetches_effects_after_device_restart(
