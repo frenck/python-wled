@@ -123,6 +123,8 @@ class WLED:
                 when fetching presets.
             WLEDInvalidResponseError: The WLED device returned an invalid response
                 when fetching presets.
+            WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status
+                when fetching presets.
 
         """
         if not self._client or not self.connected or not self._device:
@@ -324,6 +326,7 @@ class WLED:
         ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
             WLEDInvalidResponseError: The WLED device returned an invalid response.
+            WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status.
 
         """
         if not (data := await self.request("/json")):
