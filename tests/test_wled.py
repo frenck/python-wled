@@ -20,6 +20,7 @@ from wled.exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
     WLEDInvalidResponseError,
+    WLEDStatusError,
     WLEDUpgradeError,
 )
 from wled.wled import WLEDReleases
@@ -148,6 +149,39 @@ async def test_http_error(
 
     with pytest.raises(WLEDError):
         assert await wled.request("/")
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "content_type", "expected_body"),
+    [
+        (404, "Not Found", "text/plain", {"message": "Not Found"}),
+        (500, '{"error":"oops"}', "application/json", {"error": "oops"}),
+    ],
+    ids=["404-text", "500-json"],
+)
+async def test_http_error_raises_status_error(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    responses: aioresponses,
+    wled: WLED,
+    status: int,
+    body: str,
+    content_type: str,
+    expected_body: dict,
+) -> None:
+    """Test HTTP error raises WLEDStatusError with structured attributes."""
+    responses.get(
+        "http://example.com/json",
+        status=status,
+        body=body,
+        content_type=content_type,
+    )
+    with pytest.raises(WLEDStatusError) as exc_info:
+        await wled.request("/json")
+    err = exc_info.value
+    assert err.method == "GET"
+    assert err.path == "/json"
+    assert err.status == status
+    assert err.body == expected_body
+    assert err.args == (status, expected_body)
 
 
 @pytest.mark.parametrize(

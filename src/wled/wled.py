@@ -243,7 +243,12 @@ class WLED:
                             msg, method=method, path=uri
                         ) from exception
                     raise WLEDStatusError(
-                        method=method, path=uri, status=response.status, body=error_body
+                        response.status,
+                        error_body,
+                        method=method,
+                        path=uri,
+                        status=response.status,
+                        body=error_body,
                     )
                 try:
                     message = contents.decode("utf-8")
@@ -256,6 +261,8 @@ class WLED:
                         msg, method=method, path=uri
                     ) from exception
                 raise WLEDStatusError(
+                    response.status,
+                    {"message": message},
                     method=method,
                     path=uri,
                     status=response.status,
