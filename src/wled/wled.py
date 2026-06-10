@@ -147,7 +147,7 @@ class WLED:
                     if not (presets := await self.request("/presets.json")):
                         msg = (
                             f"WLED device at {self.host} returned an empty API"
-                            " response on presets update",
+                            " response on presets update"
                         )
                         raise WLEDEmptyResponseError(msg)
                     message_data["presets"] = presets
@@ -311,7 +311,7 @@ class WLED:
         if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on full update",
+                " response on full update"
             )
             raise WLEDEmptyResponseError(msg)
 
@@ -320,7 +320,7 @@ class WLED:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
+                    " response on presets update"
                 )
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
@@ -330,7 +330,7 @@ class WLED:
             if not (effects := await self.request("/json/effects")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on effects update",
+                    " response on effects update"
                 )
                 raise WLEDEmptyResponseError(msg)
             data["effects"] = effects
@@ -869,7 +869,9 @@ class WLED:
             return (False, self._effects_version)
 
         info = data["info"]
-        if not (uptime := info.get("uptime")) or not (fxcount := info.get("fxcount")):
+        if (uptime := info.get("uptime")) is None or not (
+            fxcount := info.get("fxcount")
+        ):
             return (True, None)
 
         try:
