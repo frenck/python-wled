@@ -453,11 +453,20 @@ async def test_update_uses_effects_endpoint_for_full_list(
         body=json.dumps(load_fixture_json("presets")),
         content_type="application/json",
     )
+    # Second update: /json still truncated, fxcount unchanged — no /json/effects stub.
+    # The cached full list must survive and not be overwritten by the truncated payload.
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
 
     device = await wled.update()
+    assert len(device.effects) == 3  # full list from /json/effects
 
-    # Despite /json returning only 1 effect, device has the full list from /json/effects
-    assert len(device.effects) == 3
+    device = await wled.update()
+    assert len(device.effects) == 3  # still full — truncated /json did not overwrite
 
 
 async def test_listen_preset_change_via_websocket(

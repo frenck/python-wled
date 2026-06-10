@@ -334,6 +334,10 @@ class WLED:
                 )
                 raise WLEDEmptyResponseError(msg)
             data["effects"] = effects
+        else:
+            # Drop the possibly-truncated effects list from /json so that
+            # update_from_dict() keeps the cached full list from /json/effects.
+            data.pop("effects", None)
 
         if not self._device:
             self._device = Device.from_dict(data)
