@@ -246,8 +246,12 @@ async def test_update_corrupt_presets_response(
         body=body,
         content_type="application/json",
     )
-    with pytest.raises(WLEDInvalidResponseError, match=r"GET /presets\.json"):
+    with pytest.raises(
+        WLEDInvalidResponseError, match=r"GET /presets\.json"
+    ) as exc_info:
         await wled.update()
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 async def test_update_empty_presets_response(
@@ -269,8 +273,10 @@ async def test_update_empty_presets_response(
             content_type="text/plain",
         )
 
-    with pytest.raises(WLEDEmptyResponseError):
+    with pytest.raises(WLEDEmptyResponseError) as exc_info:
         await wled.update()
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 async def test_update_skips_presets_when_unchanged(
@@ -406,8 +412,10 @@ async def test_listen_preset_change_empty_response(
         content_type="text/plain",
     )
 
-    with pytest.raises(WLEDEmptyResponseError):
+    with pytest.raises(WLEDEmptyResponseError) as exc_info:
         await wled.listen(MagicMock())
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 # =========================================================================
