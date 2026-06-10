@@ -22,6 +22,7 @@ from .exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
     WLEDInvalidResponseError,
+    WLEDStatusError,
     WLEDUpgradeError,
 )
 from .models import Device, Playlist, Preset, Releases
@@ -241,7 +242,9 @@ class WLED:
                         raise WLEDInvalidResponseError(
                             msg, method=method, path=uri
                         ) from exception
-                    raise WLEDError(response.status, error_body)
+                    raise WLEDStatusError(
+                        method=method, path=uri, status=response.status, body=error_body
+                    )
                 try:
                     message = contents.decode("utf-8")
                 except UnicodeDecodeError as exception:
@@ -252,9 +255,11 @@ class WLED:
                     raise WLEDInvalidResponseError(
                         msg, method=method, path=uri
                     ) from exception
-                raise WLEDError(
-                    response.status,
-                    {"message": message},
+                raise WLEDStatusError(
+                    method=method,
+                    path=uri,
+                    status=response.status,
+                    body={"message": message},
                 )
 
             try:
