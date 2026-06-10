@@ -405,7 +405,6 @@ async def test_update_refetches_effects_after_device_restart(
     wled_data = load_fixture_json("wled")
     restarted_data = json.loads(json.dumps(wled_data))
     restarted_data["info"]["uptime"] = 5  # uptime reset — device just booted
-    restarted_data["info"]["fxcount"] += 1
     restarted_data["effects"] = wled_data["effects"] + ["Post Restart Effect"]
 
     mock_json_and_presets(responses, wled_data)
@@ -414,12 +413,10 @@ async def test_update_refetches_effects_after_device_restart(
 
     device1 = await wled.update()
     assert device1.info.effect_count == wled_data["info"]["fxcount"]
-    initial_effect_count = len(device1.effects)
 
     device2 = await wled.update()
-    assert device2.info.effect_count == restarted_data["info"]["fxcount"]
-    # "Post Restart Effect" added — re-fetch after restart brought it in
-    assert len(device2.effects) == initial_effect_count + 1
+    # Refetch was triggered by boot_time shift, not fxcount — verify by content
+    assert any(e.name == "Post Restart Effect" for e in device2.effects.values())
 
 
 async def test_update_uses_effects_endpoint_for_full_list(

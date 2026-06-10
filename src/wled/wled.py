@@ -327,7 +327,8 @@ class WLED:
 
         changed_effects, new_effects_version = self._check_effects_changed(data)
         if changed_effects:
-            if not (effects := await self.request("/json/effects")):
+            effects = await self.request("/json/effects")
+            if not isinstance(effects, list):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
                     " response on effects update"
