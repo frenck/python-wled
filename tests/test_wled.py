@@ -429,7 +429,7 @@ async def test_update_uses_effects_endpoint_for_full_list(
     """
     wled_data = load_fixture_json("wled")
     full_effects = wled_data["effects"]
-    # Truncate in-place — simulates ESP8266 /json buffer overflow
+    # Truncate list — simulates ESP8266 /json buffer overflow
     wled_data["effects"] = full_effects[:1]
 
     responses.get(
