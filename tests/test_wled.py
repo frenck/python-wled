@@ -279,7 +279,7 @@ async def test_update_skips_presets_when_unchanged(
     """Test update() skips fetching presets.json when presets haven't changed."""
     wled_data = load_fixture_json("wled")
 
-    # First update: fetches both /json and /presets.json
+    # First update: fetches /json, /json/effects, /presets.json
     responses.get(
         "http://example.com/json",
         status=200,

@@ -873,9 +873,9 @@ class WLED:
             return (False, self._effects_version)
 
         info = data["info"]
-        if (uptime := info.get("uptime")) is None or not (
+        if (uptime := info.get("uptime")) is None or (
             fxcount := info.get("fxcount")
-        ):
+        ) is None:
             return (True, None)
 
         try:
