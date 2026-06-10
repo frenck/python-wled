@@ -10,7 +10,7 @@ class WLEDEmptyResponseError(WLEDError):
 
     def __init__(
         self,
-        message: str,
+        message: str = "",
         *,
         method: str | None = None,
         path: str | None = None,
@@ -26,7 +26,7 @@ class WLEDInvalidResponseError(WLEDError):
 
     def __init__(
         self,
-        message: str,
+        message: str = "",
         *,
         method: str | None = None,
         path: str | None = None,
