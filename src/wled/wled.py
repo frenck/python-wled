@@ -330,10 +330,10 @@ class WLED:
             effects = await self.request("/json/effects")
             if not isinstance(effects, list):
                 msg = (
-                    f"WLED device at {self.host} returned an empty API"
+                    f"WLED device at {self.host} returned an invalid"
                     " response on effects update"
                 )
-                raise WLEDEmptyResponseError(msg)
+                raise WLEDInvalidResponseError(msg)
             data["effects"] = effects
         else:
             # Drop the possibly-truncated effects list from /json so that
@@ -889,7 +889,7 @@ class WLED:
 
         # For initial load, always fetch effects as /json may not include
         # all effect information.
-        if self._device is None or self._device.effects is None:
+        if self._device is None:
             return (True, new_version)
 
         if self._effects_version is None:
