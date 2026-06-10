@@ -287,6 +287,12 @@ async def test_update_skips_presets_when_unchanged(
         content_type="application/json",
     )
     responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(wled_data["effects"]),
+        content_type="application/json",
+    )
+    responses.get(
         "http://example.com/presets.json",
         status=200,
         body=json.dumps(load_fixture_json("presets")),
@@ -343,6 +349,114 @@ async def test_update_refetches_presets_when_info_incomplete(
     await wled.update()
     # Without fs/pmt, every update refetches presets
     await wled.update()
+
+
+async def test_update_skips_effects_when_unchanged(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() skips /json/effects when effect count and boot time unchanged."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["fxcount"] += 1
+    changed_data["effects"] = wled_data["effects"] + ["New Effect"]
+
+    # First update: fetches /json, /json/effects, /presets.json
+    mock_json_and_presets(responses, wled_data)
+    # Second update: same fxcount and boot_time — only /json fetched
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    # Third update: fxcount increased — /json/effects refetched with extra effect
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(changed_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(changed_data["effects"]),
+        content_type="application/json",
+    )
+
+    device1 = await wled.update()
+    assert device1.info.effect_count == wled_data["info"]["fxcount"]
+    initial_effect_count = len(device1.effects)
+
+    device2 = await wled.update()
+    assert device2.info.effect_count == wled_data["info"]["fxcount"]
+    assert len(device2.effects) == initial_effect_count  # no re-fetch, unchanged
+
+    device3 = await wled.update()
+    assert device3.info.effect_count == changed_data["info"]["fxcount"]
+    # "New Effect" added after fxcount bump — re-fetch brought it in
+    assert len(device3.effects) == initial_effect_count + 1
+
+
+async def test_update_refetches_effects_after_device_restart(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() refetches effects when a device restart is detected."""
+    wled_data = load_fixture_json("wled")
+    restarted_data = json.loads(json.dumps(wled_data))
+    restarted_data["info"]["uptime"] = 5  # uptime reset — device just booted
+    restarted_data["info"]["fxcount"] += 1
+    restarted_data["effects"] = wled_data["effects"] + ["Post Restart Effect"]
+
+    mock_json_and_presets(responses, wled_data)
+    # After restart uptime drops from 32489 → 5, so boot_time shifts by ~32484s
+    mock_json_and_presets(responses, restarted_data)
+
+    device1 = await wled.update()
+    assert device1.info.effect_count == wled_data["info"]["fxcount"]
+    initial_effect_count = len(device1.effects)
+
+    device2 = await wled.update()
+    assert device2.info.effect_count == restarted_data["info"]["fxcount"]
+    # "Post Restart Effect" added — re-fetch after restart brought it in
+    assert len(device2.effects) == initial_effect_count + 1
+
+
+async def test_update_uses_effects_endpoint_for_full_list(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() uses /json/effects to get the complete effects list.
+
+    Simulates the ESP8266 /json buffer overflow (WLED issue #5674): /json
+    returns a truncated effects list while /json/effects returns the full one.
+    """
+    wled_data = load_fixture_json("wled")
+    full_effects = wled_data["effects"]
+    # Truncate in-place — simulates ESP8266 /json buffer overflow
+    wled_data["effects"] = full_effects[:1]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(full_effects),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+
+    # Despite /json returning only 1 effect, device has the full list from /json/effects
+    assert len(device.effects) == 3
 
 
 async def test_listen_preset_change_via_websocket(

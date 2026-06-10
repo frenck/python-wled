@@ -52,6 +52,12 @@ def mock_json_and_presets(
         body=json.dumps(wled_data),
         content_type="application/json",
     )
+    mocked.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(wled_data["effects"]),
+        content_type="application/json",
+    )
     if presets_data is None:
         presets_data = load_fixture_json("presets")
     mocked.get(
