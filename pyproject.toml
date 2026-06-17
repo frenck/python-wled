@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cli = ["typer[all]>=0.24.0,<1.0.0", "zeroconf[all]>=0.149.7,<1.0.0"]
+cli = ["typer[all]>=0.24.0,<1.0.0", "zeroconf[all]>=0.149.12,<1.0.0"]
 
 [project.scripts]
 wled = "wled.cli:cli"
