@@ -14,6 +14,8 @@ from .exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
     WLEDInvalidResponseError,
+    WLEDResponseError,
+    WLEDStatusError,
     WLEDUnsupportedVersionError,
     WLEDUpgradeError,
 )
@@ -66,6 +68,8 @@ __all__ = [
     "WLEDError",
     "WLEDInvalidResponseError",
     "WLEDReleases",
+    "WLEDResponseError",
+    "WLEDStatusError",
     "WLEDUnsupportedVersionError",
     "WLEDUpgradeError",
     "Wifi",
