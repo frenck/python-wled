@@ -74,13 +74,19 @@ def mock_json_and_presets(
     wled_data: dict[str, Any] | None = None,
     presets_data: dict[str, Any] | None = None,
 ) -> None:
-    """Register the two GET endpoints that WLED.update() calls."""
+    """Register the three GET endpoints that WLED.update() calls."""
     if wled_data is None:
         wled_data = load_fixture_json("wled")
     mocked.get(
         "http://example.com/json",
         status=200,
         body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mocked.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(wled_data["effects"]),
         content_type="application/json",
     )
     if presets_data is None:
