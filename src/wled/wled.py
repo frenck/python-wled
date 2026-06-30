@@ -632,6 +632,23 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
+    async def audio_reactive(self, *, on: bool) -> None:
+        """Control the AudioReactive usermod of a WLED device.
+
+        Args:
+        ----
+            on: A boolean, true to enable the AudioReactive usermod,
+                false otherwise.
+
+        """
+        # The AudioReactive usermod reports its state in the `on` field,
+        # but accepts state changes in the `enabled` field.
+        await self.request(
+            "/json/state",
+            method="POST",
+            data={"AudioReactive": {"enabled": on}},
+        )
+
     async def upgrade(  # noqa: PLR0912
         self,
         *,

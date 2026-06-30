@@ -1155,6 +1155,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=255,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -2370,6 +2371,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -3634,6 +3636,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -4845,6 +4848,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -6056,6 +6060,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -7270,6 +7275,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -8481,6 +8487,7 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=None,
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -9696,6 +9703,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -10911,6 +10921,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -12126,6 +12139,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -13341,6 +13357,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -14556,6 +14575,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
@@ -15920,6 +15942,9 @@
     presets=dict({
     }),
     state=State(
+      audio_reactive=AudioReactive(
+        on=False,
+      ),
       brightness=128,
       ledmap=0,
       live_data_override=<LiveDataOverride.OFF: 0>,
