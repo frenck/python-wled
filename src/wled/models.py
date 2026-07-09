@@ -621,6 +621,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """If true, UI toggling also toggles sync receive."""
 
+    sensor: dict[str, Any] | None = None
+    """Optional additional sensors."""
+
     udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
     """The UDP port for realtime packets and WLED broadcast."""
 

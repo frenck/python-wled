@@ -328,6 +328,15 @@ def test_info_repo_uses_device_value_when_present() -> None:
     assert info.repo == "MoonModules/WLED"
 
 
+def test_info_sensor() -> None:
+    """Test sensor is deserialized."""
+    info = Info.from_dict(_base_info(sensor={"temperature": [77, "F"]}))
+
+    assert isinstance(info.sensor, dict)
+    assert "temperature" in info.sensor
+    assert info.sensor["temperature"] == [77, "F"]
+
+
 # =========================================================================
 # State model
 # =========================================================================
