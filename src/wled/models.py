@@ -338,6 +338,84 @@ class Segment(BaseModel):
     """Transposes the segment, swapping X and Y dimensions (2D only)."""
 
 
+# RGB or RGBW color tuple used when updating a segment.
+SegmentColor = tuple[int, int, int, int] | tuple[int, int, int]
+
+
+@dataclass(kw_only=True)
+class SegmentUpdate:
+    """Patch payload for :meth:`wled.WLED.segment`.
+
+    Every field except ``segment_id`` is optional; only fields that are not
+    ``None`` are sent to the WLED device. For ``name``, an empty string clears
+    the name while ``None`` leaves it unchanged.
+    """
+
+    segment_id: int
+    """ID of the segment to update."""
+
+    brightness: int | None = None
+    """Brightness of the segment, between 0 and 255."""
+
+    clones: int | None = None
+    """Deprecated."""
+
+    color_primary: SegmentColor | None = None
+    """Primary color of the segment."""
+
+    color_secondary: SegmentColor | None = None
+    """Secondary color of the segment."""
+
+    color_tertiary: SegmentColor | None = None
+    """Tertiary color of the segment."""
+
+    effect: int | str | None = None
+    """Effect ID (or name) to use on this segment."""
+
+    freeze: bool | None = None
+    """Freeze the current segment state."""
+
+    individual: list[int | list[int] | SegmentColor] | None = None
+    """List of colors to use for each LED in the segment."""
+
+    intensity: int | None = None
+    """Effect intensity to use on this segment."""
+
+    length: int | None = None
+    """Length of this segment."""
+
+    name: str | None = None
+    """Name of the segment. Pass an empty string to clear it."""
+
+    on: bool | None = None
+    """Turn this segment on or off."""
+
+    palette: int | str | None = None
+    """Palette ID (or name) to use on this segment."""
+
+    reverse: bool | None = None
+    """Flip the segment, causing animations to change direction."""
+
+    selected: bool | None = None
+    """Whether the segment is selected for state updates by non-segment APIs."""
+
+    speed: int | None = None
+    """Relative effect speed, between 0 and 255."""
+
+    start: int | None = None
+    """LED the segment starts at."""
+
+    stop: int | None = None
+    """LED the segment stops at, not included in range.
+
+    Setting this to a value at or below ``start`` (``0`` is recommended)
+    invalidates and deletes the segment.
+    """
+
+    cct: int | None = None
+    """White spectrum color temperature."""
+
+
 @dataclass(kw_only=True)
 class Leds:
     """Object holding leds info from WLED."""

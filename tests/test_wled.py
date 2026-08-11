@@ -11,7 +11,7 @@ import pytest
 from aioresponses import aioresponses
 from yarl import URL
 
-from wled import WLED, Device, Releases
+from wled import WLED, Device, Releases, SegmentUpdate
 from wled.const import LiveDataOverride
 from wled.exceptions import (
     WLEDConnectionClosedError,
@@ -525,7 +525,7 @@ async def test_segment(
         content_type="application/json",
     )
 
-    await wled.segment(0, **kwargs)
+    await wled.segment([SegmentUpdate(segment_id=0, **kwargs)])
 
     assert_post_payload(
         responses,
@@ -544,7 +544,7 @@ async def test_segment_with_transition(responses: aioresponses, wled: WLED) -> N
         content_type="application/json",
     )
 
-    await wled.segment(0, brightness=100, transition=5)
+    await wled.segment([SegmentUpdate(segment_id=0, brightness=100)], transition=5)
 
     assert_post_payload(
         responses,
@@ -554,6 +554,38 @@ async def test_segment_with_transition(responses: aioresponses, wled: WLED) -> N
                 {"bri": 100, "id": 0},
             ],
             "tt": 5,
+            "v": True,
+        },
+    )
+
+
+async def test_segment_multiple_updates(responses: aioresponses, wled: WLED) -> None:
+    """Test updating multiple segments in a single call."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segment(
+        [
+            SegmentUpdate(segment_id=0, brightness=100),
+            SegmentUpdate(segment_id=1, on=True),
+        ],
+        transition=10,
+    )
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {
+            "seg": [
+                {"bri": 100, "id": 0},
+                {"on": True, "id": 1},
+            ],
+            "tt": 10,
             "v": True,
         },
     )
@@ -571,7 +603,7 @@ async def test_segment_calls_update_when_no_device(
         content_type="application/json",
     )
 
-    await wled.segment(0, on=True)
+    await wled.segment([SegmentUpdate(segment_id=0, on=True)])
 
     assert_post_payload(
         responses,
@@ -592,7 +624,7 @@ async def test_segment_no_device_raises(wled: WLED) -> None:
         patch.object(wled, "update", new_callable=AsyncMock),
         pytest.raises(WLEDError, match="Unable to communicate"),
     ):
-        await wled.segment(0, on=True)
+        await wled.segment([SegmentUpdate(segment_id=0, on=True)])
 
 
 async def test_segment_color_tertiary_no_secondary_in_state(
@@ -610,7 +642,7 @@ async def test_segment_color_tertiary_no_secondary_in_state(
         content_type="application/json",
     )
 
-    await wled.segment(0, color_tertiary=(0, 0, 255))
+    await wled.segment([SegmentUpdate(segment_id=0, color_tertiary=(0, 0, 255))])
 
     assert_post_payload(
         responses,
@@ -640,7 +672,7 @@ async def test_segment_secondary_no_color_in_state(
     )
 
     # color is None, so it should use (0,0,0) fallback
-    await wled.segment(0, color_secondary=(0, 255, 0))
+    await wled.segment([SegmentUpdate(segment_id=0, color_secondary=(0, 255, 0))])
 
     assert_post_payload(
         responses,
@@ -669,7 +701,7 @@ async def test_segment_tertiary_no_color_in_state(
         content_type="application/json",
     )
 
-    await wled.segment(0, color_tertiary=(0, 0, 255))
+    await wled.segment([SegmentUpdate(segment_id=0, color_tertiary=(0, 0, 255))])
 
     assert_post_payload(
         responses,
