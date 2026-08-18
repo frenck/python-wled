@@ -22,6 +22,7 @@ from .exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
     WLEDInvalidResponseError,
+    WLEDStatusError,
     WLEDUpgradeError,
 )
 from .models import Device, Playlist, Preset, Releases
@@ -118,6 +119,12 @@ class WLED:
                 to the WLED device.
             WLEDConnectionClosedError: The WebSocket connection to the remote WLED
                 has been closed.
+            WLEDEmptyResponseError: The WLED device returned an empty response
+                when fetching presets.
+            WLEDInvalidResponseError: The WLED device returned an invalid response
+                when fetching presets.
+            WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status
+                when fetching presets.
 
         """
         if not self._client or not self.connected or not self._device:
@@ -138,9 +145,11 @@ class WLED:
                     if not (presets := await self.request("/presets.json")):
                         msg = (
                             f"WLED device at {self.host} returned an empty API"
-                            " response on presets update",
+                            " response on presets update"
                         )
-                        raise WLEDEmptyResponseError(msg)
+                        raise WLEDEmptyResponseError(
+                            msg, method="GET", path="/presets.json"
+                        )
                     message_data["presets"] = presets
 
                 device = self._device.update_from_dict(data=message_data)
@@ -232,8 +241,17 @@ class WLED:
                             "Received an invalid JSON error response "
                             f"from request: {method} {uri}"
                         )
-                        raise WLEDInvalidResponseError(msg) from exception
-                    raise WLEDError(response.status, error_body)
+                        raise WLEDInvalidResponseError(
+                            msg, method=method, path=uri
+                        ) from exception
+                    raise WLEDStatusError(
+                        response.status,
+                        error_body,
+                        method=method,
+                        path=uri,
+                        status=response.status,
+                        body=error_body,
+                    )
                 try:
                     message = contents.decode("utf-8")
                 except UnicodeDecodeError as exception:
@@ -241,17 +259,25 @@ class WLED:
                         "Received a non-UTF-8 error response "
                         f"from request: {method} {uri}"
                     )
-                    raise WLEDInvalidResponseError(msg) from exception
-                raise WLEDError(
+                    raise WLEDInvalidResponseError(
+                        msg, method=method, path=uri
+                    ) from exception
+                raise WLEDStatusError(
                     response.status,
                     {"message": message},
+                    method=method,
+                    path=uri,
+                    status=response.status,
+                    body={"message": message},
                 )
 
             try:
                 response_data = await response.text()
             except UnicodeDecodeError as exception:
                 msg = f"Received a non-UTF-8 response from request: {method} {uri}"
-                raise WLEDInvalidResponseError(msg) from exception
+                raise WLEDInvalidResponseError(
+                    msg, method=method, path=uri
+                ) from exception
             if "application/json" in content_type:
                 try:
                     response_data = orjson.loads(response_data)
@@ -260,7 +286,9 @@ class WLED:
                         "Received an invalid JSON response "
                         f"from request: {method} {uri}"
                     )
-                    raise WLEDInvalidResponseError(msg) from exception
+                    raise WLEDInvalidResponseError(
+                        msg, method=method, path=uri
+                    ) from exception
         except TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
             raise WLEDConnectionTimeoutError(msg) from exception
@@ -297,23 +325,25 @@ class WLED:
         Raises
         ------
             WLEDEmptyResponseError: The WLED device returned an empty response.
+            WLEDInvalidResponseError: The WLED device returned an invalid response.
+            WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status.
 
         """
         if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on full update",
+                " response on full update"
             )
-            raise WLEDEmptyResponseError(msg)
+            raise WLEDEmptyResponseError(msg, method="GET", path="/json")
 
         changed, new_version = self._check_presets_changed(data)
         if changed:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
+                    " response on presets update"
                 )
-                raise WLEDEmptyResponseError(msg)
+                raise WLEDEmptyResponseError(msg, method="GET", path="/presets.json")
             data["presets"] = presets
 
         if not self._device:
