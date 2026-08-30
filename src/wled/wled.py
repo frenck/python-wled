@@ -43,6 +43,14 @@ class _PresetsVersion:
 
 
 @dataclass
+class _EffectsVersion:
+    """Tracks effects state to avoid unnecessary fetches."""
+
+    effect_count: int
+    boot_time: int
+
+
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
@@ -54,6 +62,7 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
+    _effects_version: _EffectsVersion | None = None
 
     @property
     def connected(self) -> bool:
@@ -138,7 +147,7 @@ class WLED:
                     if not (presets := await self.request("/presets.json")):
                         msg = (
                             f"WLED device at {self.host} returned an empty API"
-                            " response on presets update",
+                            " response on presets update"
                         )
                         raise WLEDEmptyResponseError(msg)
                     message_data["presets"] = presets
@@ -302,7 +311,7 @@ class WLED:
         if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on full update",
+                " response on full update"
             )
             raise WLEDEmptyResponseError(msg)
 
@@ -311,10 +320,25 @@ class WLED:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
+                    " response on presets update"
                 )
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
+
+        changed_effects, new_effects_version = self._check_effects_changed(data)
+        if changed_effects:
+            effects = await self.request("/json/effects")
+            if not isinstance(effects, list):
+                msg = (
+                    f"WLED device at {self.host} returned an invalid"
+                    " response on effects update"
+                )
+                raise WLEDInvalidResponseError(msg)
+            data["effects"] = effects
+        else:
+            # Drop the possibly-truncated effects list from /json so that
+            # update_from_dict() keeps the cached full list from /json/effects.
+            data.pop("effects", None)
 
         if not self._device:
             self._device = Device.from_dict(data)
@@ -322,6 +346,7 @@ class WLED:
             self._device.update_from_dict(data)
 
         self._presets_version = new_version
+        self._effects_version = new_effects_version
         return self._device
 
     async def master(
@@ -820,6 +845,59 @@ class WLED:
         changed = (
             self._presets_version.modified_timestamp != new_version.modified_timestamp
             or abs(self._presets_version.boot_time - new_version.boot_time) > 2
+        )
+        return (changed, new_version)
+
+    def _check_effects_changed(
+        self, data: dict[str, Any]
+    ) -> tuple[bool, _EffectsVersion | None]:
+        """Check if effects have changed since the last check.
+
+        Compares the effect count and approximate boot time to detect changes.
+        A significant shift in boot_time (> 2 s) signals a device restart.
+
+        On ESP8266 devices the /json response may return a truncated effects
+        list due to a limited output buffer (WLED issue #5674). The initial
+        load therefore always fetches the complete list from /json/effects,
+        which is unaffected by that limitation.
+
+        Returns
+        -------
+            A tuple of (changed, new_version). If the version cannot be
+            determined from the data, returns (True, None) to trigger a
+            safe refetch.
+
+        """
+        if not isinstance(data, dict) or "info" not in data:
+            # No info in message (e.g. state-only WebSocket update),
+            # effects can't have changed.
+            return (False, self._effects_version)
+
+        info = data["info"]
+        if (uptime := info.get("uptime")) is None or (
+            fxcount := info.get("fxcount")
+        ) is None:
+            return (True, None)
+
+        try:
+            new_version = _EffectsVersion(
+                effect_count=int(fxcount),
+                boot_time=int(time.time()) - int(uptime),
+            )
+        except (ValueError, TypeError):
+            return (True, None)
+
+        # For initial load, always fetch effects as /json may not include
+        # all effect information.
+        if self._device is None:
+            return (True, new_version)
+
+        if self._effects_version is None:
+            return (True, new_version)
+
+        changed = (
+            self._effects_version.effect_count != new_version.effect_count
+            or abs(self._effects_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
 
