@@ -150,6 +150,19 @@ class Nightlight(BaseModel):
 
 
 @dataclass(kw_only=True)
+class AudioReactive(BaseModel):
+    """Object holding the AudioReactive usermod state in WLED.
+
+    The AudioReactive usermod reports its state in the `AudioReactive`
+    key of the state object. Note that the state is reported in the `on`
+    field, while changing the state is done using the `enabled` field.
+    """
+
+    on: bool = field(default=False)
+    """AudioReactive currently enabled."""
+
+
+@dataclass(kw_only=True)
 class UDPSync(BaseModel):
     """Object holding UDP sync state in WLED.
 
@@ -570,6 +583,14 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 @dataclass(kw_only=True)
 class State(BaseModel):
     """Object holding the state of WLED."""
+
+    audio_reactive: AudioReactive | None = field(
+        default=None, metadata=field_options(alias="AudioReactive")
+    )
+    """AudioReactive usermod state.
+
+    `None` if the AudioReactive usermod is not installed on the device.
+    """
 
     brightness: int = field(default=1, metadata=field_options(alias="bri"))
     """Brightness of the light.

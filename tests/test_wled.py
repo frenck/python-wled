@@ -896,6 +896,25 @@ async def test_nightlight(
     )
 
 
+@pytest.mark.parametrize("on", [True, False])
+async def test_audio_reactive(responses: aioresponses, wled: WLED, on: bool) -> None:
+    """Test setting AudioReactive usermod state."""
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.audio_reactive(on=on)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"AudioReactive": {"enabled": on}, "v": True},
+    )
+
+
 # =========================================================================
 # Section 14: WLED client - reset, close, context manager, connected
 # =========================================================================

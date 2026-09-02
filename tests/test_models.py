@@ -393,6 +393,20 @@ def test_state_preset_id_positive() -> None:
     assert state.preset_id == 3
 
 
+def test_state_audio_reactive_absent() -> None:
+    """Test audio_reactive is None when the usermod is not installed."""
+    state = State.from_dict(_base_state())
+    assert state.audio_reactive is None
+
+
+@pytest.mark.parametrize("on", [True, False])
+def test_state_audio_reactive_present(on: bool) -> None:
+    """Test audio_reactive state is deserialized when the usermod is present."""
+    state = State.from_dict(_base_state(AudioReactive={"on": on}))
+    assert state.audio_reactive is not None
+    assert state.audio_reactive.on is on
+
+
 # =========================================================================
 # Preset model
 # =========================================================================
