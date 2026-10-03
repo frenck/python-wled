@@ -887,13 +887,14 @@ class Device(BaseModel):
             d["effects"] = {
                 effect_id: {"effect_id": effect_id, "name": name}
                 for effect_id, name in enumerate(_effects)
-                if "RSVD" not in name
+                if isinstance(name, str) and "RSVD" not in name
             }
 
         if _palettes := d.get("palettes"):
             built_in_palettes = {
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
+                if isinstance(name, str)
             }
             info = d.get("info", {})
             cpalcount = info.get("cpalcount", 0)
@@ -957,13 +958,14 @@ class Device(BaseModel):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
                 for effect_id, name in enumerate(_effects)
-                if "RSVD" not in name
+                if isinstance(name, str) and "RSVD" not in name
             }
 
         if _palettes := data.get("palettes"):
             built_in_palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
+                if isinstance(name, str)
             }
             custom_palettes = self._build_custom_palettes(
                 self.info.custom_palette_count, self.info.version
