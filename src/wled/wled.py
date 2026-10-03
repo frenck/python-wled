@@ -57,6 +57,29 @@ def _verify_upload_accepted(status: int, page: str) -> None:
     raise WLEDUpgradeError(msg)
 
 
+# A plain "owner/name" pair, as GitHub names repositories. Deliberately a bit
+# looser than GitHub's own rules: the point is keeping slashes, dot segments,
+# and URL syntax out of the download URL, not policing names.
+_GITHUB_REPO = re.compile(r"[A-Za-z0-9][\w-]{0,38}/(?!\.\.?$)[\w.-]{1,100}", re.ASCII)
+
+
+def _firmware_repo(requested: str | None, info: Info) -> str:
+    """Return the GitHub repository to download the firmware from.
+
+    Without an explicit choice, this is the repository the device reports.
+    It ends up in the download URL, so it has to be a plain "owner/name"
+    pair; anything else could point the download somewhere else.
+    """
+    repo = (requested if requested is not None else info.repo).strip()
+    repo = repo or DEFAULT_REPO
+
+    if not _GITHUB_REPO.fullmatch(repo):
+        msg = f"Invalid firmware repository: {repo!r}"
+        raise WLEDUpgradeError(msg)
+
+    return repo
+
+
 def _firmware_file_name(info: Info, version: str | AwesomeVersion) -> str:
     """Return the name of the firmware file for a device and version."""
     # Determine if this is a 2M ESP8266 board.
@@ -762,9 +785,7 @@ class WLED:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
 
-        repo = (repo if repo is not None else self._device.info.repo).strip()
-        repo = repo or DEFAULT_REPO
-
+        repo = _firmware_repo(repo, self._device.info)
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
         update_file = _firmware_file_name(self._device.info, version)
         download_url = (

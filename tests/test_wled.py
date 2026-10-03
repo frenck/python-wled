@@ -1755,6 +1755,59 @@ async def test_upgrade_repo_selection(
     await wled.upgrade(version="0.15.0", **call_kwargs)
 
 
+async def test_upgrade_uses_release_name(responses: aioresponses, wled: WLED) -> None:
+    """Test upgrade names the firmware after the brand and release name."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["brand"] = "QuinLED"
+    wled_data["info"]["release"] = "Dig2Go"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/"
+        "QuinLED_0.15.0_Dig2Go.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+
+    await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "../..",
+        "wled/..",
+        "wled/WLED/../../evil/repo",
+        "wled",
+        "evil.com/WLED",
+        "wled/WLED?x=1",
+        "wled/WLED#x",
+        "wled/WLÉD",
+    ],
+)
+async def test_upgrade_rejects_invalid_repo(
+    responses: aioresponses, wled: WLED, repo: str
+) -> None:
+    """Test upgrade refuses a repository that isn't a plain owner/name pair."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["repo"] = repo
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    with pytest.raises(WLEDUpgradeError, match="Invalid firmware repository"):
+        await wled.upgrade(version="0.15.0")
+
+
 async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade with Ethernet board (empty bssid)."""
     await prepare_wled_for_upgrade(responses, wled, wifi_bssid="")
