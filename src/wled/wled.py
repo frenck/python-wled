@@ -6,7 +6,7 @@ import asyncio
 import re
 import socket
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
@@ -27,11 +27,60 @@ from .exceptions import (
 from .models import Device, Playlist, Preset, Releases
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
+    from .models import Info
+
+# The heading WLED shows after it accepted a firmware upload (since 0.14).
+_UPDATE_SUCCESSFUL = "Update successful!"
+
+
+def _verify_upload_accepted(status: int, page: str) -> None:
+    """Raise if WLED did not accept a firmware upload.
+
+    The status code alone can't be trusted: WLED has been seen to answer a
+    rejected upload (like one from outside the local subnet) with a 200. The
+    HTML page it answers with, `<h2>Heading</h2>Detail<br>...`, is the real
+    verdict.
+    """
+    if status < 400 and _UPDATE_SUCCESSFUL in page:
+        return
+
+    reason = f"HTTP {status}"
+    if match := re.search(r"<h2>(.*?)</h2>\s*([^<]*)", page, re.DOTALL):
+        reason = " ".join(part.strip() for part in match.groups() if part.strip())
+
+    msg = f"WLED device did not accept the firmware upload: {reason}"
+    raise WLEDUpgradeError(msg)
+
+
+def _firmware_file_name(info: Info, version: str | AwesomeVersion) -> str:
+    """Return the name of the firmware file for a device and version."""
+    # Determine if this is a 2M ESP8266 board.
+    # See issue `https://github.com/wled/WLED/issues/3257`
+    gzip = ".gz" if info.architecture == "esp02" else ""
+
+    # If the device reports its release name, use it to build the
+    # correct firmware filename. Otherwise fall back to architecture.
+    if info.release is not None:
+        return f"{info.brand}_{version}_{info.release}.bin{gzip}"
+
+    # Determine if this is an Ethernet board
+    ethernet = ""
+    if (
+        info.architecture == "esp32"
+        and info.wifi is not None
+        and not info.wifi.bssid
+        and info.version
+        and info.version >= "0.10.0"
+    ):
+        ethernet = "_Ethernet"
+
+    architecture = info.architecture.upper()
+    return f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
 
 
 @dataclass
@@ -39,6 +88,15 @@ class _PresetsVersion:
     """Tracks preset modification state to avoid unnecessary fetches."""
 
     modified_timestamp: int
+    boot_time: int
+
+
+@dataclass
+class _CatalogVersion:
+    """Tracks the effects and palettes lists to avoid unnecessary fetches."""
+
+    effect_count: int
+    palette_count: int
     boot_time: int
 
 
@@ -54,6 +112,8 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
+    _catalog_version: _CatalogVersion | None = None
+    _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
 
     @property
     def connected(self) -> bool:
@@ -138,7 +198,7 @@ class WLED:
                     if not (presets := await self.request("/presets.json")):
                         msg = (
                             f"WLED device at {self.host} returned an empty API"
-                            " response on presets update",
+                            " response on presets update"
                         )
                         raise WLEDEmptyResponseError(msg)
                     message_data["presets"] = presets
@@ -168,6 +228,8 @@ class WLED:
         uri: str = "",
         method: str = "GET",
         data: dict[str, Any] | None = None,
+        *,
+        params: Mapping[str, str | int] | None = None,
     ) -> Any:
         """Handle a request to a WLED device.
 
@@ -179,6 +241,9 @@ class WLED:
             uri: Request URI, for example `/json/si`.
             method: HTTP method to use for the request. E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
+            params: Query parameters to add to the URL, for example
+                `{"page": 1}`. A query string in `uri` won't work: it gets
+                encoded as part of the path.
 
         Returns:
         -------
@@ -194,7 +259,7 @@ class WLED:
             WLEDError: Received an unexpected response from the WLED device.
 
         """
-        url = URL.build(scheme="http", host=self.host, port=80, path=uri)
+        url = URL.build(scheme="http", host=self.host, port=80, path=uri, query=params)
 
         headers = {
             "Accept": "application/json, text/plain, */*",
@@ -302,7 +367,7 @@ class WLED:
         if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on full update",
+                " response on full update"
             )
             raise WLEDEmptyResponseError(msg)
 
@@ -311,10 +376,23 @@ class WLED:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
+                    " response on presets update"
                 )
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
+
+        # On ESP8266 devices, /json can be cut off when it doesn't fit the
+        # output buffer, losing part of the effects list and all palettes
+        # (WLED issue #5674). The dedicated endpoints don't have that problem.
+        catalog_changed, new_catalog_version = self._check_catalog_changed(data)
+        if catalog_changed and not await self._fetch_catalog():
+            # Try the missing list(s) again on the next update.
+            new_catalog_version = None
+
+        # Prefer the complete lists over the ones from /json, on every update.
+        # Device rebuilds the custom and usermod palettes from the fresh info
+        # each time it gets a palettes list, so those stay current as well.
+        data.update(self._catalog)
 
         if not self._device:
             self._device = Device.from_dict(data)
@@ -322,6 +400,7 @@ class WLED:
             self._device.update_from_dict(data)
 
         self._presets_version = new_version
+        self._catalog_version = new_catalog_version
         return self._device
 
     async def master(
@@ -632,7 +711,7 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(  # noqa: PLR0912
+    async def upgrade(
         self,
         *,
         version: str | AwesomeVersion,
@@ -686,35 +765,8 @@ class WLED:
         repo = (repo if repo is not None else self._device.info.repo).strip()
         repo = repo or DEFAULT_REPO
 
-        # Determine if this is an Ethernet board
-        ethernet = ""
-        if (
-            self._device.info.architecture == "esp32"
-            and self._device.info.wifi is not None
-            and not self._device.info.wifi.bssid
-            and self._device.info.version
-            and self._device.info.version >= "0.10.0"
-        ):
-            ethernet = "_Ethernet"
-
-        # Determine if this is a 2M ESP8266 board.
-        # See issue `https://github.com/wled/WLED/issues/3257`
-        gzip = ""
-        if self._device.info.architecture == "esp02":
-            gzip = ".gz"
-
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-
-        # If the device reports its release name, use it to build the
-        # correct firmware filename. Otherwise fall back to architecture.
-        if self._device.info.release is not None:
-            update_file = (
-                f"{self._device.info.brand}_{version}"
-                f"_{self._device.info.release}.bin{gzip}"
-            )
-        else:
-            architecture = self._device.info.architecture.upper()
-            update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
+        update_file = _firmware_file_name(self._device.info, version)
         download_url = (
             f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
         )
@@ -731,7 +783,9 @@ class WLED:
             ):
                 form = aiohttp.FormData()
                 form.add_field("file", await download.read(), filename=update_file)
-                await self.session.post(url, data=form)
+                async with self.session.post(url, data=form) as upload:
+                    upload_status = upload.status
+                    upload_page = await upload.text(errors="replace")
         except TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
@@ -750,6 +804,8 @@ class WLED:
                 " for WLED version information"
             )
             raise WLEDConnectionError(msg) from exception
+
+        _verify_upload_accepted(upload_status, upload_page)
 
     async def reset(self) -> None:
         """Reboot WLED device."""
@@ -826,6 +882,80 @@ class WLED:
             or abs(self._presets_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
+
+    def _check_catalog_changed(
+        self, data: dict[str, Any]
+    ) -> tuple[bool, _CatalogVersion | None]:
+        """Check if the effects or palettes lists have changed.
+
+        Compares the effect and built-in palette counts, and the approximate
+        boot time. A shift in boot time of more than 2 seconds means the
+        device restarted, which can come with a firmware update and thus new
+        effects or palettes. Custom and usermod palettes don't need tracking:
+        those are rebuilt from the device info on every update.
+
+        Returns
+        -------
+            A tuple of (changed, new_version). If the version cannot be
+            determined from the data, returns (True, None) to trigger a
+            safe refetch.
+
+        """
+        info = data.get("info") if isinstance(data, dict) else None
+        if not isinstance(info, dict):
+            return (True, None)
+
+        try:
+            new_version = _CatalogVersion(
+                effect_count=int(info["fxcount"]),
+                palette_count=int(info["palcount"]),
+                boot_time=int(time.time()) - int(info["uptime"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return (True, None)
+
+        if self._catalog_version is None:
+            return (True, new_version)
+
+        changed = (
+            self._catalog_version.effect_count != new_version.effect_count
+            or self._catalog_version.palette_count != new_version.palette_count
+            or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
+        )
+        return (changed, new_version)
+
+    async def _fetch_catalog(self) -> bool:
+        """Fetch the complete effects and palettes lists into the cache.
+
+        Each list is fetched on its own, so one failing endpoint doesn't
+        throw away the other. When the device answers with an error or
+        something unexpected, the previously cached list (if any) is kept.
+        A connection error still propagates: if the device is gone, the
+        update should fail.
+
+        Returns
+        -------
+            True if both lists were fetched, False if either needs a retry.
+
+        """
+        complete = True
+        for key in ("effects", "palettes"):
+            try:
+                value = await self.request(f"/json/{key}")
+            except WLEDConnectionError:
+                raise
+            except WLEDError:
+                complete = False
+                continue
+
+            # Some less capable devices have no palettes and return `null`,
+            # which Device already knows how to handle.
+            if isinstance(value, list) or (key == "palettes" and value is None):
+                self._catalog[key] = value
+            else:
+                complete = False
+
+        return complete
 
 
 @dataclass
