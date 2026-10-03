@@ -1163,6 +1163,21 @@ async def test_client_error_raises_connection_error(
 # =========================================================================
 
 
+# What WLED answers to a firmware upload, trimmed to the part that matters.
+UPDATE_SUCCESSFUL_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Update successful!</h2>Rebooting..."
+    "<script>setTimeout(RP,11000)</script></body></html>"
+)
+ACCESS_DENIED_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Access Denied</h2>"
+    "Client is not on local subnet.<br><br><button>Back</button></body></html>"
+)
+UPDATE_FAILED_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Update failed!</h2>"
+    "Firmware release name mismatch<br><br><button>Back</button></body></html>"
+)
+
+
 async def prepare_wled_for_upgrade(  # pylint: disable=too-many-arguments, too-many-positional-arguments
     responses: aioresponses,
     wled: WLED,
@@ -1226,8 +1241,8 @@ async def test_upgrade_calls_update_when_no_device(
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1254,8 +1269,8 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1271,8 +1286,8 @@ async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> No
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1294,8 +1309,8 @@ async def test_upgrade_esp02_gzip(responses: aioresponses, wled: WLED) -> None:
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1343,6 +1358,46 @@ async def test_upgrade_timeout(responses: aioresponses, wled: WLED) -> None:
     )
     with pytest.raises(WLEDConnectionTimeoutError):
         await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("status", "page", "reason"),
+    [
+        # Seen in the wild: a rejected upload answered with a 200 (#2092).
+        (200, ACCESS_DENIED_PAGE, "Access Denied Client is not on local subnet."),
+        (401, ACCESS_DENIED_PAGE, "Access Denied Client is not on local subnet."),
+        (500, UPDATE_FAILED_PAGE, "Update failed! Firmware release name mismatch"),
+        (200, "", "HTTP 200"),
+        (500, UPDATE_SUCCESSFUL_PAGE, "Update successful! Rebooting..."),
+    ],
+)
+async def test_upgrade_rejected_by_device(
+    responses: aioresponses,
+    wled: WLED,
+    status: int,
+    page: str,
+    reason: str,
+) -> None:
+    """Test upgrade raises when the device doesn't accept the upload."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=status,
+        body=page,
+        content_type="text/html",
+    )
+
+    with pytest.raises(WLEDUpgradeError) as exc_info:
+        await wled.upgrade(version="0.15.0")
+
+    assert str(exc_info.value) == (
+        f"WLED device did not accept the firmware upload: {reason}"
+    )
 
 
 # =========================================================================
