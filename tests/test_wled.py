@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -625,6 +626,13 @@ async def test_update_refetches_catalog_when_info_incomplete(
     await wled.update()
 
     assert catalog_requests(responses) == 2
+
+
+@pytest.mark.parametrize("data", ["not a dict", {}, {"info": None}])
+def test_check_catalog_changed_without_info(wled: WLED, data: Any) -> None:
+    """Test the catalog check asks for a refetch when info is unusable."""
+    # pylint: disable-next=protected-access
+    assert wled._check_catalog_changed(data) == (True, None)
 
 
 async def test_update_refetches_catalog_when_custom_palettes_change(
