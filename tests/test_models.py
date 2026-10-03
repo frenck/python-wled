@@ -688,6 +688,17 @@ def test_device_update_from_dict_effects() -> None:
     assert device.effects[2].name == "NewEffect2"
 
 
+def test_device_update_from_dict_filters_null_effects() -> None:
+    """Test update_from_dict filters null effects."""
+    data = full_device_data()
+    device = Device.from_dict(data)
+    device.update_from_dict({"effects": ["NewEffect1", None, "NewEffect2"]})
+    assert len(device.effects) == 2
+    assert 1 not in device.effects
+    assert device.effects[0].name == "NewEffect1"
+    assert device.effects[2].name == "NewEffect2"
+
+
 def test_device_filters_reserved_effects() -> None:
     """Test that RSVD placeholder effects are filtered out."""
     data = full_device_data()
@@ -698,6 +709,31 @@ def test_device_filters_reserved_effects() -> None:
     assert 3 not in device.effects
     assert device.effects[0].name == "Solid"
     assert device.effects[2].name == "Breathe"
+
+
+def test_device_filters_null_effects() -> None:
+    """Test that null effects are filtered out."""
+    data = full_device_data()
+    data["effects"] = ["Solid", None, "Breathe"]
+    device = Device.from_dict(data)
+    assert len(device.effects) == 2
+    assert 1 not in device.effects
+    assert device.effects[0].name == "Solid"
+    assert device.effects[2].name == "Breathe"
+
+
+def test_device_filters_null_palettes() -> None:
+    """Test that null palettes are filtered out."""
+    data = full_device_data()
+    data["info"]["cpalcount"] = 0
+    data["info"]["umpalcount"] = 0
+    data["info"]["umpalnames"] = []
+    data["palettes"] = ["Default", None, "Party"]
+    device = Device.from_dict(data)
+    assert len(device.palettes) == 2
+    assert 1 not in device.palettes
+    assert device.palettes[0].name == "Default"
+    assert device.palettes[2].name == "Party"
 
 
 @pytest.mark.parametrize(
@@ -746,6 +782,20 @@ def test_device_update_from_dict_palettes(
     assert device.palettes[0].name == "NewPalette"
     assert device.palettes[expected_custom_ids[0]].custom is True
     assert device.palettes[expected_custom_ids[1]].custom is True
+
+
+def test_device_update_from_dict_filters_null_palettes() -> None:
+    """Test update_from_dict filters null palettes."""
+    data = full_device_data()
+    data["info"]["cpalcount"] = 0
+    data["info"]["umpalcount"] = 0
+    data["info"]["umpalnames"] = []
+    device = Device.from_dict(data)
+    device.update_from_dict({"palettes": ["Default", None, "Party"]})
+    assert len(device.palettes) == 2
+    assert 1 not in device.palettes
+    assert device.palettes[0].name == "Default"
+    assert device.palettes[2].name == "Party"
 
 
 def test_device_usermod_palettes() -> None:

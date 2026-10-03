@@ -1,0 +1,44 @@
+---
+name: Issue
+description: Report an issue with the WLED Python client.
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of what the issue is.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version of the WLED Python client.
+      placeholder: 0.23.0
+    validations:
+      required: true
+  - type: input
+    id: firmware-version
+    attributes:
+      label: WLED firmware version
+      description: The WLED version running on your device, as shown on its info page.
+      placeholder: 0.15.3
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Hardware
+      description: The board or controller your WLED runs on.
+      placeholder: ESP32, ESP8266, QuinLED Dig-Uno
+    validations:
+      required: false
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: >-
+        Any logs, tracebacks, or other context. If the issue is about parsing
+        device data, the output of `http://<your-device>/json` helps a lot.
+    validations:
+      required: false
