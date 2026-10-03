@@ -82,6 +82,7 @@ repos:
         language: system
         types: [text]
         entry: poetry run end-of-file-fixer
+        exclude: ^tests/(?:.*/)?__snapshots__/
         stages: [commit, push, manual]
       - id: ty
         name: 🆎 Static type checking using ty
