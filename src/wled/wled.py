@@ -43,10 +43,10 @@ class _PresetsVersion:
 
 
 @dataclass
-class _EffectsVersion:
-    """Tracks effects state to avoid unnecessary fetches."""
+class _CatalogVersion:
+    """Tracks the effects and palettes lists to avoid unnecessary fetches."""
 
-    effect_count: int
+    counts: tuple[int, int, int, int]
     boot_time: int
 
 
@@ -62,7 +62,7 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
-    _effects_version: _EffectsVersion | None = None
+    _catalog_version: _CatalogVersion | None = None
 
     @property
     def connected(self) -> bool:
@@ -325,20 +325,21 @@ class WLED:
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
 
-        changed_effects, new_effects_version = self._check_effects_changed(data)
-        if changed_effects:
-            effects = await self.request("/json/effects")
-            if not isinstance(effects, list):
-                msg = (
-                    f"WLED device at {self.host} returned an invalid"
-                    " response on effects update"
-                )
-                raise WLEDInvalidResponseError(msg)
-            data["effects"] = effects
+        # On ESP8266 devices, /json can be cut off when it doesn't fit the
+        # output buffer, losing part of the effects list and all palettes
+        # (WLED issue #5674). The dedicated endpoints don't have that problem.
+        catalog_changed, new_catalog_version = self._check_catalog_changed(data)
+        if catalog_changed:
+            if catalog := await self._fetch_catalog():
+                data["effects"], data["palettes"] = catalog
+            else:
+                # Make do with what /json gave us, and try again next update.
+                new_catalog_version = None
         else:
-            # Drop the possibly-truncated effects list from /json so that
-            # update_from_dict() keeps the cached full list from /json/effects.
+            # Nothing changed, so keep the complete lists we fetched before,
+            # instead of the possibly truncated ones from /json.
             data.pop("effects", None)
+            data.pop("palettes", None)
 
         if not self._device:
             self._device = Device.from_dict(data)
@@ -346,7 +347,7 @@ class WLED:
             self._device.update_from_dict(data)
 
         self._presets_version = new_version
-        self._effects_version = new_effects_version
+        self._catalog_version = new_catalog_version
         return self._device
 
     async def master(
@@ -848,18 +849,15 @@ class WLED:
         )
         return (changed, new_version)
 
-    def _check_effects_changed(
+    def _check_catalog_changed(
         self, data: dict[str, Any]
-    ) -> tuple[bool, _EffectsVersion | None]:
-        """Check if effects have changed since the last check.
+    ) -> tuple[bool, _CatalogVersion | None]:
+        """Check if the effects or palettes lists have changed.
 
-        Compares the effect count and approximate boot time to detect changes.
-        A significant shift in boot_time (> 2 s) signals a device restart.
-
-        On ESP8266 devices the /json response may return a truncated effects
-        list due to a limited output buffer (WLED issue #5674). The initial
-        load therefore always fetches the complete list from /json/effects,
-        which is unaffected by that limitation.
+        Compares the effect and palette counts (built-in, custom, and
+        usermod) and the approximate boot time. A shift in boot time of
+        more than 2 seconds means the device restarted, which can come with
+        a firmware update and thus new effects or palettes.
 
         Returns
         -------
@@ -868,38 +866,57 @@ class WLED:
             safe refetch.
 
         """
-        if not isinstance(data, dict) or "info" not in data:
-            # No info in message (e.g. state-only WebSocket update),
-            # effects can't have changed.
-            return (False, self._effects_version)
-
-        info = data["info"]
-        if (uptime := info.get("uptime")) is None or (
-            fxcount := info.get("fxcount")
-        ) is None:
+        info = data.get("info") if isinstance(data, dict) else None
+        if not isinstance(info, dict):
             return (True, None)
 
         try:
-            new_version = _EffectsVersion(
-                effect_count=int(fxcount),
-                boot_time=int(time.time()) - int(uptime),
+            new_version = _CatalogVersion(
+                counts=(
+                    int(info["fxcount"]),
+                    int(info["palcount"]),
+                    int(info.get("cpalcount", 0)),
+                    int(info.get("umpalcount", 0)),
+                ),
+                boot_time=int(time.time()) - int(info["uptime"]),
             )
-        except (ValueError, TypeError):
+        except (KeyError, TypeError, ValueError):
             return (True, None)
 
-        # For initial load, always fetch effects as /json may not include
-        # all effect information.
-        if self._device is None:
-            return (True, new_version)
-
-        if self._effects_version is None:
+        if self._catalog_version is None:
             return (True, new_version)
 
         changed = (
-            self._effects_version.effect_count != new_version.effect_count
-            or abs(self._effects_version.boot_time - new_version.boot_time) > 2
+            self._catalog_version.counts != new_version.counts
+            or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
+
+    async def _fetch_catalog(self) -> tuple[list[Any], list[Any] | None] | None:
+        """Fetch the complete effects and palettes lists.
+
+        Returns None if the device answers with an error or something that
+        isn't a list, so the caller can fall back to the lists from /json.
+        A connection error still propagates: if the device is gone, the
+        update should fail.
+
+        """
+        try:
+            effects = await self.request("/json/effects")
+            palettes = await self.request("/json/palettes")
+        except WLEDConnectionError:
+            raise
+        except WLEDError:
+            return None
+
+        # Some less capable devices have no palettes and return `null`,
+        # which Device already knows how to handle.
+        if not isinstance(effects, list) or not (
+            palettes is None or isinstance(palettes, list)
+        ):
+            return None
+
+        return (effects, palettes)
 
 
 @dataclass

@@ -74,7 +74,7 @@ def mock_json_and_presets(
     wled_data: dict[str, Any] | None = None,
     presets_data: dict[str, Any] | None = None,
 ) -> None:
-    """Register the three GET endpoints that WLED.update() calls."""
+    """Register the GET endpoints that a first WLED.update() calls."""
     if wled_data is None:
         wled_data = load_fixture_json("wled")
     mocked.get(
@@ -83,18 +83,33 @@ def mock_json_and_presets(
         body=json.dumps(wled_data),
         content_type="application/json",
     )
-    mocked.get(
-        "http://example.com/json/effects",
-        status=200,
-        body=json.dumps(wled_data["effects"]),
-        content_type="application/json",
-    )
+    mock_catalog(mocked, wled_data["effects"], wled_data["palettes"])
     if presets_data is None:
         presets_data = load_fixture_json("presets")
     mocked.get(
         "http://example.com/presets.json",
         status=200,
         body=json.dumps(presets_data),
+        content_type="application/json",
+    )
+
+
+def mock_catalog(
+    mocked: aioresponses,
+    effects: list[Any] | None,
+    palettes: list[Any] | None,
+) -> None:
+    """Register the dedicated effects and palettes endpoints."""
+    mocked.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(effects),
+        content_type="application/json",
+    )
+    mocked.get(
+        "http://example.com/json/palettes",
+        status=200,
+        body=json.dumps(palettes),
         content_type="application/json",
     )
 

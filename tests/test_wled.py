@@ -24,7 +24,12 @@ from wled.exceptions import (
 )
 from wled.wled import WLEDReleases
 
-from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
+from .conftest import (
+    full_device_data,
+    load_fixture_json,
+    mock_catalog,
+    mock_json_and_presets,
+)
 
 
 def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
@@ -279,19 +284,14 @@ async def test_update_skips_presets_when_unchanged(
     """Test update() skips fetching presets.json when presets haven't changed."""
     wled_data = load_fixture_json("wled")
 
-    # First update: fetches /json, /json/effects, /presets.json
+    # First update: fetches /json, /presets.json, and the effects and palettes
     responses.get(
         "http://example.com/json",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
     )
-    responses.get(
-        "http://example.com/json/effects",
-        status=200,
-        body=json.dumps(wled_data["effects"]),
-        content_type="application/json",
-    )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"])
     responses.get(
         "http://example.com/presets.json",
         status=200,
@@ -360,7 +360,7 @@ async def test_update_skips_effects_when_unchanged(
     changed_data["info"]["fxcount"] += 1
     changed_data["effects"] = wled_data["effects"] + ["New Effect"]
 
-    # First update: fetches /json, /json/effects, /presets.json
+    # First update: fetches /json, /presets.json, and the effects and palettes
     mock_json_and_presets(responses, wled_data)
     # Second update: same fxcount and boot_time — only /json fetched
     responses.get(
@@ -376,12 +376,7 @@ async def test_update_skips_effects_when_unchanged(
         body=json.dumps(changed_data),
         content_type="application/json",
     )
-    responses.get(
-        "http://example.com/json/effects",
-        status=200,
-        body=json.dumps(changed_data["effects"]),
-        content_type="application/json",
-    )
+    mock_catalog(responses, changed_data["effects"], changed_data["palettes"])
 
     device1 = await wled.update()
     assert device1.info.effect_count == wled_data["info"]["fxcount"]
@@ -437,12 +432,7 @@ async def test_update_uses_effects_endpoint_for_full_list(
         body=json.dumps(wled_data),
         content_type="application/json",
     )
-    responses.get(
-        "http://example.com/json/effects",
-        status=200,
-        body=json.dumps(full_effects),
-        content_type="application/json",
-    )
+    mock_catalog(responses, full_effects, wled_data["palettes"])
     responses.get(
         "http://example.com/presets.json",
         status=200,
@@ -463,6 +453,205 @@ async def test_update_uses_effects_endpoint_for_full_list(
 
     device = await wled.update()
     assert len(device.effects) == 3  # still full — truncated /json did not overwrite
+
+
+def catalog_requests(responses: aioresponses) -> int:
+    """Return how often the effects list was fetched from its own endpoint."""
+    if not responses.requests:
+        return 0
+
+    return len(
+        responses.requests.get(("GET", URL("http://example.com/json/effects")), [])
+    )
+
+
+async def test_update_uses_palettes_endpoint_when_json_is_cut_off(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() gets all palettes when /json stops before the palettes."""
+    wled_data = load_fixture_json("wled")
+    full_effects = wled_data["effects"]
+    full_palettes = wled_data["palettes"]
+
+    # Simulates the ESP8266 buffer overflow: the response stops halfway the
+    # effects list, so the palettes are missing entirely.
+    wled_data["effects"] = full_effects[:1]
+    del wled_data["palettes"]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, full_effects, full_palettes)
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+
+    assert [device.palettes[i].name for i in range(len(full_palettes))] == (
+        full_palettes
+    )
+
+
+@pytest.mark.parametrize(
+    ("effects_status", "effects_body", "palettes_body"),
+    [
+        (503, "Service Unavailable", None),
+        (200, {"not": "a list"}, ["Default"]),
+        (200, None, "not a list"),
+    ],
+)
+async def test_update_falls_back_when_catalog_is_unusable(
+    responses: aioresponses,
+    wled: WLED,
+    effects_status: int,
+    effects_body: object,
+    palettes_body: object,
+) -> None:
+    """Test update() uses the /json lists when the catalog endpoints fail."""
+    wled_data = load_fixture_json("wled")
+    if effects_body is None:
+        effects_body = wled_data["effects"]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=effects_status,
+        body=json.dumps(effects_body) if effects_status == 200 else effects_body,
+        content_type="application/json" if effects_status == 200 else "text/plain",
+    )
+    responses.get(
+        "http://example.com/json/palettes",
+        status=200,
+        body=json.dumps(palettes_body),
+        content_type="application/json",
+    )
+    # Second update: the catalog is fetched again, and now it works.
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"])
+
+    device = await wled.update()
+    assert len(device.effects) == 3
+    assert device.palettes[0].name == "Default"
+
+    await wled.update()
+    assert catalog_requests(responses) == 2
+
+
+async def test_update_raises_when_catalog_connection_fails(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() fails when the device is unreachable for the catalog."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    for _ in range(3):
+        responses.get(
+            "http://example.com/json/effects",
+            exception=aiohttp.ClientError("gone"),
+        )
+
+    with pytest.raises(WLEDConnectionError):
+        await wled.update()
+
+
+async def test_update_accepts_device_without_palettes(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() handles devices that report no palettes at all."""
+    wled_data = load_fixture_json("wled")
+    wled_data["palettes"] = None
+    wled_data["info"]["cpalcount"] = 0
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert device.palettes == {}
+
+    # A device without palettes must not trigger a refetch on every update.
+    await wled.update()
+    assert catalog_requests(responses) == 1
+
+
+async def test_update_refetches_catalog_when_info_incomplete(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() refetches the catalog when it can't tell what changed."""
+    wled_data = load_fixture_json("wled")
+    del wled_data["info"]["uptime"]
+
+    mock_json_and_presets(responses, wled_data)
+    mock_json_and_presets(responses, wled_data)
+
+    await wled.update()
+    await wled.update()
+
+    assert catalog_requests(responses) == 2
+
+
+async def test_update_refetches_catalog_when_custom_palettes_change(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() picks up a custom palette added on the device."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["cpalcount"] += 1
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(changed_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, changed_data["effects"], changed_data["palettes"])
+
+    device = await wled.update()
+    custom_before = sum(palette.custom for palette in device.palettes.values())
+
+    device = await wled.update()
+    custom_after = sum(palette.custom for palette in device.palettes.values())
+
+    assert catalog_requests(responses) == 2
+    assert custom_after == custom_before + 1
 
 
 async def test_listen_preset_change_via_websocket(
