@@ -33,6 +33,28 @@ if TYPE_CHECKING:
 
     from .const import LiveDataOverride
 
+# The heading WLED shows after it accepted a firmware upload (since 0.14).
+_UPDATE_SUCCESSFUL = "Update successful!"
+
+
+def _verify_upload_accepted(status: int, page: str) -> None:
+    """Raise if WLED did not accept a firmware upload.
+
+    The status code alone can't be trusted: WLED has been seen to answer a
+    rejected upload (like one from outside the local subnet) with a 200. The
+    HTML page it answers with, `<h2>Heading</h2>Detail<br>...`, is the real
+    verdict.
+    """
+    if status < 400 and _UPDATE_SUCCESSFUL in page:
+        return
+
+    reason = f"HTTP {status}"
+    if match := re.search(r"<h2>(.*?)</h2>\s*([^<]*)", page, re.DOTALL):
+        reason = " ".join(part.strip() for part in match.groups() if part.strip())
+
+    msg = f"WLED device did not accept the firmware upload: {reason}"
+    raise WLEDUpgradeError(msg)
+
 
 @dataclass
 class _PresetsVersion:
@@ -752,7 +774,9 @@ class WLED:
             ):
                 form = aiohttp.FormData()
                 form.add_field("file", await download.read(), filename=update_file)
-                await self.session.post(url, data=form)
+                async with self.session.post(url, data=form) as upload:
+                    upload_status = upload.status
+                    upload_page = await upload.text(errors="replace")
         except TimeoutError as exception:
             msg = "Timeout occurred while fetching WLED version information from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
@@ -771,6 +795,8 @@ class WLED:
                 " for WLED version information"
             )
             raise WLEDConnectionError(msg) from exception
+
+        _verify_upload_accepted(upload_status, upload_page)
 
     async def reset(self) -> None:
         """Reboot WLED device."""
