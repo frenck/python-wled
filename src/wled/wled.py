@@ -6,7 +6,7 @@ import asyncio
 import re
 import socket
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
@@ -43,6 +43,15 @@ class _PresetsVersion:
 
 
 @dataclass
+class _CatalogVersion:
+    """Tracks the effects and palettes lists to avoid unnecessary fetches."""
+
+    effect_count: int
+    palette_count: int
+    boot_time: int
+
+
+@dataclass
 class WLED:
     """Main class for handling connections with WLED."""
 
@@ -54,6 +63,8 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
+    _catalog_version: _CatalogVersion | None = None
+    _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
 
     @property
     def connected(self) -> bool:
@@ -138,7 +149,7 @@ class WLED:
                     if not (presets := await self.request("/presets.json")):
                         msg = (
                             f"WLED device at {self.host} returned an empty API"
-                            " response on presets update",
+                            " response on presets update"
                         )
                         raise WLEDEmptyResponseError(msg)
                     message_data["presets"] = presets
@@ -302,7 +313,7 @@ class WLED:
         if not (data := await self.request("/json")):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
-                " response on full update",
+                " response on full update"
             )
             raise WLEDEmptyResponseError(msg)
 
@@ -311,10 +322,23 @@ class WLED:
             if not (presets := await self.request("/presets.json")):
                 msg = (
                     f"WLED device at {self.host} returned an empty API"
-                    " response on presets update",
+                    " response on presets update"
                 )
                 raise WLEDEmptyResponseError(msg)
             data["presets"] = presets
+
+        # On ESP8266 devices, /json can be cut off when it doesn't fit the
+        # output buffer, losing part of the effects list and all palettes
+        # (WLED issue #5674). The dedicated endpoints don't have that problem.
+        catalog_changed, new_catalog_version = self._check_catalog_changed(data)
+        if catalog_changed and not await self._fetch_catalog():
+            # Try the missing list(s) again on the next update.
+            new_catalog_version = None
+
+        # Prefer the complete lists over the ones from /json, on every update.
+        # Device rebuilds the custom and usermod palettes from the fresh info
+        # each time it gets a palettes list, so those stay current as well.
+        data.update(self._catalog)
 
         if not self._device:
             self._device = Device.from_dict(data)
@@ -322,6 +346,7 @@ class WLED:
             self._device.update_from_dict(data)
 
         self._presets_version = new_version
+        self._catalog_version = new_catalog_version
         return self._device
 
     async def master(
@@ -822,6 +847,80 @@ class WLED:
             or abs(self._presets_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
+
+    def _check_catalog_changed(
+        self, data: dict[str, Any]
+    ) -> tuple[bool, _CatalogVersion | None]:
+        """Check if the effects or palettes lists have changed.
+
+        Compares the effect and built-in palette counts, and the approximate
+        boot time. A shift in boot time of more than 2 seconds means the
+        device restarted, which can come with a firmware update and thus new
+        effects or palettes. Custom and usermod palettes don't need tracking:
+        those are rebuilt from the device info on every update.
+
+        Returns
+        -------
+            A tuple of (changed, new_version). If the version cannot be
+            determined from the data, returns (True, None) to trigger a
+            safe refetch.
+
+        """
+        info = data.get("info") if isinstance(data, dict) else None
+        if not isinstance(info, dict):
+            return (True, None)
+
+        try:
+            new_version = _CatalogVersion(
+                effect_count=int(info["fxcount"]),
+                palette_count=int(info["palcount"]),
+                boot_time=int(time.time()) - int(info["uptime"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return (True, None)
+
+        if self._catalog_version is None:
+            return (True, new_version)
+
+        changed = (
+            self._catalog_version.effect_count != new_version.effect_count
+            or self._catalog_version.palette_count != new_version.palette_count
+            or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
+        )
+        return (changed, new_version)
+
+    async def _fetch_catalog(self) -> bool:
+        """Fetch the complete effects and palettes lists into the cache.
+
+        Each list is fetched on its own, so one failing endpoint doesn't
+        throw away the other. When the device answers with an error or
+        something unexpected, the previously cached list (if any) is kept.
+        A connection error still propagates: if the device is gone, the
+        update should fail.
+
+        Returns
+        -------
+            True if both lists were fetched, False if either needs a retry.
+
+        """
+        complete = True
+        for key in ("effects", "palettes"):
+            try:
+                value = await self.request(f"/json/{key}")
+            except WLEDConnectionError:
+                raise
+            except WLEDError:
+                complete = False
+                continue
+
+            # Some less capable devices have no palettes and return `null`,
+            # which Device already knows how to handle.
+            if isinstance(value, list) or (key == "palettes" and value is None):
+                self._catalog[key] = value
+            else:
+                complete = False
+
+        return complete
 
 
 @dataclass
