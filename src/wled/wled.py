@@ -27,7 +27,7 @@ from .exceptions import (
 from .models import Device, Playlist, Preset, Releases
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from awesomeversion import AwesomeVersion
 
@@ -201,6 +201,8 @@ class WLED:
         uri: str = "",
         method: str = "GET",
         data: dict[str, Any] | None = None,
+        *,
+        params: Mapping[str, str | int] | None = None,
     ) -> Any:
         """Handle a request to a WLED device.
 
@@ -212,6 +214,9 @@ class WLED:
             uri: Request URI, for example `/json/si`.
             method: HTTP method to use for the request. E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
+            params: Query parameters to add to the URL, for example
+                `{"page": 1}`. A query string in `uri` won't work: it gets
+                encoded as part of the path.
 
         Returns:
         -------
@@ -227,7 +232,7 @@ class WLED:
             WLEDError: Received an unexpected response from the WLED device.
 
         """
-        url = URL.build(scheme="http", host=self.host, port=80, path=uri)
+        url = URL.build(scheme="http", host=self.host, port=80, path=uri, query=params)
 
         headers = {
             "Accept": "application/json, text/plain, */*",

@@ -77,6 +77,22 @@ async def test_text_request(responses: aioresponses, wled: WLED) -> None:
     assert response == "OK"
 
 
+async def test_request_with_params(responses: aioresponses, wled: WLED) -> None:
+    """Test query parameters end up in the query string, not the path."""
+    responses.get(
+        "http://example.com/json/palx?page=2",
+        status=200,
+        body='{"m": 9, "p": {}}',
+        content_type="application/json",
+    )
+
+    response = await wled.request("/json/palx", params={"page": 2})
+
+    assert response["m"] == 9
+    assert responses.requests
+    assert next(iter(responses.requests))[1].query == {"page": "2"}
+
+
 async def test_internal_session(responses: aioresponses) -> None:
     """Test internal session is created and works correctly."""
     responses.get(
