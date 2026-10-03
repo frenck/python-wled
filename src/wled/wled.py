@@ -6,7 +6,7 @@ import asyncio
 import re
 import socket
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
@@ -46,7 +46,8 @@ class _PresetsVersion:
 class _CatalogVersion:
     """Tracks the effects and palettes lists to avoid unnecessary fetches."""
 
-    counts: tuple[int, int, int, int]
+    effect_count: int
+    palette_count: int
     boot_time: int
 
 
@@ -63,6 +64,7 @@ class WLED:
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
     _catalog_version: _CatalogVersion | None = None
+    _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
 
     @property
     def connected(self) -> bool:
@@ -329,17 +331,14 @@ class WLED:
         # output buffer, losing part of the effects list and all palettes
         # (WLED issue #5674). The dedicated endpoints don't have that problem.
         catalog_changed, new_catalog_version = self._check_catalog_changed(data)
-        if catalog_changed:
-            if catalog := await self._fetch_catalog():
-                data["effects"], data["palettes"] = catalog
-            else:
-                # Make do with what /json gave us, and try again next update.
-                new_catalog_version = None
-        else:
-            # Nothing changed, so keep the complete lists we fetched before,
-            # instead of the possibly truncated ones from /json.
-            data.pop("effects", None)
-            data.pop("palettes", None)
+        if catalog_changed and not await self._fetch_catalog():
+            # Try the missing list(s) again on the next update.
+            new_catalog_version = None
+
+        # Prefer the complete lists over the ones from /json, on every update.
+        # Device rebuilds the custom and usermod palettes from the fresh info
+        # each time it gets a palettes list, so those stay current as well.
+        data.update(self._catalog)
 
         if not self._device:
             self._device = Device.from_dict(data)
@@ -854,10 +853,11 @@ class WLED:
     ) -> tuple[bool, _CatalogVersion | None]:
         """Check if the effects or palettes lists have changed.
 
-        Compares the effect and palette counts (built-in, custom, and
-        usermod) and the approximate boot time. A shift in boot time of
-        more than 2 seconds means the device restarted, which can come with
-        a firmware update and thus new effects or palettes.
+        Compares the effect and built-in palette counts, and the approximate
+        boot time. A shift in boot time of more than 2 seconds means the
+        device restarted, which can come with a firmware update and thus new
+        effects or palettes. Custom and usermod palettes don't need tracking:
+        those are rebuilt from the device info on every update.
 
         Returns
         -------
@@ -872,12 +872,8 @@ class WLED:
 
         try:
             new_version = _CatalogVersion(
-                counts=(
-                    int(info["fxcount"]),
-                    int(info["palcount"]),
-                    int(info.get("cpalcount", 0)),
-                    int(info.get("umpalcount", 0)),
-                ),
+                effect_count=int(info["fxcount"]),
+                palette_count=int(info["palcount"]),
                 boot_time=int(time.time()) - int(info["uptime"]),
             )
         except (KeyError, TypeError, ValueError):
@@ -887,36 +883,44 @@ class WLED:
             return (True, new_version)
 
         changed = (
-            self._catalog_version.counts != new_version.counts
+            self._catalog_version.effect_count != new_version.effect_count
+            or self._catalog_version.palette_count != new_version.palette_count
             or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
 
-    async def _fetch_catalog(self) -> tuple[list[Any], list[Any] | None] | None:
-        """Fetch the complete effects and palettes lists.
+    async def _fetch_catalog(self) -> bool:
+        """Fetch the complete effects and palettes lists into the cache.
 
-        Returns None if the device answers with an error or something that
-        isn't a list, so the caller can fall back to the lists from /json.
+        Each list is fetched on its own, so one failing endpoint doesn't
+        throw away the other. When the device answers with an error or
+        something unexpected, the previously cached list (if any) is kept.
         A connection error still propagates: if the device is gone, the
         update should fail.
 
+        Returns
+        -------
+            True if both lists were fetched, False if either needs a retry.
+
         """
-        try:
-            effects = await self.request("/json/effects")
-            palettes = await self.request("/json/palettes")
-        except WLEDConnectionError:
-            raise
-        except WLEDError:
-            return None
+        complete = True
+        for key in ("effects", "palettes"):
+            try:
+                value = await self.request(f"/json/{key}")
+            except WLEDConnectionError:
+                raise
+            except WLEDError:
+                complete = False
+                continue
 
-        # Some less capable devices have no palettes and return `null`,
-        # which Device already knows how to handle.
-        if not isinstance(effects, list) or not (
-            palettes is None or isinstance(palettes, list)
-        ):
-            return None
+            # Some less capable devices have no palettes and return `null`,
+            # which Device already knows how to handle.
+            if isinstance(value, list) or (key == "palettes" and value is None):
+                self._catalog[key] = value
+            else:
+                complete = False
 
-        return (effects, palettes)
+        return complete
 
 
 @dataclass
