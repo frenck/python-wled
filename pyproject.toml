@@ -8,12 +8,23 @@ license = "MIT"
 requires-python = ">=3.11,<4.0"
 readme = "README.md"
 keywords = [
+  "addressable-led",
   "api",
   "async",
   "client",
+  "esp32",
+  "esp8266",
   "home-assistant",
+  "home-automation",
+  "iot",
   "led",
+  "led-strip",
+  "lighting",
+  "neopixel",
+  "rgb",
+  "smart-home",
   "wled",
+  "ws2812b",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -39,7 +50,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-cli = ["typer[all]>=0.24.0,<1.0.0", "zeroconf[all]>=0.149.12,<1.0.0"]
+cli = ["typer[all]>=0.24.0,<1.0.0", "zeroconf[all]>=0.149.16,<1.0.0"]
 
 [project.scripts]
 wled = "wled.cli:cli"
@@ -106,8 +117,9 @@ max-attributes = 40
 ignored-modules = ["orjson", "zeroconf", "zeroconf.asyncio"]
 
 [tool.pytest.ini_options]
-addopts = "--cov"
+addopts = "--cov --strict-markers --strict-config"
 asyncio_mode = "auto"
+xfail_strict = true
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -143,7 +155,7 @@ runtime-evaluated-base-classes = ["mashumaro.mixins.orjson.DataClassORJSONMixin"
 max-complexity = 25
 
 [tool.codespell]
-ignore-words-list = "abl"
+ignore-words-list = "abl,hass"
 
 [build-system]
 requires = ["poetry-core>=2.0"]
