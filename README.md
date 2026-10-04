@@ -188,7 +188,9 @@ async with WLED("wled-frenck.local") as led:
     async with WLEDReleases(repo=device.info.repo) as wled_releases:
         releases = await wled_releases.releases()
 
-    if releases.stable and releases.stable != device.info.version:
+    # Only move forward: a device on a newer beta or nightly stays put
+    current = device.info.version
+    if releases.stable and current and releases.stable > current:
         await led.upgrade(version=releases.stable)
 ```
 
