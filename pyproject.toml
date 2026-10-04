@@ -66,7 +66,7 @@ documentation = "https://github.com/frenck/python-wled"
 Changelog = "https://github.com/frenck/python-wled/releases"
 
 [tool.poetry.group.dev.dependencies]
-aioresponses = "0.7.8"
+aioresponses = "0.7.9"
 codespell = "2.4.3"
 covdefaults = "2.3.0"
 coverage = { version = "7.16.2", extras = ["toml"] }
