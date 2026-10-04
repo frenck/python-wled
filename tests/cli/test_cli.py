@@ -13,12 +13,12 @@ from typer import Exit
 from typer.main import get_command
 from typer.testing import CliRunner
 
+from tests.conftest import full_device_data
 from wled import Device, Releases
+from wled._cli import main
 from wled.cli import cli
 from wled.cli.async_typer import AsyncTyper
 from wled.exceptions import WLEDConnectionError, WLEDUnsupportedVersionError
-
-from .conftest import full_device_data
 
 if TYPE_CHECKING:
     from syrupy.assertion import SnapshotAssertion
@@ -586,3 +586,41 @@ def test_unsupported_version_error_handler(
         handler(WLEDUnsupportedVersionError("old"))
     assert exc_info.value.code == 1
     assert capsys.readouterr().out == snapshot
+
+
+# ---------------------------------------------------------------------------
+# Console script entry point
+# ---------------------------------------------------------------------------
+
+
+def test_entry_point_runs_cli() -> None:
+    """Test the console script entry point hands over to the Typer CLI."""
+    with patch("wled.cli.cli") as mock_cli:
+        main()
+
+    mock_cli.assert_called_once_with()
+
+
+@pytest.mark.parametrize("missing", ["typer", "rich.console", "zeroconf.asyncio"])
+def test_entry_point_without_cli_extra(missing: str) -> None:
+    """Test a missing CLI dependency ends with an install hint."""
+    with (
+        patch(
+            "builtins.__import__",
+            side_effect=ModuleNotFoundError(name=missing),
+        ),
+        pytest.raises(SystemExit, match=r"pip install 'wled\[cli\]'"),
+    ):
+        main()
+
+
+def test_entry_point_reraises_other_import_errors() -> None:
+    """Test a missing module that isn't a CLI dependency is not hidden."""
+    with (
+        patch(
+            "builtins.__import__",
+            side_effect=ModuleNotFoundError(name="wled.cli.renamed"),
+        ),
+        pytest.raises(ModuleNotFoundError),
+    ):
+        main()

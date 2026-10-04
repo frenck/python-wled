@@ -53,7 +53,7 @@ dependencies = [
 cli = ["typer[all]>=0.24.0,<1.0.0", "zeroconf[all]>=0.149.16,<1.0.0"]
 
 [project.scripts]
-wled = "wled.cli:cli"
+wled = "wled._cli:main"
 
 [tool.poetry]
 requires-poetry = '>=2.0'

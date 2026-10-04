@@ -26,7 +26,9 @@ optional CLI ships under the `cli` extra.
 | `  const.py`               | Enums                                                            |
 | `  exceptions.py`          | The `WLEDError` hierarchy                                        |
 | `  cli/`                   | Optional Typer CLI                                               |
+| `  _cli.py`                | Console script entry; install hint without the `cli` extra       |
 | `tests/`                   | pytest suite with syrupy snapshots                               |
+| `tests/cli/`               | Tests for the CLI                                                |
 | `tests/fixtures/versions/` | One real `/json` dump per WLED release                           |
 | `examples/`                | Runnable examples                                                |
 
