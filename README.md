@@ -19,9 +19,10 @@ Asynchronous Python client for WLED.
 
 ## About
 
-This package allows you to control and monitor a WLED device
-programmatically. It is mainly created to allow third-party programs to automate
-the behavior of WLED.
+This package allows you to control and monitor [WLED][wled] devices
+programmatically. It talks to the device's JSON API, can follow its state
+live over a WebSocket, and can upgrade its firmware. It is the library behind
+the WLED integration in [Home Assistant][home-assistant].
 
 ## Installation
 
@@ -29,7 +30,55 @@ the behavior of WLED.
 pip install wled
 ```
 
+To install with the optional CLI:
+
+```bash
+pip install "wled[cli]"
+```
+
+## CLI
+
+The optional CLI lets you control WLED devices directly from the terminal.
+
+```bash
+# Show device information
+wled info --host wled-frenck.local
+
+# Show the current state of the device and its segments
+wled state --host wled-frenck.local
+
+# Turn the light on or off, or set its brightness (0-255)
+wled on --host wled-frenck.local
+wled off --host wled-frenck.local
+wled brightness --host wled-frenck.local --brightness 128
+
+# List the effects, palettes, presets, and playlists on the device
+wled effects --host wled-frenck.local
+wled palettes --host wled-frenck.local
+wled presets --host wled-frenck.local
+wled playlists --host wled-frenck.local
+
+# Activate a preset or playlist, by name or ID
+wled preset --host wled-frenck.local --preset "Movie night"
+wled playlist --host wled-frenck.local --playlist 1
+
+# Show the latest WLED releases
+wled releases
+
+# Upgrade the firmware, and restart the device
+wled upgrade --host wled-frenck.local --version 0.15.3
+wled reset --host wled-frenck.local
+
+# Scan the network for WLED devices (uses mDNS/Zeroconf)
+wled scan
+```
+
 ## Usage
+
+The client is an async context manager; every API call is a coroutine.
+`update()` returns a `Device` with the info, state, effects, palettes,
+presets, and playlists of the device. Later calls update that same object
+in place, so you can hold on to it.
 
 ```python
 import asyncio
@@ -43,7 +92,7 @@ async def main() -> None:
         device = await led.update()
         print(device.info.version)
 
-        # Turn strip on, full brightness
+        # Turn the light on, at full brightness
         await led.master(on=True, brightness=255)
 
 
@@ -51,50 +100,161 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-### Firmware upgrade release files
+### Light control
 
-`python-wled` can upgrade devices from the official WLED releases, or from your
-own GitHub repository if you publish custom WLED builds. This lets vendors,
-integrators, and private installations distribute firmware through the same
-upgrade flow: the device reports where its firmware lives, `python-wled`
-downloads the matching release asset, and the library uploads that file to the
-device's `/update` endpoint.
+`master()` controls the light as a whole; `segment()` controls a single
+segment. Effects and palettes can be given by name or by ID, and colors as
+RGB or RGBW tuples. Transitions are in units of 100ms.
 
-To make a custom GitHub release work with `python-wled`, compile your WLED
-firmware with metadata for the repository, brand, and release name, then create
-a GitHub release with the firmware attached as a release asset. By default,
-`WLED.upgrade()` uses the repository reported by the device as
-`device.info.repo`; older firmware that does not report a repository falls back
-to `wled/WLED`.
+```python
+async with WLED("wled-frenck.local") as led:
+    await led.update()
 
-Release assets must use the WLED release file naming convention:
+    # Dim the whole light over 2 seconds
+    await led.master(brightness=64, transition=20)
+
+    # Set the first segment to a red, fast "Rainbow" effect
+    await led.segment(
+        0,
+        on=True,
+        color_primary=(255, 0, 0),
+        effect="Rainbow",
+        palette="Party",
+        speed=200,
+    )
+
+    # Activate a preset or a playlist, by name or ID
+    await led.preset("Movie night")
+    await led.playlist(1)
+```
+
+### Nightlight, sync, and usermods
+
+```python
+async with WLED("wled-frenck.local") as led:
+    # Fade to a low brightness over 30 minutes
+    await led.nightlight(on=True, duration=30, fade=True, target_brightness=5)
+
+    # Send and receive UDP sync with other WLED devices
+    await led.sync(send=True, receive=True)
+
+    # Toggle the AudioReactive usermod, if the device has it
+    device = await led.update()
+    if device.state.audio_reactive is not None:
+        await led.audio_reactive(on=not device.state.audio_reactive.on)
+```
+
+### Live updates
+
+Instead of polling, you can follow the device over its WebSocket. The
+callback receives the updated `Device` on every change.
+
+```python
+import asyncio
+
+from wled import WLED, Device
+
+
+async def main() -> None:
+    """Show example of following a WLED device live."""
+    async with WLED("wled-frenck.local") as led:
+        await led.update()
+        await led.connect()
+
+        def on_update(device: Device) -> None:
+            print(device.state.on, device.state.brightness)
+
+        # Runs until the connection closes
+        await led.listen(callback=on_update)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### Firmware upgrades
+
+`upgrade()` downloads the firmware from a GitHub release and uploads it to
+the device. It checks the device's answer, and raises `WLEDUpgradeError` when
+the device rejects the upload (for example, with OTA updates locked or from
+outside its local subnet).
+
+```python
+from wled import WLED, WLEDReleases
+
+async with WLED("wled-frenck.local") as led:
+    device = await led.update()
+
+    async with WLEDReleases(repo=device.info.repo) as wled_releases:
+        releases = await wled_releases.releases()
+
+    # Only move forward: a device on a newer beta or nightly stays put
+    current = device.info.version
+    if releases.stable and current and releases.stable > current:
+        await led.upgrade(version=releases.stable)
+```
+
+By default, the firmware comes from the repository the device reports as
+`device.info.repo`; older firmware that doesn't report one falls back to
+`wled/WLED`. Pass `repo` to `upgrade()` to pick another one.
+
+The release is looked up through the GitHub API, and the download is checked
+against the SHA256 digest GitHub publishes for it; a firmware file that
+doesn't match is never sent to the device. When GitHub's API can't be
+reached (for example, when rate limited), the upgrade continues without that
+check.
+
+#### Publishing custom firmware
+
+Vendors and integrators can distribute their own WLED builds through the same
+upgrade flow. Compile the firmware with metadata for the repository, brand,
+and release name, and attach it to a GitHub release, named after the WLED
+convention:
 
 ```text
 {brand}_{version}_{release}.bin
 ```
 
-- `brand`: the device-reported brand from `device.info.brand`
-  (default `"WLED"`)
-- `version`: the release tag without the leading `v`
-  (e.g., `0.15.0` for tag `v0.15.0`)
-- `release`: the device-reported release name from `device.info.release`
-  (e.g., `ESP32`, `ESP32_Ethernet`)
+- `brand`: the brand the device reports in `device.info.brand` (`WLED` by
+  default).
+- `version`: the release tag without the leading `v`, like `0.15.0` for the
+  tag `v0.15.0`.
+- `release`: the release name the device reports in `device.info.release`,
+  like `ESP32` or `ESP32_Ethernet`.
 
-The official [WLED releases][wled-releases] show examples of this format using the default brand `WLED`. For example, a device reporting `repo="example/WLED"`,
-`brand="WLED"`, and `release="ESP32"` upgraded to version `0.15.0` expects this
-release asset:
+If your files keep the `WLED_` prefix while the device reports another brand,
+that works too, as long as only one file in the release matches the version
+and release name. The official [WLED releases][wled-releases] show the format
+in practice.
 
-```text
-https://github.com/example/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin
-```
+### Error handling
 
-If you use `WLEDReleases` to check available versions before upgrading, pass the
-same repository reported by the device:
+Everything the library raises derives from `WLEDError`:
+
+- `WLEDConnectionError`: the device couldn't be reached, with
+  `WLEDConnectionTimeoutError` for timeouts and `WLEDConnectionClosedError`
+  for a closed WebSocket.
+- `WLEDStatusError`: the device answered with an HTTP error; `status` and
+  `body` hold what it said.
+- `WLEDResponseError`: the device answered, but with nothing usable
+  (`WLEDEmptyResponseError`, `WLEDInvalidResponseError`).
+- `WLEDUnsupportedVersionError`: the firmware is older than this library
+  supports.
+- `WLEDUpgradeError`: a firmware upgrade failed.
+
+`WLEDStatusError` and `WLEDResponseError` also carry the `method` and `path`
+of the request that failed.
 
 ```python
-device = await led.update()
-releases = await WLEDReleases(repo=device.info.repo).releases()
-await led.upgrade(version=releases.stable)
+from wled import WLED, WLEDConnectionError, WLEDError
+
+async with WLED("wled-frenck.local") as led:
+    try:
+        await led.update()
+    except WLEDConnectionError:
+        print("WLED is unreachable")
+    except WLEDError as err:
+        print(f"WLED had a problem: {err}")
 ```
 
 ## Changelog & Releases
@@ -215,3 +375,5 @@ SOFTWARE.
 [scorecard-shield]: https://api.scorecard.dev/projects/github.com/frenck/python-wled/badge
 [semver]: http://semver.org/spec/v2.0.0.html
 [wled-releases]: https://github.com/wled/WLED/releases
+[wled]: https://github.com/wled/WLED
+[home-assistant]: https://www.home-assistant.io
