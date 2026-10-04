@@ -15,6 +15,7 @@ from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
+    DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
@@ -513,6 +514,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
+
+    repo: str = DEFAULT_REPO
+    """GitHub repository in 'owner/repository' format."""
 
     release: str | None = None
     """The release name of the firmware build.

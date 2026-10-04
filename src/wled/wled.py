@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
+    from .models import Info
 
 # The heading WLED shows after it accepted a firmware upload (since 0.14).
 _UPDATE_SUCCESSFUL = "Update successful!"
@@ -54,6 +55,55 @@ def _verify_upload_accepted(status: int, page: str) -> None:
 
     msg = f"WLED device did not accept the firmware upload: {reason}"
     raise WLEDUpgradeError(msg)
+
+
+# A plain "owner/name" pair, as GitHub names repositories. Deliberately a bit
+# looser than GitHub's own rules: the point is keeping slashes, dot segments,
+# and URL syntax out of the download URL, not policing names.
+_GITHUB_REPO = re.compile(r"[A-Za-z0-9][\w-]{0,38}/(?!\.\.?$)[\w.-]{1,100}", re.ASCII)
+
+
+def _firmware_repo(requested: str | None, info: Info) -> str:
+    """Return the GitHub repository to download the firmware from.
+
+    Without an explicit choice, this is the repository the device reports.
+    It ends up in the download URL, so it has to be a plain "owner/name"
+    pair; anything else could point the download somewhere else.
+    """
+    repo = (requested if requested is not None else info.repo).strip()
+    repo = repo or DEFAULT_REPO
+
+    if not _GITHUB_REPO.fullmatch(repo):
+        msg = f"Invalid firmware repository: {repo!r}"
+        raise WLEDUpgradeError(msg)
+
+    return repo
+
+
+def _firmware_file_name(info: Info, version: str | AwesomeVersion) -> str:
+    """Return the name of the firmware file for a device and version."""
+    # Determine if this is a 2M ESP8266 board.
+    # See issue `https://github.com/wled/WLED/issues/3257`
+    gzip = ".gz" if info.architecture == "esp02" else ""
+
+    # If the device reports its release name, use it to build the
+    # correct firmware filename. Otherwise fall back to architecture.
+    if info.release is not None:
+        return f"{info.brand}_{version}_{info.release}.bin{gzip}"
+
+    # Determine if this is an Ethernet board
+    ethernet = ""
+    if (
+        info.architecture == "esp32"
+        and info.wifi is not None
+        and not info.wifi.bssid
+        and info.version
+        and info.version >= "0.10.0"
+    ):
+        ethernet = "_Ethernet"
+
+    architecture = info.architecture.upper()
+    return f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
 
 
 @dataclass
@@ -684,18 +734,19 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(  # noqa: PLR0912
+    async def upgrade(
         self,
         *,
         version: str | AwesomeVersion,
-        repo: str = DEFAULT_REPO,
+        repo: str | None = None,
     ) -> None:
         """Upgrade WLED device to the specified version.
 
         Args:
         ----
             version: The version to upgrade to.
-            repo: GitHub repository to download firmware from.
+            repo: GitHub repository to download firmware from. If not specified,
+                the repository reported by the device firmware is used.
 
         Raises:
         ------
@@ -734,35 +785,9 @@ class WLED:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
 
-        # Determine if this is an Ethernet board
-        ethernet = ""
-        if (
-            self._device.info.architecture == "esp32"
-            and self._device.info.wifi is not None
-            and not self._device.info.wifi.bssid
-            and self._device.info.version
-            and self._device.info.version >= "0.10.0"
-        ):
-            ethernet = "_Ethernet"
-
-        # Determine if this is a 2M ESP8266 board.
-        # See issue `https://github.com/wled/WLED/issues/3257`
-        gzip = ""
-        if self._device.info.architecture == "esp02":
-            gzip = ".gz"
-
+        repo = _firmware_repo(repo, self._device.info)
         url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-
-        # If the device reports its release name, use it to build the
-        # correct firmware filename. Otherwise fall back to architecture.
-        if self._device.info.release is not None:
-            update_file = (
-                f"{self._device.info.brand}_{version}"
-                f"_{self._device.info.release}.bin{gzip}"
-            )
-        else:
-            architecture = self._device.info.architecture.upper()
-            update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
+        update_file = _firmware_file_name(self._device.info, version)
         download_url = (
             f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
         )

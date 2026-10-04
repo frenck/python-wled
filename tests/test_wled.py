@@ -13,7 +13,7 @@ from aioresponses import aioresponses
 from yarl import URL
 
 from wled import WLED, Device, Releases
-from wled.const import LiveDataOverride
+from wled.const import DEFAULT_REPO, LiveDataOverride
 from wled.exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -1702,6 +1702,110 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
         content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("info_override", "call_kwargs", "download_repo"),
+    [
+        pytest.param(
+            {"repo": "MoonModules/WLED"}, {}, "MoonModules/WLED", id="device_repo"
+        ),
+        pytest.param(
+            {"repo": "MoonModules/WLED"},
+            {"repo": DEFAULT_REPO},
+            DEFAULT_REPO,
+            id="explicit_repo",
+        ),
+        pytest.param({"repo": " "}, {}, DEFAULT_REPO, id="blank_device_repo"),
+        pytest.param({}, {}, DEFAULT_REPO, id="missing_device_repo"),
+        pytest.param(
+            {"repo": "FORK_A/WLED"},
+            {"repo": "FORK_B/WLED"},
+            "FORK_B/WLED",
+            id="migrate_to_fork",
+        ),
+    ],
+)
+async def test_upgrade_repo_selection(
+    responses: aioresponses,
+    wled: WLED,
+    info_override: dict,
+    call_kwargs: dict,
+    download_repo: str,
+) -> None:
+    """Test upgrade selects the expected firmware repository."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"].update(info_override)
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        f"https://github.com/{download_repo}/releases/download/v0.15.0/"
+        "WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+    await wled.upgrade(version="0.15.0", **call_kwargs)
+
+
+async def test_upgrade_uses_release_name(responses: aioresponses, wled: WLED) -> None:
+    """Test upgrade names the firmware after the brand and release name."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["brand"] = "QuinLED"
+    wled_data["info"]["release"] = "Dig2Go"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/"
+        "QuinLED_0.15.0_Dig2Go.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+
+    await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "../..",
+        "wled/..",
+        "wled/WLED/../../evil/repo",
+        "wled",
+        "evil.com/WLED",
+        "wled/WLED?x=1",
+        "wled/WLED#x",
+        "wled/WLÉD",
+    ],
+)
+async def test_upgrade_rejects_invalid_repo(
+    responses: aioresponses, wled: WLED, repo: str
+) -> None:
+    """Test upgrade refuses a repository that isn't a plain owner/name pair."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["repo"] = repo
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    with pytest.raises(WLEDUpgradeError, match="Invalid firmware repository"):
+        await wled.upgrade(version="0.15.0")
 
 
 async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> None:

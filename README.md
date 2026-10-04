@@ -51,6 +51,52 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
+### Firmware upgrade release files
+
+`python-wled` can upgrade devices from the official WLED releases, or from your
+own GitHub repository if you publish custom WLED builds. This lets vendors,
+integrators, and private installations distribute firmware through the same
+upgrade flow: the device reports where its firmware lives, `python-wled`
+downloads the matching release asset, and the library uploads that file to the
+device's `/update` endpoint.
+
+To make a custom GitHub release work with `python-wled`, compile your WLED
+firmware with metadata for the repository, brand, and release name, then create
+a GitHub release with the firmware attached as a release asset. By default,
+`WLED.upgrade()` uses the repository reported by the device as
+`device.info.repo`; older firmware that does not report a repository falls back
+to `wled/WLED`.
+
+Release assets must use the WLED release file naming convention:
+
+```text
+{brand}_{version}_{release}.bin
+```
+
+- `brand`: the device-reported brand from `device.info.brand`
+  (default `"WLED"`)
+- `version`: the release tag without the leading `v`
+  (e.g., `0.15.0` for tag `v0.15.0`)
+- `release`: the device-reported release name from `device.info.release`
+  (e.g., `ESP32`, `ESP32_Ethernet`)
+
+The official [WLED releases][wled-releases] show examples of this format using the default brand `WLED`. For example, a device reporting `repo="example/WLED"`,
+`brand="WLED"`, and `release="ESP32"` upgraded to version `0.15.0` expects this
+release asset:
+
+```text
+https://github.com/example/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin
+```
+
+If you use `WLEDReleases` to check available versions before upgrading, pass the
+same repository reported by the device:
+
+```python
+device = await led.update()
+releases = await WLEDReleases(repo=device.info.repo).releases()
+await led.upgrade(version=releases.stable)
+```
+
 ## Changelog & Releases
 
 This repository keeps a change log using [GitHub's releases][releases]
@@ -168,3 +214,4 @@ SOFTWARE.
 [scorecard]: https://scorecard.dev/viewer/?uri=github.com/frenck/python-wled
 [scorecard-shield]: https://api.scorecard.dev/projects/github.com/frenck/python-wled/badge
 [semver]: http://semver.org/spec/v2.0.0.html
+[wled-releases]: https://github.com/wled/WLED/releases
