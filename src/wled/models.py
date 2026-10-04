@@ -866,6 +866,69 @@ class Device(BaseModel):
             }
         return result
 
+    # Both the initial deserialize and update_from_dict() turn the raw lists
+    # from the device into these dicts, so the rules live in one place.
+
+    @staticmethod
+    def _effects_from_names(names: list[Any]) -> dict[int, dict[str, Any]]:
+        """Return the effects by ID, skipping placeholders and junk.
+
+        Effects named RSVD are placeholders in the firmware. Names that
+        aren't strings have been seen when a device cuts off its response.
+        """
+        return {
+            effect_id: {"effect_id": effect_id, "name": name}
+            for effect_id, name in enumerate(names)
+            if isinstance(name, str) and "RSVD" not in name
+        }
+
+    @classmethod
+    def _palettes_from_names(  # pylint: disable=too-many-arguments
+        cls,
+        names: list[Any],
+        *,
+        custom_count: int,
+        usermod_count: int,
+        usermod_names: list[str] | None,
+        version: AwesomeVersion | None,
+    ) -> dict[int, dict[str, Any]]:
+        """Return all palettes by ID: built-in, custom, and usermod ones."""
+        built_in_palettes = {
+            palette_id: {"palette_id": palette_id, "name": name}
+            for palette_id, name in enumerate(names)
+            if isinstance(name, str)
+        }
+        custom_palettes = cls._build_custom_palettes(custom_count, version)
+        usermod_palettes = cls._build_usermod_palettes(
+            usermod_count, usermod_names, version
+        )
+        return built_in_palettes | custom_palettes | usermod_palettes
+
+    @staticmethod
+    def _split_presets(
+        raw: dict[str, Any],
+    ) -> tuple[dict[int, dict[str, Any]], dict[int, dict[str, Any]]]:
+        """Split the preset data into presets and playlists, by ID.
+
+        WLED keeps both in the same file; a playlist is a preset with a
+        non-empty list of presets to play. ID 0 is a placeholder.
+        """
+        presets: dict[int, dict[str, Any]] = {}
+        playlists: dict[int, dict[str, Any]] = {}
+        for raw_id, entry in raw.items():
+            if not (entry_id := int(raw_id)):
+                continue
+
+            # Anything other than a dict with presets in it, like an empty
+            # list, leaves the entry a plain preset.
+            playlist = entry.get("playlist")
+            if isinstance(playlist, dict) and playlist.get("ps"):
+                playlists[entry_id] = entry | {"playlist_id": entry_id}
+            else:
+                presets[entry_id] = entry | {"preset_id": entry_id}
+
+        return presets, playlists
+
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
@@ -888,25 +951,17 @@ class Device(BaseModel):
                 raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
-            d["effects"] = {
-                effect_id: {"effect_id": effect_id, "name": name}
-                for effect_id, name in enumerate(_effects)
-                if isinstance(name, str) and "RSVD" not in name
-            }
+            d["effects"] = cls._effects_from_names(_effects)
 
         if _palettes := d.get("palettes"):
-            built_in_palettes = {
-                palette_id: {"palette_id": palette_id, "name": name}
-                for palette_id, name in enumerate(_palettes)
-                if isinstance(name, str)
-            }
             info = d.get("info", {})
-            cpalcount = info.get("cpalcount", 0)
-            custom_palettes = cls._build_custom_palettes(cpalcount, version)
-            usermod_palettes = cls._build_usermod_palettes(
-                info.get("umpalcount", 0), info.get("umpalnames"), version
+            d["palettes"] = cls._palettes_from_names(
+                _palettes,
+                custom_count=info.get("cpalcount", 0),
+                usermod_count=info.get("umpalcount", 0),
+                usermod_names=info.get("umpalnames"),
+                version=version,
             )
-            d["palettes"] = built_in_palettes | custom_palettes | usermod_palettes
         elif _palettes is None:
             # Some less capable devices don't have palettes and
             # will return `null`.
@@ -916,28 +971,7 @@ class Device(BaseModel):
             d["palettes"] = {}
 
         if _presets := d.get("presets"):
-            _presets = _presets.copy()
-            # The preset data contains both presets and playlists,
-            # we split those out, so we can handle those correctly.
-            d["presets"] = {
-                int(preset_id): preset | {"preset_id": int(preset_id)}
-                for preset_id, preset in _presets.items()
-                if "playlist" not in preset
-                or "ps" not in preset["playlist"]
-                or not preset["playlist"]["ps"]
-            }
-            # Nobody cares about 0.
-            d["presets"].pop(0, None)
-
-            d["playlists"] = {
-                int(playlist_id): playlist | {"playlist_id": int(playlist_id)}
-                for playlist_id, playlist in _presets.items()
-                if "playlist" in playlist
-                and "ps" in playlist["playlist"]
-                and playlist["playlist"]["ps"]
-            }
-            # Nobody cares about 0.
-            d["playlists"].pop(0, None)
+            d["presets"], d["playlists"] = cls._split_presets(_presets)
 
         return d
 
@@ -960,56 +994,33 @@ class Device(BaseModel):
 
         if _effects := data.get("effects"):
             self.effects = {
-                effect_id: Effect(effect_id=effect_id, name=name)
-                for effect_id, name in enumerate(_effects)
-                if isinstance(name, str) and "RSVD" not in name
+                effect_id: Effect(**effect)
+                for effect_id, effect in self._effects_from_names(_effects).items()
             }
 
         if _palettes := data.get("palettes"):
-            built_in_palettes = {
-                palette_id: Palette(palette_id=palette_id, name=name)
-                for palette_id, name in enumerate(_palettes)
-                if isinstance(name, str)
+            palettes = self._palettes_from_names(
+                _palettes,
+                custom_count=self.info.custom_palette_count,
+                usermod_count=self.info.usermod_palette_count,
+                usermod_names=self.info.usermod_palette_names,
+                version=self.info.version,
+            )
+            self.palettes = {
+                palette_id: Palette(**palette)
+                for palette_id, palette in palettes.items()
             }
-            custom_palettes = self._build_custom_palettes(
-                self.info.custom_palette_count, self.info.version
-            )
-            usermod_palettes = self._build_usermod_palettes(
-                self.info.usermod_palette_count,
-                self.info.usermod_palette_names,
-                self.info.version,
-            )
-            result = {}
-            for pal_id, pal_data in (custom_palettes | usermod_palettes).items():
-                result[pal_id] = Palette(**pal_data)
-            self.palettes = built_in_palettes | result
 
         if _presets := data.get("presets"):
-            # The preset data contains both presets and playlists,
-            # we split those out, so we can handle those correctly.
+            presets, playlists = self._split_presets(_presets)
             self.presets = {
-                int(preset_id): Preset.from_dict(
-                    preset | {"preset_id": int(preset_id)},
-                )
-                for preset_id, preset in _presets.items()
-                if "playlist" not in preset
-                or "ps" not in preset["playlist"]
-                or not preset["playlist"]["ps"]
+                preset_id: Preset.from_dict(preset)
+                for preset_id, preset in presets.items()
             }
-            # Nobody cares about 0.
-            self.presets.pop(0, None)
-
             self.playlists = {
-                int(playlist_id): Playlist.from_dict(
-                    playlist | {"playlist_id": int(playlist_id)}
-                )
-                for playlist_id, playlist in _presets.items()
-                if "playlist" in playlist
-                and "ps" in playlist["playlist"]
-                and playlist["playlist"]["ps"]
+                playlist_id: Playlist.from_dict(playlist)
+                for playlist_id, playlist in playlists.items()
             }
-            # Nobody cares about 0.
-            self.playlists.pop(0, None)
 
         if _state := data.get("state"):
             self.state = State.from_dict(_state)

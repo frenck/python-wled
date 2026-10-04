@@ -811,6 +811,21 @@ def test_device_update_from_dict_filters_null_palettes() -> None:
     assert device.palettes[2].name == "Party"
 
 
+@pytest.mark.parametrize("playlist", [[], {}, {"ps": []}, None, "not a playlist"])
+def test_device_preset_without_usable_playlist(playlist: object) -> None:
+    """Test a preset with an empty or odd playlist value stays a preset."""
+    data = full_device_data()
+    data["presets"] = {"1": {"n": "Example", "playlist": playlist}}
+
+    device = Device.from_dict(data)
+    assert device.presets[1].name == "Example"
+    assert device.playlists == {}
+
+    device.update_from_dict({"presets": {"2": {"n": "Other", "playlist": playlist}}})
+    assert device.presets[2].name == "Other"
+    assert device.playlists == {}
+
+
 def test_device_usermod_palettes() -> None:
     """Test usermod palettes are correctly added to device palettes."""
     data = full_device_data()
