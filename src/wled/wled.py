@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 import socket
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
 import aiohttp
@@ -28,11 +29,108 @@ from .exceptions import (
 from .models import Device, Playlist, Preset, Releases
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
+    from .models import Info
+
+# The heading WLED shows after it accepted a firmware upload (since 0.14).
+_UPDATE_SUCCESSFUL = "Update successful!"
+
+
+def _verify_upload_accepted(status: int, page: str) -> None:
+    """Raise if WLED did not accept a firmware upload.
+
+    The status code alone can't be trusted: WLED has been seen to answer a
+    rejected upload (like one from outside the local subnet) with a 200. The
+    HTML page it answers with, `<h2>Heading</h2>Detail<br>...`, is the real
+    verdict.
+    """
+    if status < 400 and _UPDATE_SUCCESSFUL in page:
+        return
+
+    reason = f"HTTP {status}"
+    if match := re.search(r"<h2>(.*?)</h2>\s*([^<]*)", page, re.DOTALL):
+        reason = " ".join(part.strip() for part in match.groups() if part.strip())
+
+    msg = f"WLED device did not accept the firmware upload: {reason}"
+    raise WLEDUpgradeError(msg)
+
+
+# A plain "owner/name" pair, as GitHub names repositories. Deliberately a bit
+# looser than GitHub's own rules: the point is keeping slashes, dot segments,
+# and URL syntax out of the download URL, not policing names.
+_GITHUB_REPO = re.compile(r"[A-Za-z0-9][\w-]{0,38}/(?!\.\.?$)[\w.-]{1,100}", re.ASCII)
+
+
+def _firmware_repo(requested: str | None, info: Info) -> str:
+    """Return the GitHub repository to download the firmware from.
+
+    Without an explicit choice, this is the repository the device reports.
+    It ends up in the download URL, so it has to be a plain "owner/name"
+    pair; anything else could point the download somewhere else.
+    """
+    repo = (requested if requested is not None else info.repo).strip()
+    repo = repo or DEFAULT_REPO
+
+    if not _GITHUB_REPO.fullmatch(repo):
+        msg = f"Invalid firmware repository: {repo!r}"
+        raise WLEDUpgradeError(msg)
+
+    return repo
+
+
+def _firmware_file_name(info: Info, version: str | AwesomeVersion) -> str:
+    """Return the name of the firmware file for a device and version."""
+    # Determine if this is a 2M ESP8266 board.
+    # See issue `https://github.com/wled/WLED/issues/3257`
+    gzip = ".gz" if info.architecture == "esp02" else ""
+
+    # If the device reports its release name, use it to build the
+    # correct firmware filename. Otherwise fall back to architecture.
+    if info.release is not None:
+        return f"{info.brand}_{version}_{info.release}.bin{gzip}"
+
+    # Determine if this is an Ethernet board
+    ethernet = ""
+    if (
+        info.architecture == "esp32"
+        and info.wifi is not None
+        and not info.wifi.bssid
+        and info.version
+        and info.version >= "0.10.0"
+    ):
+        ethernet = "_Ethernet"
+
+    architecture = info.architecture.upper()
+    return f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
+
+
+# A release version as WLED tags them (without the "v"), like 0.15.0 or
+# 16.0.0-b1. It ends up in the download URL, so nothing else gets through.
+_FIRMWARE_VERSION = re.compile(r"\d+\.\d+\.\d+(?:[-+][\w.]+)?", re.ASCII)
+
+# GitHub publishes release asset digests as "sha256:<hex>".
+_SHA256_DIGEST = re.compile(r"sha256:([0-9a-f]{64})", re.ASCII)
+
+
+def _firmware_version(version: str | AwesomeVersion) -> str:
+    """Return the version to upgrade to, refusing anything that isn't one."""
+    if not _FIRMWARE_VERSION.fullmatch(str(version)):
+        msg = f"Invalid firmware version: {str(version)!r}"
+        raise WLEDUpgradeError(msg)
+
+    return str(version)
+
+
+@dataclass
+class _FirmwareAsset:
+    """A firmware file in a GitHub release."""
+
+    name: str
+    sha256: str | None = None
 
 
 @dataclass
@@ -40,6 +138,15 @@ class _PresetsVersion:
     """Tracks preset modification state to avoid unnecessary fetches."""
 
     modified_timestamp: int
+    boot_time: int
+
+
+@dataclass
+class _CatalogVersion:
+    """Tracks the effects and palettes lists to avoid unnecessary fetches."""
+
+    effect_count: int
+    palette_count: int
     boot_time: int
 
 
@@ -55,6 +162,8 @@ class WLED:
     _close_session: bool = False
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
+    _catalog_version: _CatalogVersion | None = None
+    _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
 
     @property
     def connected(self) -> bool:
@@ -177,6 +286,8 @@ class WLED:
         uri: str = "",
         method: str = "GET",
         data: dict[str, Any] | None = None,
+        *,
+        params: Mapping[str, str | int] | None = None,
     ) -> Any:
         """Handle a request to a WLED device.
 
@@ -188,6 +299,9 @@ class WLED:
             uri: Request URI, for example `/json/si`.
             method: HTTP method to use for the request. E.g., "GET" or "POST".
             data: Dictionary of data to send to the WLED device.
+            params: Query parameters to add to the URL, for example
+                `{"page": 1}`. A query string in `uri` won't work: it gets
+                encoded as part of the path.
 
         Returns:
         -------
@@ -203,7 +317,7 @@ class WLED:
             WLEDError: Received an unexpected response from the WLED device.
 
         """
-        url = URL.build(scheme="http", host=self.host, port=80, path=uri)
+        url = URL.build(scheme="http", host=self.host, port=80, path=uri, query=params)
 
         headers = {
             "Accept": "application/json, text/plain, */*",
@@ -346,12 +460,26 @@ class WLED:
                 raise WLEDEmptyResponseError(msg, method="GET", path="/presets.json")
             data["presets"] = presets
 
+        # On ESP8266 devices, /json can be cut off when it doesn't fit the
+        # output buffer, losing part of the effects list and all palettes
+        # (WLED issue #5674). The dedicated endpoints don't have that problem.
+        catalog_changed, new_catalog_version = self._check_catalog_changed(data)
+        if catalog_changed and not await self._fetch_catalog():
+            # Try the missing list(s) again on the next update.
+            new_catalog_version = None
+
+        # Prefer the complete lists over the ones from /json, on every update.
+        # Device rebuilds the custom and usermod palettes from the fresh info
+        # each time it gets a palettes list, so those stay current as well.
+        data.update(self._catalog)
+
         if not self._device:
             self._device = Device.from_dict(data)
         else:
             self._device.update_from_dict(data)
 
         self._presets_version = new_version
+        self._catalog_version = new_catalog_version
         return self._device
 
     async def master(
@@ -662,18 +790,19 @@ class WLED:
         nightlight = {k: v for k, v in nightlight.items() if v is not None}
         await self.request("/json/state", method="POST", data={"nl": nightlight})
 
-    async def upgrade(  # noqa: PLR0912
+    async def upgrade(
         self,
         *,
         version: str | AwesomeVersion,
-        repo: str = DEFAULT_REPO,
+        repo: str | None = None,
     ) -> None:
         """Upgrade WLED device to the specified version.
 
         Args:
         ----
             version: The version to upgrade to.
-            repo: GitHub repository to download firmware from.
+            repo: GitHub repository to download firmware from. If not specified,
+                the repository reported by the device firmware is used.
 
         Raises:
         ------
@@ -712,70 +841,144 @@ class WLED:
             msg = "Device already running the requested version"
             raise WLEDUpgradeError(msg)
 
-        # Determine if this is an Ethernet board
-        ethernet = ""
-        if (
-            self._device.info.architecture == "esp32"
-            and self._device.info.wifi is not None
-            and not self._device.info.wifi.bssid
-            and self._device.info.version
-            and self._device.info.version >= "0.10.0"
-        ):
-            ethernet = "_Ethernet"
+        repo = _firmware_repo(repo, self._device.info)
+        version = _firmware_version(version)
 
-        # Determine if this is a 2M ESP8266 board.
-        # See issue `https://github.com/wled/WLED/issues/3257`
-        gzip = ""
-        if self._device.info.architecture == "esp02":
-            gzip = ".gz"
-
-        url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-
-        # If the device reports its release name, use it to build the
-        # correct firmware filename. Otherwise fall back to architecture.
-        if self._device.info.release is not None:
-            update_file = (
-                f"{self._device.info.brand}_{version}"
-                f"_{self._device.info.release}.bin{gzip}"
-            )
-        else:
-            architecture = self._device.info.architecture.upper()
-            update_file = f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
-        download_url = (
-            f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
+        session = self.session
+        asset = await self._find_firmware_asset(
+            session, repo, version, self._device.info
         )
+        firmware = await self._download_firmware(session, repo, version, asset)
+        await self._upload_firmware(session, asset.name, firmware)
 
+    async def _find_firmware_asset(
+        self, session: aiohttp.ClientSession, repo: str, version: str, info: Info
+    ) -> _FirmwareAsset:
+        """Pick the firmware file for this device from the GitHub release.
+
+        When the release can't be looked up (GitHub API down or rate
+        limited), fall back to the file name we expect, without a digest to
+        verify it against. The download then tells whether it exists.
+        """
+        expected = _firmware_file_name(info, version)
+        assets = await self._fetch_release_assets(session, repo, version)
+        if assets is None:
+            return _FirmwareAsset(expected)
+
+        if expected not in assets and info.release is not None:
+            # Forks don't always prefix their files with the brand the device
+            # reports, so settle for the one file matching version and release.
+            suffix = expected.removeprefix(info.brand)
+            matches = [name for name in assets if name.endswith(suffix)]
+            if len(matches) == 1:
+                expected = matches[0]
+
+        if expected not in assets:
+            msg = f"Requested firmware file {expected} does not exist"
+            raise WLEDUpgradeError(msg)
+
+        digest = _SHA256_DIGEST.fullmatch(str(assets[expected].get("digest")))
+        return _FirmwareAsset(expected, digest.group(1) if digest else None)
+
+    async def _fetch_release_assets(
+        self, session: aiohttp.ClientSession, repo: str, version: str
+    ) -> dict[str, dict[str, Any]] | None:
+        """Return the assets of a GitHub release by name, if GitHub tells us."""
+        url = URL.build(
+            scheme="https",
+            host="api.github.com",
+            path=f"/repos/{repo}/releases/tags/v{version}",
+        )
         try:
             async with (
-                asyncio.timeout(
-                    self.request_timeout * 10,
-                ),
-                self.session.get(
-                    download_url,
-                    raise_for_status=True,
-                ) as download,
+                asyncio.timeout(self.request_timeout),
+                session.get(
+                    url, headers={"Accept": "application/vnd.github+json"}
+                ) as response,
             ):
-                form = aiohttp.FormData()
-                form.add_field("file", await download.read(), filename=update_file)
-                await self.session.post(url, data=form)
+                if response.status == 404:
+                    msg = f"WLED version {version} does not exist in {repo}"
+                    raise WLEDUpgradeError(msg)
+                if response.status != 200:
+                    return None
+                release = await response.json(content_type=None)
+        except (TimeoutError, aiohttp.ClientError, socket.gaierror, ValueError):
+            return None
+
+        assets = release.get("assets") if isinstance(release, dict) else None
+        if not isinstance(assets, list):
+            return None
+
+        return {
+            asset["name"]: asset
+            for asset in assets
+            if isinstance(asset, dict) and isinstance(asset.get("name"), str)
+        }
+
+    async def _download_firmware(
+        self,
+        session: aiohttp.ClientSession,
+        repo: str,
+        version: str,
+        asset: _FirmwareAsset,
+    ) -> bytes:
+        """Download a firmware file, and verify it if GitHub gave a digest."""
+        # Built from validated parts, never from a URL found in the metadata.
+        url = URL.build(
+            scheme="https",
+            host="github.com",
+            path=f"/{repo}/releases/download/v{version}/{asset.name}",
+        )
+        try:
+            async with (
+                asyncio.timeout(self.request_timeout * 10),
+                session.get(url, raise_for_status=True) as response,
+            ):
+                firmware = await response.read()
         except TimeoutError as exception:
-            msg = "Timeout occurred while fetching WLED version information from GitHub"
+            msg = "Timeout occurred while downloading the firmware from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested firmware file {update_file} does not exist"
+                msg = f"Requested firmware file {asset.name} does not exist"
                 raise WLEDUpgradeError(msg) from exception
-            msg = (
-                f"Could not download requested WLED version '{version}'"
-                f" from {download_url}"
-            )
+            msg = f"Could not download requested WLED version '{version}' from {url}"
             raise WLEDUpgradeError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = (
-                "Error occurred while communicating with GitHub"
-                " for WLED version information"
-            )
+            msg = "Error occurred while downloading the firmware from GitHub"
             raise WLEDConnectionError(msg) from exception
+
+        if asset.sha256 and hashlib.sha256(firmware).hexdigest() != asset.sha256:
+            msg = (
+                f"Firmware file {asset.name} does not match the digest GitHub"
+                " published for it; refusing to install it"
+            )
+            raise WLEDUpgradeError(msg)
+
+        return firmware
+
+    async def _upload_firmware(
+        self, session: aiohttp.ClientSession, file_name: str, firmware: bytes
+    ) -> None:
+        """Upload a firmware file to the device, and check it got accepted."""
+        url = URL.build(scheme="http", host=self.host, port=80, path="/update")
+        form = aiohttp.FormData()
+        form.add_field("file", firmware, filename=file_name)
+        try:
+            async with (
+                asyncio.timeout(self.request_timeout * 10),
+                session.post(url, data=form) as response,
+            ):
+                status = response.status
+                page = await response.text(errors="replace")
+        except TimeoutError as exception:
+            msg = f"Timeout occurred while uploading the firmware to {self.host}"
+            raise WLEDConnectionTimeoutError(msg) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            msg = f"Error occurred while uploading the firmware to {self.host}"
+            raise WLEDConnectionError(msg) from exception
+
+        _verify_upload_accepted(status, page)
 
     async def reset(self) -> None:
         """Reboot WLED device."""
@@ -852,6 +1055,80 @@ class WLED:
             or abs(self._presets_version.boot_time - new_version.boot_time) > 2
         )
         return (changed, new_version)
+
+    def _check_catalog_changed(
+        self, data: dict[str, Any]
+    ) -> tuple[bool, _CatalogVersion | None]:
+        """Check if the effects or palettes lists have changed.
+
+        Compares the effect and built-in palette counts, and the approximate
+        boot time. A shift in boot time of more than 2 seconds means the
+        device restarted, which can come with a firmware update and thus new
+        effects or palettes. Custom and usermod palettes don't need tracking:
+        those are rebuilt from the device info on every update.
+
+        Returns
+        -------
+            A tuple of (changed, new_version). If the version cannot be
+            determined from the data, returns (True, None) to trigger a
+            safe refetch.
+
+        """
+        info = data.get("info") if isinstance(data, dict) else None
+        if not isinstance(info, dict):
+            return (True, None)
+
+        try:
+            new_version = _CatalogVersion(
+                effect_count=int(info["fxcount"]),
+                palette_count=int(info["palcount"]),
+                boot_time=int(time.time()) - int(info["uptime"]),
+            )
+        except (KeyError, TypeError, ValueError):
+            return (True, None)
+
+        if self._catalog_version is None:
+            return (True, new_version)
+
+        changed = (
+            self._catalog_version.effect_count != new_version.effect_count
+            or self._catalog_version.palette_count != new_version.palette_count
+            or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
+        )
+        return (changed, new_version)
+
+    async def _fetch_catalog(self) -> bool:
+        """Fetch the complete effects and palettes lists into the cache.
+
+        Each list is fetched on its own, so one failing endpoint doesn't
+        throw away the other. When the device answers with an error or
+        something unexpected, the previously cached list (if any) is kept.
+        A connection error still propagates: if the device is gone, the
+        update should fail.
+
+        Returns
+        -------
+            True if both lists were fetched, False if either needs a retry.
+
+        """
+        complete = True
+        for key in ("effects", "palettes"):
+            try:
+                value = await self.request(f"/json/{key}")
+            except WLEDConnectionError:
+                raise
+            except WLEDError:
+                complete = False
+                continue
+
+            # Some less capable devices have no palettes and return `null`,
+            # which Device already knows how to handle.
+            if isinstance(value, list) or (key == "palettes" and value is None):
+                self._catalog[key] = value
+            else:
+                complete = False
+
+        return complete
 
 
 @dataclass
