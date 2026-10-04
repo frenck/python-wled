@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from awesomeversion import AwesomeVersion
 from mashumaro import field_options
@@ -25,6 +25,9 @@ from .const import (
 )
 from .exceptions import WLEDUnsupportedVersionError
 from .utils import get_awesome_version
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # For palette ID space layout, see:
 # https://github.com/wled/WLED/blob/665d66f45eba17b42a30d99689430b7297ff2559/wled00/const.h#L19
@@ -204,6 +207,81 @@ class Palette(BaseModel):
     custom: bool = False
     name: str
     palette_id: int
+
+
+# An RGB or RGBW color, with each channel between 0 and 255.
+ColorTuple = tuple[int, int, int, int] | tuple[int, int, int]
+
+
+@dataclass(frozen=True, kw_only=True)
+class SegmentUpdate:
+    """A change to apply to one segment, for `WLED.segments()`.
+
+    Every field left at None leaves that part of the segment unchanged.
+    """
+
+    segment_id: int
+    """The ID of the segment to change."""
+
+    brightness: int | None = None
+    """The brightness of the segment, between 0 and 255."""
+
+    clones: int | None = None
+    """Deprecated."""
+
+    color_primary: ColorTuple | None = None
+    """The primary color of the segment."""
+
+    color_secondary: ColorTuple | None = None
+    """The secondary color of the segment."""
+
+    color_tertiary: ColorTuple | None = None
+    """The tertiary color of the segment."""
+
+    cct: int | None = None
+    """White spectrum color temperature."""
+
+    effect: int | str | None = None
+    """The effect to use, by ID or by name."""
+
+    freeze: bool | None = None
+    """Freeze the current state of the segment."""
+
+    individual: Sequence[int | Sequence[int] | ColorTuple] | None = None
+    """A list of colors to use for each LED in the segment."""
+
+    intensity: int | None = None
+    """The effect intensity, between 0 and 255."""
+
+    length: int | None = None
+    """The length of the segment."""
+
+    name: str | None = None
+    """The name of the segment; an empty string clears it."""
+
+    on: bool | None = None
+    """True to turn the segment on, false to turn it off."""
+
+    palette: int | str | None = None
+    """The palette to use, by ID or by name."""
+
+    reverse: bool | None = None
+    """Flip the segment, so animations change direction."""
+
+    selected: bool | None = None
+    """Whether APIs without segment support change this segment too."""
+
+    speed: int | None = None
+    """The relative effect speed, between 0 and 255."""
+
+    start: int | None = None
+    """The LED the segment starts at."""
+
+    stop: int | None = None
+    """The LED the segment stops at, not included.
+
+    Setting it at or below `start` (0 is recommended) deletes the segment.
+    """
 
 
 @dataclass(kw_only=True)
