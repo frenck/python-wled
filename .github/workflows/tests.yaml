@@ -54,7 +54,7 @@ jobs:
           path: .coverage
 
   pytest-lowest:
-    name: Python ${{ env.DEFAULT_PYTHON }} (lowest dependencies)
+    name: Lowest dependencies
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
