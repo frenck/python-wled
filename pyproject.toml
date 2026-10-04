@@ -73,7 +73,7 @@ coverage = { version = "7.16.2", extras = ["toml"] }
 pre-commit-hooks = "6.0.0"
 prek = "0.5.4"
 pylint = "4.0.5"
-pytest = "9.0.3"
+pytest = "9.1.1"
 pytest-asyncio = "1.3.0"
 pytest-cov = "7.1.0"
 ruff = "0.15.11"
