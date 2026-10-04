@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import inspect
+import sys
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -602,25 +603,24 @@ def test_entry_point_runs_cli() -> None:
 
 
 @pytest.mark.parametrize("missing", ["typer", "rich.console", "zeroconf.asyncio"])
-def test_entry_point_without_cli_extra(missing: str) -> None:
+def test_entry_point_without_cli_extra(
+    monkeypatch: pytest.MonkeyPatch, missing: str
+) -> None:
     """Test a missing CLI dependency ends with an install hint."""
-    with (
-        patch(
-            "builtins.__import__",
-            side_effect=ModuleNotFoundError(name=missing),
-        ),
-        pytest.raises(SystemExit, match=r"pip install 'wled\[cli\]'"),
-    ):
+    # Make the CLI module import again, with the dependency unavailable,
+    # just like on an install without the cli extra.
+    monkeypatch.delitem(sys.modules, "wled.cli")
+    monkeypatch.setitem(sys.modules, missing, None)
+
+    with pytest.raises(SystemExit, match=r"pip install 'wled\[cli\]'"):
         main()
 
 
-def test_entry_point_reraises_other_import_errors() -> None:
+def test_entry_point_reraises_other_import_errors(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Test a missing module that isn't a CLI dependency is not hidden."""
-    with (
-        patch(
-            "builtins.__import__",
-            side_effect=ModuleNotFoundError(name="wled.cli.renamed"),
-        ),
-        pytest.raises(ModuleNotFoundError),
-    ):
+    monkeypatch.setitem(sys.modules, "wled.cli", None)
+
+    with pytest.raises(ModuleNotFoundError):
         main()
