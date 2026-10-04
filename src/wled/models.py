@@ -919,7 +919,10 @@ class Device(BaseModel):
             if not (entry_id := int(raw_id)):
                 continue
 
-            if entry.get("playlist", {}).get("ps"):
+            # Anything other than a dict with presets in it, like an empty
+            # list, leaves the entry a plain preset.
+            playlist = entry.get("playlist")
+            if isinstance(playlist, dict) and playlist.get("ps"):
                 playlists[entry_id] = entry | {"playlist_id": entry_id}
             else:
                 presets[entry_id] = entry | {"preset_id": entry_id}
