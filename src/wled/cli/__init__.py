@@ -1,6 +1,7 @@
 """Asynchronous Python client for WLED."""
 
 import asyncio
+import json
 import sys
 from typing import Annotated
 
@@ -19,6 +20,26 @@ from .async_typer import AsyncTyper
 
 cli = AsyncTyper(help="WLED CLI", no_args_is_help=True, add_completion=False)
 console = Console()
+
+Host = Annotated[
+    str,
+    typer.Option(
+        help="WLED device IP address or hostname",
+        prompt="Host address",
+        show_default=False,
+        envvar="WLED_HOST",
+    ),
+]
+
+JsonFlag = Annotated[
+    bool,
+    typer.Option("--json", help="Output machine-readable JSON instead of a table"),
+]
+
+
+def emit_json(payload: object) -> None:
+    """Print a payload as indented JSON."""
+    typer.echo(json.dumps(payload, indent=2))
 
 
 @cli.error_handler(WLEDConnectionError)
@@ -66,14 +87,7 @@ def unsupported_version_error_handler(
 
 @cli.command("on")
 async def command_on(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
 ) -> None:
     """Turn on a WLED device."""
     async with WLED(host) as led:
@@ -83,14 +97,7 @@ async def command_on(
 
 @cli.command("off")
 async def command_off(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
 ) -> None:
     """Turn off a WLED device."""
     async with WLED(host) as led:
@@ -100,14 +107,7 @@ async def command_off(
 
 @cli.command("brightness")
 async def command_brightness(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
     brightness: Annotated[
         int,
         typer.Option(
@@ -127,14 +127,8 @@ async def command_brightness(
 
 @cli.command("info")
 async def command_info(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the information about the WLED device."""
     with console.status(
@@ -142,6 +136,51 @@ async def command_info(
     ):
         async with WLED(host) as led:
             device = await led.update()
+
+    if output_json:
+        info = device.info
+        emit_json(
+            {
+                "name": info.name,
+                "brand": info.brand,
+                "product": info.product,
+                "ip": info.ip,
+                "mac_address": info.mac_address,
+                "wifi": {
+                    "bssid": info.wifi.bssid,
+                    "channel": info.wifi.channel,
+                    "rssi": info.wifi.rssi,
+                    "signal": info.wifi.signal,
+                }
+                if info.wifi
+                else None,
+                "version": str(info.version) if info.version else None,
+                "build": info.build,
+                "architecture": info.architecture,
+                "arduino_core_version": info.arduino_core_version,
+                "uptime": int(info.uptime.total_seconds()),
+                "free_heap": info.free_heap,
+                "filesystem": {
+                    "total": info.filesystem.total,
+                    "used": info.filesystem.used,
+                    "used_percentage": info.filesystem.used_percentage,
+                },
+                "effect_count": info.effect_count,
+                "palette_count": info.palette_count,
+                "custom_palette_count": info.custom_palette_count,
+                "udp_port": info.udp_port,
+                "websocket": info.websocket,
+                "live": info.live,
+                "live_ip": info.live_ip,
+                "live_mode": info.live_mode,
+                "leds": {
+                    "count": info.leds.count,
+                    "power": info.leds.power,
+                    "max_power": info.leds.max_power,
+                },
+            }
+        )
+        return
 
     info_table = Table(title="\nWLED device information", show_header=False)
     info_table.add_column("Property", style="cyan bold")
@@ -205,14 +244,8 @@ async def command_info(
 
 @cli.command("effects")
 async def command_effects(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the effects on the device."""
     with console.status(
@@ -220,6 +253,15 @@ async def command_effects(
     ):
         async with WLED(host) as led:
             device = await led.update()
+
+    if output_json:
+        emit_json(
+            [
+                {"id": effect.effect_id, "name": effect.name}
+                for effect in device.effects.values()
+            ]
+        )
+        return
 
     table = Table(title="\nEffects on this WLED device", show_header=False)
     table.add_column("Effects", style="cyan bold")
@@ -231,14 +273,8 @@ async def command_effects(
 
 @cli.command("palettes")
 async def command_palettes(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the palettes on the device."""
     with console.status(
@@ -246,6 +282,19 @@ async def command_palettes(
     ):
         async with WLED(host) as led:
             device = await led.update()
+
+    if output_json:
+        emit_json(
+            [
+                {
+                    "id": palette.palette_id,
+                    "name": palette.name,
+                    "custom": palette.custom,
+                }
+                for palette in device.palettes.values()
+            ]
+        )
+        return
 
     table = Table(title="\nPalettes on this WLED device", show_header=False)
     table.add_column("Palette", style="cyan bold")
@@ -257,14 +306,8 @@ async def command_palettes(
 
 @cli.command("playlists")
 async def command_playlists(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the playlists on the device."""
     with console.status(
@@ -272,6 +315,15 @@ async def command_playlists(
     ):
         async with WLED(host) as led:
             device = await led.update()
+
+    if output_json:
+        emit_json(
+            [
+                {"id": playlist.playlist_id, "name": playlist.name}
+                for playlist in device.playlists.values()
+            ]
+        )
+        return
 
     if not device.playlists:
         console.print("🚫[red] This device has no playlists")
@@ -287,14 +339,8 @@ async def command_playlists(
 
 @cli.command("presets")
 async def command_presets(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the presets on the device."""
     with console.status(
@@ -302,6 +348,20 @@ async def command_presets(
     ):
         async with WLED(host) as led:
             device = await led.update()
+
+    if output_json:
+        emit_json(
+            [
+                {
+                    "id": preset.preset_id,
+                    "name": preset.name,
+                    "quick_label": preset.quick_label,
+                    "active": preset.on,
+                }
+                for preset in device.presets.values()
+            ]
+        )
+        return
 
     if not device.presets:
         console.print("🚫[red] This device has no presets")
@@ -319,14 +379,7 @@ async def command_presets(
 
 @cli.command("preset")
 async def command_preset(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
     preset: Annotated[
         str,
         typer.Option(
@@ -345,14 +398,7 @@ async def command_preset(
 
 @cli.command("playlist")
 async def command_playlist(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
     playlist: Annotated[
         str,
         typer.Option(
@@ -370,13 +416,23 @@ async def command_playlist(
 
 
 @cli.command("releases")
-async def command_releases() -> None:
+async def command_releases(output_json: JsonFlag = False) -> None:
     """Show the latest release information of WLED."""
     with console.status(
         "[cyan]Fetching latest release information...", spinner="toggle12"
     ):
         async with WLEDReleases() as releases:
             latest = await releases.releases()
+
+    if output_json:
+        emit_json(
+            {
+                "stable": str(latest.stable) if latest.stable else None,
+                "beta": str(latest.beta) if latest.beta else None,
+                "nightly": str(latest.nightly) if latest.nightly else None,
+            }
+        )
+        return
 
     table = Table(
         title="\n\nFound WLED Releases", header_style="cyan bold", show_lines=True
@@ -406,14 +462,7 @@ async def command_releases() -> None:
 
 @cli.command("reset")
 async def command_reset(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
 ) -> None:
     """Reboot a WLED device."""
     with console.status("[cyan]Rebooting WLED device...", spinner="toggle12"):
@@ -425,14 +474,8 @@ async def command_reset(
 
 @cli.command("state")
 async def command_state(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
+    output_json: JsonFlag = False,
 ) -> None:
     """Show the current state of the WLED device."""
     with console.status("[cyan]Fetching WLED device state...", spinner="toggle12"):
@@ -440,6 +483,33 @@ async def command_state(
             device = await led.update()
 
     state = device.state
+
+    if output_json:
+        emit_json(
+            {
+                "on": state.on,
+                "brightness": state.brightness,
+                "transition": state.transition,
+                "preset_id": state.preset_id,
+                "playlist_id": state.playlist_id,
+                "nightlight": state.nightlight.on,
+                "live_data_override": state.live_data_override.name.lower(),
+                "segments": [
+                    {
+                        "id": segment.segment_id,
+                        "name": segment.name,
+                        "on": segment.on,
+                        "brightness": segment.brightness,
+                        "effect_id": segment.effect_id,
+                        "palette_id": segment.palette_id,
+                        "start": segment.start,
+                        "stop": segment.stop,
+                    }
+                    for segment in state.segments.values()
+                ],
+            }
+        )
+        return
 
     state_table = Table(title="\nWLED device state", show_header=False)
     state_table.add_column("Property", style="cyan bold")
@@ -504,14 +574,7 @@ async def command_state(
 
 @cli.command("upgrade")
 async def command_upgrade(
-    host: Annotated[
-        str,
-        typer.Option(
-            help="WLED device IP address or hostname",
-            prompt="Host address",
-            show_default=False,
-        ),
-    ],
+    host: Host,
     version: Annotated[
         str,
         typer.Option(

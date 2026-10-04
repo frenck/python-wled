@@ -13,9 +13,11 @@
     ]),
     'effects': list([
       'host',
+      'output_json',
     ]),
     'info': list([
       'host',
+      'output_json',
     ]),
     'off': list([
       'host',
@@ -25,6 +27,7 @@
     ]),
     'palettes': list([
       'host',
+      'output_json',
     ]),
     'playlist': list([
       'host',
@@ -32,6 +35,7 @@
     ]),
     'playlists': list([
       'host',
+      'output_json',
     ]),
     'preset': list([
       'host',
@@ -39,8 +43,10 @@
     ]),
     'presets': list([
       'host',
+      'output_json',
     ]),
     'releases': list([
+      'output_json',
     ]),
     'reset': list([
       'host',
@@ -49,6 +55,7 @@
     ]),
     'state': list([
       'host',
+      'output_json',
     ]),
     'upgrade': list([
       'host',
@@ -217,6 +224,138 @@
   └───────────────────────┴───────────────────┘
   
   '''
+# ---
+# name: test_json_output[effects]
+  list([
+    dict({
+      'id': 0,
+      'name': 'Solid',
+    }),
+    dict({
+      'id': 1,
+      'name': 'Blink',
+    }),
+    dict({
+      'id': 3,
+      'name': 'Breathe',
+    }),
+  ])
+# ---
+# name: test_json_output[info]
+  dict({
+    'architecture': 'esp32',
+    'arduino_core_version': 'v3.3.6-16',
+    'brand': 'WLED',
+    'build': '2312080',
+    'custom_palette_count': 2,
+    'effect_count': 187,
+    'filesystem': dict({
+      'total': 64,
+      'used': 12,
+      'used_percentage': 19,
+    }),
+    'free_heap': 116864,
+    'ip': '192.168.1.100',
+    'leds': dict({
+      'count': 30,
+      'max_power': 850,
+      'power': 0,
+    }),
+    'live': False,
+    'live_ip': '',
+    'live_mode': '',
+    'mac_address': 'aabbccddeeff',
+    'name': 'WLED',
+    'palette_count': 71,
+    'product': 'DIY Light',
+    'udp_port': 21324,
+    'uptime': 32489,
+    'version': '0.14.0',
+    'websocket': 0,
+    'wifi': dict({
+      'bssid': 'AA:BB:CC:DD:EE:FF',
+      'channel': 11,
+      'rssi': -62,
+      'signal': 76,
+    }),
+  })
+# ---
+# name: test_json_output[palettes]
+  list([
+    dict({
+      'custom': False,
+      'id': 0,
+      'name': 'Default',
+    }),
+    dict({
+      'custom': False,
+      'id': 1,
+      'name': 'Random Cycle',
+    }),
+    dict({
+      'custom': False,
+      'id': 2,
+      'name': 'Primary Color',
+    }),
+    dict({
+      'custom': True,
+      'id': 255,
+      'name': 'Custom 1',
+    }),
+    dict({
+      'custom': True,
+      'id': 254,
+      'name': 'Custom 2',
+    }),
+  ])
+# ---
+# name: test_json_output[playlists]
+  list([
+    dict({
+      'id': 2,
+      'name': 'My Playlist',
+    }),
+  ])
+# ---
+# name: test_json_output[presets]
+  list([
+    dict({
+      'active': True,
+      'id': 1,
+      'name': 'My Preset',
+      'quick_label': None,
+    }),
+  ])
+# ---
+# name: test_json_output[state]
+  dict({
+    'brightness': 128,
+    'live_data_override': 'off',
+    'nightlight': False,
+    'on': True,
+    'playlist_id': None,
+    'preset_id': None,
+    'segments': list([
+      dict({
+        'brightness': 255,
+        'effect_id': 0,
+        'id': 0,
+        'name': None,
+        'on': True,
+        'palette_id': 0,
+        'start': 0,
+        'stop': 30,
+      }),
+    ]),
+    'transition': 7,
+  })
+# ---
+# name: test_json_output_releases
+  dict({
+    'beta': '0.15.0b1',
+    'nightly': '17.0.0-dev20260416',
+    'stable': '0.14.0',
+  })
 # ---
 # name: test_off_command
   '''

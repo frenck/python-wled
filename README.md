@@ -39,6 +39,9 @@ pip install "wled[cli]"
 ## CLI
 
 The optional CLI lets you control WLED devices directly from the terminal.
+The `--host` option can also be set with the `WLED_HOST` environment
+variable, and the commands that show information take `--json` to print
+machine-readable JSON instead of a table.
 
 ```bash
 # Show device information
@@ -64,6 +67,10 @@ wled playlist --host wled-frenck.local --playlist 1
 
 # Show the latest WLED releases
 wled releases
+
+# Set the host once, and get JSON for scripting
+export WLED_HOST=wled-frenck.local
+wled state --json
 
 # Upgrade the firmware, and restart the device
 wled upgrade --host wled-frenck.local --version 0.15.3
