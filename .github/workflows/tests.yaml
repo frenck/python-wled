@@ -53,6 +53,44 @@ jobs:
           include-hidden-files: true
           path: .coverage
 
+  pytest-lowest:
+    name: Lowest dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: ⤵️ Check out code from GitHub
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: 🏗 Set up Poetry
+        run: pipx install poetry
+      - name: 🏗 Set up uv
+        run: pipx install uv
+      - name: 🏗 Set up Python ${{ env.DEFAULT_PYTHON }}
+        id: python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+          cache: "poetry"
+      - name: 🏗 Install workflow dependencies
+        run: |
+          poetry config virtualenvs.create true
+          poetry config virtualenvs.in-project true
+      - name: 🏗 Install dependencies
+        run: poetry install --extras cli --no-interaction
+      # The lock file keeps the test tooling as is; only the runtime
+      # dependencies move down to the lowest versions pyproject.toml allows.
+      # Without --upgrade, uv keeps the newer versions already installed.
+      # Ask Poetry where its environment lives, rather than assuming .venv.
+      - name: 🏗 Downgrade to the lowest allowed dependencies
+        run: >-
+          uv pip install --python "$(poetry env info --executable)"
+          --upgrade --resolution=lowest-direct --editable ".[cli]"
+      - name: 📋 Show the dependency versions under test
+        run: uv pip list --python "$(poetry env info --executable)"
+      - name: 🚀 Run pytest
+        run: poetry run pytest --no-cov tests
+
   coverage:
     runs-on: ubuntu-latest
     timeout-minutes: 15
