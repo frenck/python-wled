@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import inspect
+import json
 import sys
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -556,6 +557,43 @@ def test_scan_command_keyboard_interrupt(
 
     assert result.exit_code == 0
     assert result.output == snapshot
+
+
+# ---------------------------------------------------------------------------
+# JSON output and environment variables
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "command", ["info", "state", "effects", "palettes", "presets", "playlists"]
+)
+def test_json_output(
+    runner: CliRunner, snapshot: SnapshotAssertion, command: str
+) -> None:
+    """Test --json prints parseable JSON instead of a table."""
+    exit_code, output = _invoke(runner, [command, "--host", "example.com", "--json"])
+
+    assert exit_code == 0
+    assert json.loads(output) == snapshot
+
+
+def test_json_output_releases(runner: CliRunner, snapshot: SnapshotAssertion) -> None:
+    """Test --json on releases prints parseable JSON instead of a table."""
+    with patch("wled.cli.WLEDReleases", _mock_releases()):
+        result = runner.invoke(cli, ["releases", "--json"])
+
+    assert result.exit_code == 0
+    assert json.loads(result.output) == snapshot
+
+
+def test_host_from_environment(runner: CliRunner) -> None:
+    """Test the host is taken from WLED_HOST when --host isn't given."""
+    mock = _mock_wled(_device())
+    with patch("wled.cli.WLED", mock):
+        result = runner.invoke(cli, ["on"], env={"WLED_HOST": "wled.example"})
+
+    assert result.exit_code == 0
+    mock.assert_called_once_with("wled.example")
 
 
 # ---------------------------------------------------------------------------
