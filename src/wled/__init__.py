@@ -20,6 +20,7 @@ from .exceptions import (
     WLEDUpgradeError,
 )
 from .models import (
+    AudioReactive,
     Color,
     Device,
     Effect,
@@ -41,6 +42,7 @@ from .wled import WLED, WLEDReleases
 
 __all__ = [
     "WLED",
+    "AudioReactive",
     "Color",
     "Device",
     "Effect",
