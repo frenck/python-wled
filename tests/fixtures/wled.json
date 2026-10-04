@@ -25,21 +25,9 @@
         "stop": 30,
         "len": 30,
         "col": [
-          [
-            255,
-            159,
-            0
-          ],
-          [
-            0,
-            0,
-            0
-          ],
-          [
-            0,
-            0,
-            0
-          ]
+          [255, 159, 0],
+          [0, 0, 0],
+          [0, 0, 0]
         ],
         "fx": 0,
         "sx": 128,
@@ -64,9 +52,7 @@
       "maxseg": 16,
       "pwr": 0,
       "lc": 7,
-      "seglc": [
-        7
-      ]
+      "seglc": [7]
     },
     "name": "WLED",
     "udpport": 21324,
@@ -95,15 +81,6 @@
     "mac": "aabbccddeeff",
     "ip": "192.168.1.100"
   },
-  "effects": [
-    "Solid",
-    "Blink",
-    "RSVD",
-    "Breathe"
-  ],
-  "palettes": [
-    "Default",
-    "Random Cycle",
-    "Primary Color"
-  ]
+  "effects": ["Solid", "Blink", "RSVD", "Breathe"],
+  "palettes": ["Default", "Random Cycle", "Primary Color"]
 }
