@@ -8,9 +8,9 @@ import sys
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import click
 import pytest
 from typer import Exit
+from typer.core import TyperGroup
 from typer.main import get_command
 from typer.testing import CliRunner
 
@@ -250,7 +250,7 @@ def test_async_typer_call_normal() -> None:
 def test_cli_structure(snapshot: SnapshotAssertion) -> None:
     """The CLI exposes the expected commands and options."""
     group = get_command(cli)
-    assert isinstance(group, click.Group)
+    assert isinstance(group, TyperGroup)
     structure = {
         name: sorted(param.name for param in subcommand.params)
         for name, subcommand in sorted(group.commands.items())
