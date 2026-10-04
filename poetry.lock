@@ -1961,14 +1961,14 @@ testing = ["process-tests", "pytest-xdist", "virtualenv"]
 
 [[package]]
 name = "python-backoff"
-version = "2.3.1"
+version = "3.0.0"
 description = "Function decoration for backoff and retry"
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "python_backoff-2.3.1-py3-none-any.whl", hash = "sha256:d3cfcc0938ec78683edc530bbeb5f5c08252477a40270516497d2bb500da392b"},
-    {file = "python_backoff-2.3.1.tar.gz", hash = "sha256:54d67283073afa5deb3bb3f8b335952747c5869e7d8f76bf5a87da42bd86c4d6"},
+    {file = "python_backoff-3.0.0-py3-none-any.whl", hash = "sha256:5deca5d4fd6f6d643318e18a7862e404a093c69ade031151a283d6f98f942e68"},
+    {file = "python_backoff-3.0.0.tar.gz", hash = "sha256:e64d941e59cfc4a6f75ffa0ff17de345f44ead6eb7854bf62813478ff58ce323"},
 ]
 
 [[package]]
