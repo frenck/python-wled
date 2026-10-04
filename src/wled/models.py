@@ -15,6 +15,7 @@ from mashumaro.types import SerializableType, SerializationStrategy
 
 from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
+    DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
     LightCapability,
     LiveDataOverride,
@@ -527,6 +528,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
 
+    repo: str = DEFAULT_REPO
+    """GitHub repository in 'owner/repository' format."""
+
     release: str | None = None
     """The release name of the firmware build.
 
@@ -908,13 +912,14 @@ class Device(BaseModel):
             d["effects"] = {
                 effect_id: {"effect_id": effect_id, "name": name}
                 for effect_id, name in enumerate(_effects)
-                if "RSVD" not in name
+                if isinstance(name, str) and "RSVD" not in name
             }
 
         if _palettes := d.get("palettes"):
             built_in_palettes = {
                 palette_id: {"palette_id": palette_id, "name": name}
                 for palette_id, name in enumerate(_palettes)
+                if isinstance(name, str)
             }
             info = d.get("info", {})
             cpalcount = info.get("cpalcount", 0)
@@ -978,13 +983,14 @@ class Device(BaseModel):
             self.effects = {
                 effect_id: Effect(effect_id=effect_id, name=name)
                 for effect_id, name in enumerate(_effects)
-                if "RSVD" not in name
+                if isinstance(name, str) and "RSVD" not in name
             }
 
         if _palettes := data.get("palettes"):
             built_in_palettes = {
                 palette_id: Palette(palette_id=palette_id, name=name)
                 for palette_id, name in enumerate(_palettes)
+                if isinstance(name, str)
             }
             custom_palettes = self._build_custom_palettes(
                 self.info.custom_palette_count, self.info.version

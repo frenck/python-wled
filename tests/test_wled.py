@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
@@ -12,7 +15,7 @@ from aioresponses import aioresponses
 from yarl import URL
 
 from wled import WLED, Device, Releases
-from wled.const import LiveDataOverride
+from wled.const import DEFAULT_REPO, LiveDataOverride
 from wled.exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -20,11 +23,17 @@ from wled.exceptions import (
     WLEDEmptyResponseError,
     WLEDError,
     WLEDInvalidResponseError,
+    WLEDStatusError,
     WLEDUpgradeError,
 )
 from wled.wled import WLEDReleases
 
-from .conftest import full_device_data, load_fixture_json, mock_json_and_presets
+from .conftest import (
+    full_device_data,
+    load_fixture_json,
+    mock_catalog,
+    mock_json_and_presets,
+)
 
 
 def assert_post_payload(mocked: aioresponses, path: str, expected: dict) -> None:
@@ -69,6 +78,22 @@ async def test_text_request(responses: aioresponses, wled: WLED) -> None:
     response = await wled.request("/")
 
     assert response == "OK"
+
+
+async def test_request_with_params(responses: aioresponses, wled: WLED) -> None:
+    """Test query parameters end up in the query string, not the path."""
+    responses.get(
+        "http://example.com/json/palx?page=2",
+        status=200,
+        body='{"m": 9, "p": {}}',
+        content_type="application/json",
+    )
+
+    response = await wled.request("/json/palx", params={"page": 2})
+
+    assert response["m"] == 9
+    assert responses.requests
+    assert next(iter(responses.requests))[1].query == {"page": "2"}
 
 
 async def test_internal_session(responses: aioresponses) -> None:
@@ -148,6 +173,39 @@ async def test_http_error(
 
     with pytest.raises(WLEDError):
         assert await wled.request("/")
+
+
+@pytest.mark.parametrize(
+    ("status", "body", "content_type", "expected_body"),
+    [
+        (404, "Not Found", "text/plain", {"message": "Not Found"}),
+        (500, '{"error":"oops"}', "application/json", {"error": "oops"}),
+    ],
+    ids=["404-text", "500-json"],
+)
+async def test_http_error_raises_status_error(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    responses: aioresponses,
+    wled: WLED,
+    status: int,
+    body: str,
+    content_type: str,
+    expected_body: dict,
+) -> None:
+    """Test HTTP error raises WLEDStatusError with structured attributes."""
+    responses.get(
+        "http://example.com/json",
+        status=status,
+        body=body,
+        content_type=content_type,
+    )
+    with pytest.raises(WLEDStatusError) as exc_info:
+        await wled.request("/json")
+    err = exc_info.value
+    assert err.method == "GET"
+    assert err.path == "/json"
+    assert err.status == status
+    assert err.body == expected_body
+    assert err.args == (status, expected_body)
 
 
 @pytest.mark.parametrize(
@@ -246,8 +304,12 @@ async def test_update_corrupt_presets_response(
         body=body,
         content_type="application/json",
     )
-    with pytest.raises(WLEDInvalidResponseError, match=r"GET /presets\.json"):
+    with pytest.raises(
+        WLEDInvalidResponseError, match=r"GET /presets\.json"
+    ) as exc_info:
         await wled.update()
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 async def test_update_empty_presets_response(
@@ -269,8 +331,10 @@ async def test_update_empty_presets_response(
             content_type="text/plain",
         )
 
-    with pytest.raises(WLEDEmptyResponseError):
+    with pytest.raises(WLEDEmptyResponseError) as exc_info:
         await wled.update()
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 async def test_update_skips_presets_when_unchanged(
@@ -279,13 +343,14 @@ async def test_update_skips_presets_when_unchanged(
     """Test update() skips fetching presets.json when presets haven't changed."""
     wled_data = load_fixture_json("wled")
 
-    # First update: fetches both /json and /presets.json
+    # First update: fetches /json, /presets.json, and the effects and palettes
     responses.get(
         "http://example.com/json",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
     )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"])
     responses.get(
         "http://example.com/presets.json",
         status=200,
@@ -343,6 +408,412 @@ async def test_update_refetches_presets_when_info_incomplete(
     await wled.update()
     # Without fs/pmt, every update refetches presets
     await wled.update()
+
+
+async def test_update_skips_effects_when_unchanged(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() skips /json/effects when effect count and boot time unchanged."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["fxcount"] += 1
+    changed_data["effects"] = wled_data["effects"] + ["New Effect"]
+
+    # First update: fetches /json, /presets.json, and the effects and palettes
+    mock_json_and_presets(responses, wled_data)
+    # Second update: same fxcount and boot_time — only /json fetched
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    # Third update: fxcount increased — /json/effects refetched with extra effect
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(changed_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, changed_data["effects"], changed_data["palettes"])
+
+    device1 = await wled.update()
+    assert device1.info.effect_count == wled_data["info"]["fxcount"]
+    initial_effect_count = len(device1.effects)
+
+    device2 = await wled.update()
+    assert device2.info.effect_count == wled_data["info"]["fxcount"]
+    assert len(device2.effects) == initial_effect_count  # no re-fetch, unchanged
+
+    device3 = await wled.update()
+    assert device3.info.effect_count == changed_data["info"]["fxcount"]
+    # "New Effect" added after fxcount bump — re-fetch brought it in
+    assert len(device3.effects) == initial_effect_count + 1
+
+
+async def test_update_refetches_effects_after_device_restart(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() refetches effects when a device restart is detected."""
+    wled_data = load_fixture_json("wled")
+    restarted_data = json.loads(json.dumps(wled_data))
+    restarted_data["info"]["uptime"] = 5  # uptime reset — device just booted
+    restarted_data["effects"] = wled_data["effects"] + ["Post Restart Effect"]
+
+    mock_json_and_presets(responses, wled_data)
+    # After restart uptime drops from 32489 → 5, so boot_time shifts by ~32484s
+    mock_json_and_presets(responses, restarted_data)
+
+    device1 = await wled.update()
+    assert device1.info.effect_count == wled_data["info"]["fxcount"]
+
+    device2 = await wled.update()
+    # Refetch was triggered by boot_time shift, not fxcount — verify by content
+    assert any(e.name == "Post Restart Effect" for e in device2.effects.values())
+
+
+async def test_update_uses_effects_endpoint_for_full_list(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() uses /json/effects to get the complete effects list.
+
+    Simulates the ESP8266 /json buffer overflow (WLED issue #5674): /json
+    returns a truncated effects list while /json/effects returns the full one.
+    """
+    wled_data = load_fixture_json("wled")
+    full_effects = wled_data["effects"]
+    # Truncate list — simulates ESP8266 /json buffer overflow
+    wled_data["effects"] = full_effects[:1]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, full_effects, wled_data["palettes"])
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    # Second update: /json still truncated, fxcount unchanged — no /json/effects stub.
+    # The cached full list must survive and not be overwritten by the truncated payload.
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert len(device.effects) == 3  # full list from /json/effects
+
+    device = await wled.update()
+    assert len(device.effects) == 3  # still full — truncated /json did not overwrite
+
+
+def catalog_requests(responses: aioresponses) -> int:
+    """Return how often the effects list was fetched from its own endpoint."""
+    if not responses.requests:
+        return 0
+
+    return len(
+        responses.requests.get(("GET", URL("http://example.com/json/effects")), [])
+    )
+
+
+async def test_update_uses_palettes_endpoint_when_json_is_cut_off(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() gets all palettes when /json stops before the palettes."""
+    wled_data = load_fixture_json("wled")
+    full_effects = wled_data["effects"]
+    full_palettes = wled_data["palettes"]
+
+    # Simulates the ESP8266 buffer overflow: the response stops halfway the
+    # effects list, so the palettes are missing entirely.
+    wled_data["effects"] = full_effects[:1]
+    del wled_data["palettes"]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, full_effects, full_palettes)
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+
+    assert [device.palettes[i].name for i in range(len(full_palettes))] == (
+        full_palettes
+    )
+
+
+@pytest.mark.parametrize(
+    ("effects_status", "effects_body", "palettes_body"),
+    [
+        (503, "Service Unavailable", ["Default"]),
+        (200, {"not": "a list"}, ["Default"]),
+        (200, None, "not a list"),
+    ],
+)
+async def test_update_falls_back_when_catalog_is_unusable(
+    responses: aioresponses,
+    wled: WLED,
+    effects_status: int,
+    effects_body: object,
+    palettes_body: object,
+) -> None:
+    """Test update() uses the /json lists when the catalog endpoints fail."""
+    wled_data = load_fixture_json("wled")
+    if effects_body is None:
+        effects_body = wled_data["effects"]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=effects_status,
+        body=json.dumps(effects_body) if effects_status == 200 else effects_body,
+        content_type="application/json" if effects_status == 200 else "text/plain",
+    )
+    responses.get(
+        "http://example.com/json/palettes",
+        status=200,
+        body=json.dumps(palettes_body),
+        content_type="application/json",
+    )
+    # Second update: the catalog is fetched again, and now it works.
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"])
+
+    device = await wled.update()
+    assert len(device.effects) == 3
+    assert device.palettes[0].name == "Default"
+
+    await wled.update()
+    assert catalog_requests(responses) == 2
+
+
+async def test_update_raises_when_catalog_connection_fails(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() fails when the device is unreachable for the catalog."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    for _ in range(3):
+        responses.get(
+            "http://example.com/json/effects",
+            exception=aiohttp.ClientError("gone"),
+        )
+
+    with pytest.raises(WLEDConnectionError):
+        await wled.update()
+
+
+async def test_update_accepts_device_without_palettes(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() handles devices that report no palettes at all."""
+    wled_data = load_fixture_json("wled")
+    wled_data["palettes"] = None
+    wled_data["info"]["cpalcount"] = 0
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert device.palettes == {}
+
+    # A device without palettes must not trigger a refetch on every update.
+    await wled.update()
+    assert catalog_requests(responses) == 1
+
+
+async def test_update_refetches_catalog_when_info_incomplete(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() refetches the catalog when it can't tell what changed."""
+    wled_data = load_fixture_json("wled")
+    del wled_data["info"]["uptime"]
+
+    mock_json_and_presets(responses, wled_data)
+    mock_json_and_presets(responses, wled_data)
+
+    await wled.update()
+    await wled.update()
+
+    assert catalog_requests(responses) == 2
+
+
+@pytest.mark.parametrize("data", ["not a dict", {}, {"info": None}])
+def test_check_catalog_changed_without_info(wled: WLED, data: Any) -> None:
+    """Test the catalog check asks for a refetch when info is unusable."""
+    # pylint: disable-next=protected-access
+    assert wled._check_catalog_changed(data) == (True, None)
+
+
+async def test_update_picks_up_custom_palettes_without_refetch(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() shows a custom palette added on the device right away."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["cpalcount"] += 1
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(changed_data),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    custom_before = sum(palette.custom for palette in device.palettes.values())
+
+    device = await wled.update()
+    custom_after = sum(palette.custom for palette in device.palettes.values())
+
+    assert custom_after == custom_before + 1
+    assert catalog_requests(responses) == 1
+
+
+async def test_update_picks_up_renamed_usermod_palettes(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() follows usermod palette names that change in place."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["ver"] = "16.0.0"
+    wled_data["info"]["umpalcount"] = 1
+    wled_data["info"]["umpalnames"] = ["Plasma"]
+    renamed_data = json.loads(json.dumps(wled_data))
+    renamed_data["info"]["umpalnames"] = ["Lava"]
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(renamed_data),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert device.palettes[255].name == "Plasma"
+
+    device = await wled.update()
+    assert device.palettes[255].name == "Lava"
+
+
+async def test_update_keeps_effects_when_only_palettes_fail(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a failing palettes endpoint doesn't cost the complete effects."""
+    wled_data = load_fixture_json("wled")
+    full_effects = wled_data["effects"]
+    wled_data["effects"] = full_effects[:1]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(full_effects),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/palettes",
+        status=503,
+        body="Service Unavailable",
+        content_type="text/plain",
+    )
+
+    device = await wled.update()
+
+    assert len(device.effects) == 3
+    assert device.palettes[0].name == "Default"
+
+
+async def test_update_keeps_cached_catalog_when_refetch_fails(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a failed refetch doesn't replace complete lists by truncated ones."""
+    wled_data = load_fixture_json("wled")
+    truncated_data = json.loads(json.dumps(wled_data))
+    truncated_data["info"]["fxcount"] += 1
+    truncated_data["effects"] = wled_data["effects"][:1]
+    del truncated_data["palettes"]
+
+    mock_json_and_presets(responses, wled_data)
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(truncated_data),
+        content_type="application/json",
+    )
+    for endpoint in ("effects", "palettes"):
+        responses.get(
+            f"http://example.com/json/{endpoint}",
+            status=503,
+            body="Service Unavailable",
+            content_type="text/plain",
+        )
+
+    await wled.update()
+    device = await wled.update()
+
+    assert len(device.effects) == 3
+    assert [device.palettes[i].name for i in range(3)] == wled_data["palettes"]
 
 
 async def test_listen_preset_change_via_websocket(
@@ -406,8 +877,10 @@ async def test_listen_preset_change_empty_response(
         content_type="text/plain",
     )
 
-    with pytest.raises(WLEDEmptyResponseError):
+    with pytest.raises(WLEDEmptyResponseError) as exc_info:
         await wled.listen(MagicMock())
+    assert exc_info.value.method == "GET"
+    assert exc_info.value.path == "/presets.json"
 
 
 # =========================================================================
@@ -1182,6 +1655,21 @@ async def test_client_error_raises_connection_error(
 # =========================================================================
 
 
+# What WLED answers to a firmware upload, trimmed to the part that matters.
+UPDATE_SUCCESSFUL_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Update successful!</h2>Rebooting..."
+    "<script>setTimeout(RP,11000)</script></body></html>"
+)
+ACCESS_DENIED_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Access Denied</h2>"
+    "Client is not on local subnet.<br><br><button>Back</button></body></html>"
+)
+UPDATE_FAILED_PAGE = (
+    "<!DOCTYPE html><html><body><h2>Update failed!</h2>"
+    "Firmware release name mismatch<br><br><button>Back</button></body></html>"
+)
+
+
 async def prepare_wled_for_upgrade(  # pylint: disable=too-many-arguments, too-many-positional-arguments
     responses: aioresponses,
     wled: WLED,
@@ -1245,8 +1733,8 @@ async def test_upgrade_calls_update_when_no_device(
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1273,10 +1761,357 @@ async def test_upgrade_success(responses: aioresponses, wled: WLED) -> None:
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("info_override", "call_kwargs", "download_repo"),
+    [
+        pytest.param(
+            {"repo": "MoonModules/WLED"}, {}, "MoonModules/WLED", id="device_repo"
+        ),
+        pytest.param(
+            {"repo": "MoonModules/WLED"},
+            {"repo": DEFAULT_REPO},
+            DEFAULT_REPO,
+            id="explicit_repo",
+        ),
+        pytest.param({"repo": " "}, {}, DEFAULT_REPO, id="blank_device_repo"),
+        pytest.param({}, {}, DEFAULT_REPO, id="missing_device_repo"),
+        pytest.param(
+            {"repo": "FORK_A/WLED"},
+            {"repo": "FORK_B/WLED"},
+            "FORK_B/WLED",
+            id="migrate_to_fork",
+        ),
+    ],
+)
+async def test_upgrade_repo_selection(
+    responses: aioresponses,
+    wled: WLED,
+    info_override: dict,
+    call_kwargs: dict,
+    download_repo: str,
+) -> None:
+    """Test upgrade selects the expected firmware repository."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"].update(info_override)
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        f"https://github.com/{download_repo}/releases/download/v0.15.0/"
+        "WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+    await wled.upgrade(version="0.15.0", **call_kwargs)
+
+
+async def test_upgrade_uses_release_name(responses: aioresponses, wled: WLED) -> None:
+    """Test upgrade names the firmware after the brand and release name."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["brand"] = "QuinLED"
+    wled_data["info"]["release"] = "Dig2Go"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/"
+        "QuinLED_0.15.0_Dig2Go.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+
+    await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "repo",
+    [
+        "../..",
+        "wled/..",
+        "wled/WLED/../../evil/repo",
+        "wled",
+        "evil.com/WLED",
+        "wled/WLED?x=1",
+        "wled/WLED#x",
+        "wled/WLÉD",
+    ],
+)
+async def test_upgrade_rejects_invalid_repo(
+    responses: aioresponses, wled: WLED, repo: str
+) -> None:
+    """Test upgrade refuses a repository that isn't a plain owner/name pair."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["repo"] = repo
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    with pytest.raises(WLEDUpgradeError, match="Invalid firmware repository"):
+        await wled.upgrade(version="0.15.0")
+
+
+FIRMWARE = b"fake firmware"
+FIRMWARE_SHA256 = hashlib.sha256(FIRMWARE).hexdigest()
+
+
+def mock_release(
+    responses: aioresponses,
+    assets: list[dict[str, Any]],
+    *,
+    repo: str = DEFAULT_REPO,
+    version: str = "0.15.0",
+) -> None:
+    """Register the GitHub API answer for a release and its assets."""
+    responses.get(
+        f"https://api.github.com/repos/{repo}/releases/tags/v{version}",
+        status=200,
+        body=json.dumps({"tag_name": f"v{version}", "assets": assets}),
+        content_type="application/json",
+    )
+
+
+def mock_download_and_upload(
+    responses: aioresponses,
+    file_name: str,
+    *,
+    repo: str = DEFAULT_REPO,
+    version: str = "0.15.0",
+) -> None:
+    """Register the firmware download and a successful upload to the device."""
+    responses.get(
+        f"https://github.com/{repo}/releases/download/v{version}/{file_name}",
+        status=200,
+        body=FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+
+
+def downloaded(responses: aioresponses, url: str) -> bool:
+    """Return whether the given URL was fetched."""
+    return bool(responses.requests and responses.requests.get(("GET", URL(url))))
+
+
+async def test_upgrade_finds_fork_asset_by_release_name(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade finds a fork's file when it isn't prefixed with the brand."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update(
+        {
+            "arch": "esp32",
+            "ver": "16.0.0",
+            "brand": "QuinLED",
+            "release": "Dig2Go-Audioreactive",
+            "repo": "intermittech/QuinLED-Firmware",
+        }
+    )
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    repo = "intermittech/QuinLED-Firmware"
+    mock_release(
+        responses,
+        [
+            {"name": "WLED_16.0.1_Dig2Go.bin"},
+            {"name": "WLED_16.0.1_Dig2Go-Audioreactive.bin"},
+        ],
+        repo=repo,
+        version="16.0.1",
+    )
+    mock_download_and_upload(
+        responses, "WLED_16.0.1_Dig2Go-Audioreactive.bin", repo=repo, version="16.0.1"
+    )
+
+    await wled.upgrade(version="16.0.1")
+
+    assert downloaded(
+        responses,
+        f"https://github.com/{repo}/releases/download/v16.0.1/"
+        "WLED_16.0.1_Dig2Go-Audioreactive.bin",
+    )
+
+
+async def test_upgrade_refuses_ambiguous_fork_asset(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade doesn't guess when several files match the release name."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update(
+        {"arch": "esp32", "ver": "0.14.0", "brand": "QuinLED", "release": "Dig2Go"}
+    )
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    mock_release(
+        responses,
+        [{"name": "WLED_0.15.0_Dig2Go.bin"}, {"name": "Other_0.15.0_Dig2Go.bin"}],
+    )
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("QuinLED_0.15.0_Dig2Go.bin does not")
+    ):
+        await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [f"sha256:{FIRMWARE_SHA256}", None, "md5:0123456789abcdef", "sha256:short"],
+)
+async def test_upgrade_with_usable_or_missing_digest(
+    responses: aioresponses, wled: WLED, digest: str | None
+) -> None:
+    """Test upgrade installs a matching file, and one without a usable digest."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP32.bin", "digest": digest}])
+    mock_download_and_upload(responses, "WLED_0.15.0_ESP32.bin")
+
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_refuses_firmware_not_matching_digest(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade refuses a download that doesn't match GitHub's digest."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(
+        responses, [{"name": "WLED_0.15.0_ESP32.bin", "digest": f"sha256:{'0' * 64}"}]
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FIRMWARE,
+    )
+
+    with pytest.raises(WLEDUpgradeError, match="does not match the digest"):
+        await wled.upgrade(version="0.15.0")
+
+    # Nothing may have been sent to the device.
+    assert responses.requests
+    assert ("POST", URL("http://example.com/update")) not in responses.requests
+
+
+async def test_upgrade_release_does_not_exist(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade reports a version that has no release on GitHub."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.99.0",
+        status=404,
+        body='{"message": "Not Found"}',
+        content_type="application/json",
+    )
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("0.99.0 does not exist in wled/WLED")
+    ):
+        await wled.upgrade(version="0.99.0")
+
+
+async def test_upgrade_release_asset_does_not_exist(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade reports a release without a file for this device."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP8266.bin"}])
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("WLED_0.15.0_ESP32.bin does not exist")
+    ):
+        await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (403, '{"message": "API rate limit exceeded"}'),
+        (200, "not json"),
+        (200, '{"assets": null}'),
+        (200, "[]"),
+    ],
+)
+async def test_upgrade_falls_back_when_release_lookup_fails(
+    responses: aioresponses, wled: WLED, status: int, body: str
+) -> None:
+    """Test upgrade still works by file name when GitHub's API can't help."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.15.0",
+        status=status,
+        body=body,
+        content_type="application/json",
+    )
+    mock_download_and_upload(responses, "WLED_0.15.0_ESP32.bin")
+
+    await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["0.15.0/../../../evil/repo/releases/download/v1.0.0", "latest", "v0.15.0", ""],
+)
+async def test_upgrade_rejects_invalid_version(
+    responses: aioresponses, wled: WLED, version: str
+) -> None:
+    """Test upgrade refuses a version that could change the download URL."""
+    await prepare_wled_for_upgrade(responses, wled)
+
+    with pytest.raises(WLEDUpgradeError, match="Invalid firmware version"):
+        await wled.upgrade(version=version)
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected"),
+    [
+        (aiohttp.ClientError("gone"), WLEDConnectionError),
+        (TimeoutError(), WLEDConnectionTimeoutError),
+    ],
+)
+async def test_upgrade_upload_fails(
+    responses: aioresponses,
+    wled: WLED,
+    exception: Exception,
+    expected: type[Exception],
+) -> None:
+    """Test an upload failure names the device, not GitHub."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP32.bin"}])
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FIRMWARE,
+    )
+    responses.post("http://example.com/update", exception=exception)
+
+    with pytest.raises(
+        expected, match=re.escape("uploading the firmware to example.com")
+    ):
+        await wled.upgrade(version="0.15.0")
 
 
 async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> None:
@@ -1290,8 +2125,8 @@ async def test_upgrade_ethernet_board(responses: aioresponses, wled: WLED) -> No
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1313,8 +2148,8 @@ async def test_upgrade_esp02_gzip(responses: aioresponses, wled: WLED) -> None:
     responses.post(
         "http://example.com/update",
         status=200,
-        body="OK",
-        content_type="text/plain",
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
     )
     await wled.upgrade(version="0.15.0")
 
@@ -1362,6 +2197,46 @@ async def test_upgrade_timeout(responses: aioresponses, wled: WLED) -> None:
     )
     with pytest.raises(WLEDConnectionTimeoutError):
         await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("status", "page", "reason"),
+    [
+        # Seen in the wild: a rejected upload answered with a 200 (#2092).
+        (200, ACCESS_DENIED_PAGE, "Access Denied Client is not on local subnet."),
+        (401, ACCESS_DENIED_PAGE, "Access Denied Client is not on local subnet."),
+        (500, UPDATE_FAILED_PAGE, "Update failed! Firmware release name mismatch"),
+        (200, "", "HTTP 200"),
+        (500, UPDATE_SUCCESSFUL_PAGE, "Update successful! Rebooting..."),
+    ],
+)
+async def test_upgrade_rejected_by_device(
+    responses: aioresponses,
+    wled: WLED,
+    status: int,
+    page: str,
+    reason: str,
+) -> None:
+    """Test upgrade raises when the device doesn't accept the upload."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=status,
+        body=page,
+        content_type="text/html",
+    )
+
+    with pytest.raises(WLEDUpgradeError) as exc_info:
+        await wled.upgrade(version="0.15.0")
+
+    assert str(exc_info.value) == (
+        f"WLED device did not accept the firmware upload: {reason}"
+    )
 
 
 # =========================================================================

@@ -120,3 +120,6 @@ node_modules/
 
 # Deepcode AI
 .dccache
+
+# Claude
+.claude/

@@ -82,6 +82,7 @@ repos:
         language: system
         types: [text]
         entry: poetry run end-of-file-fixer
+        exclude: ^tests/(?:.*/)?__snapshots__/
         stages: [commit, push, manual]
       - id: ty
         name: 🆎 Static type checking using ty
@@ -132,6 +133,12 @@ repos:
         language: system
         types: [yaml]
         entry: poetry run yamllint
+      - id: actionlint
+        name: 🎬 Check GitHub Actions workflows with actionlint
+        language: system
+        types: [yaml]
+        files: ^\.github/workflows/
+        entry: poetry run actionlint
       - id: zizmor
         name: 🌈 Check GitHub Actions workflows with zizmor
         language: system

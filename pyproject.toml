@@ -8,12 +8,23 @@ license = "MIT"
 requires-python = ">=3.11,<4.0"
 readme = "README.md"
 keywords = [
+  "addressable-led",
   "api",
   "async",
   "client",
+  "esp32",
+  "esp8266",
   "home-assistant",
+  "home-automation",
+  "iot",
   "led",
+  "led-strip",
+  "lighting",
+  "neopixel",
+  "rgb",
+  "smart-home",
   "wled",
+  "ws2812b",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -30,12 +41,12 @@ classifiers = [
 dynamic = ["dependencies"]
 packages = [{ include = "wled", from = "src" }]
 dependencies = [
-  'aiohttp (>=3.0.0)',
-  'awesomeversion (>=22.1.0)',
+  'aiohttp (>=3.9.0)',
+  'awesomeversion (>=23.11.0)',
   'python-backoff (>=2.3.1)',
-  'mashumaro (>=3.13,<4.0.0)',
+  'mashumaro (>=3.15,<4.0.0)',
   'orjson (>=3.9.8)',
-  'yarl (>=1.6.0)',
+  'yarl (>=1.9.10)',
 ]
 
 [project.optional-dependencies]
@@ -72,6 +83,8 @@ ty = "0.0.31"
 typer = "0.24.1"
 yamllint = "1.38.0"
 zizmor = "1.24.1"
+actionlint-py = "1.7.12.25"
+shellcheck-py = "0.11.0.1"
 
 [tool.coverage.run]
 plugins = ["covdefaults"]
@@ -106,8 +119,9 @@ max-attributes = 40
 ignored-modules = ["orjson", "zeroconf", "zeroconf.asyncio"]
 
 [tool.pytest.ini_options]
-addopts = "--cov"
+addopts = "--cov --strict-markers --strict-config"
 asyncio_mode = "auto"
+xfail_strict = true
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -143,7 +157,7 @@ runtime-evaluated-base-classes = ["mashumaro.mixins.orjson.DataClassORJSONMixin"
 max-complexity = 25
 
 [tool.codespell]
-ignore-words-list = "abl"
+ignore-words-list = "abl,hass"
 
 [build-system]
 requires = ["poetry-core>=2.0"]
