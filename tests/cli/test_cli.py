@@ -252,7 +252,7 @@ def test_cli_structure(snapshot: SnapshotAssertion) -> None:
     group = get_command(cli)
     assert isinstance(group, TyperGroup)
     structure = {
-        name: sorted(param.name for param in subcommand.params)
+        name: sorted(param.name for param in subcommand.params if param.name)
         for name, subcommand in sorted(group.commands.items())
     }
     assert structure == snapshot

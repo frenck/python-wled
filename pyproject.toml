@@ -127,6 +127,7 @@ xfail_strict = true
 select = ["ALL"]
 ignore = [
   "ANN401",  # Opinionated warning on disallowing dynamically typed expressions
+  "CPY001",  # The project doesn't use copyright headers in its files
   "D203",    # Conflicts with other rules
   "D213",    # Conflicts with other rules
   "D417",    # False positives in some occasions
