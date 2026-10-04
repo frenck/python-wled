@@ -14,7 +14,7 @@ import pytest
 from aioresponses import aioresponses
 from yarl import URL
 
-from wled import WLED, Device, Releases
+from wled import WLED, Device, Releases, SegmentUpdate
 from wled.const import DEFAULT_REPO, LiveDataOverride
 from wled.exceptions import (
     WLEDConnectionClosedError,
@@ -1159,6 +1159,83 @@ async def test_segment_tertiary_no_color_in_state(
 # =========================================================================
 # Section 13: WLED client - preset/playlist/transition/live/sync/nightlight
 # =========================================================================
+
+
+async def test_segments_in_one_request(responses: aioresponses, wled: WLED) -> None:
+    """Test several segment updates go out together, with one transition."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segments(
+        [
+            SegmentUpdate(segment_id=0, effect="breathe", color_primary=(255, 0, 0)),
+            SegmentUpdate(segment_id=1, on=False, palette="Random Cycle"),
+        ],
+        transition=10,
+    )
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {
+            "seg": [
+                {"fx": 3, "col": [[255, 0, 0]], "id": 0},
+                {"on": False, "pal": 1, "id": 1},
+            ],
+            "tt": 10,
+            "v": True,
+        },
+    )
+
+
+async def test_segments_skips_updates_without_changes(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test an update that changes nothing is left out of the request."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segments(
+        [
+            SegmentUpdate(segment_id=0, brightness=10),
+            SegmentUpdate(segment_id=1, effect="No such effect"),
+        ]
+    )
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [{"bri": 10, "id": 0}], "v": True},
+    )
+
+
+async def test_segments_without_updates(responses: aioresponses, wled: WLED) -> None:
+    """Test a transition alone is still sent without any segment updates."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segments([], transition=7)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"tt": 7, "v": True},
+    )
 
 
 @pytest.mark.parametrize(

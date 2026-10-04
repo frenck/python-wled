@@ -128,6 +128,21 @@ async with WLED("wled-frenck.local") as led:
     await led.playlist(1)
 ```
 
+To change several segments at once, so they switch together with one
+transition, pass a `SegmentUpdate` for each to `segments()`:
+
+```python
+from wled import SegmentUpdate
+
+await led.segments(
+    [
+        SegmentUpdate(segment_id=0, effect="Rainbow"),
+        SegmentUpdate(segment_id=1, color_primary=(0, 0, 255)),
+    ],
+    transition=10,
+)
+```
+
 ### Nightlight, sync, and usermods
 
 ```python

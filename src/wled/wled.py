@@ -26,15 +26,15 @@ from .exceptions import (
     WLEDStatusError,
     WLEDUpgradeError,
 )
-from .models import Device, Playlist, Preset, Releases
+from .models import Device, Playlist, Preset, Releases, SegmentUpdate
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Mapping, Sequence
+    from collections.abc import Callable, Iterable, Mapping, Sequence
 
     from awesomeversion import AwesomeVersion
 
     from .const import LiveDataOverride
-    from .models import Info
+    from .models import ColorTuple, Info
 
 # The heading WLED shows after it accepted a firmware upload (since 0.14).
 _UPDATE_SUCCESSFUL = "Update successful!"
@@ -513,8 +513,8 @@ class WLED:
 
         await self.request("/json/state", method="POST", data=state)
 
-    # pylint: disable=too-many-locals, too-many-branches, too-many-arguments
-    async def segment(  # noqa: PLR0912, PLR0913
+    # pylint: disable-next=too-many-arguments,too-many-locals
+    async def segment(  # noqa: PLR0913
         self,
         segment_id: int,
         *,
@@ -579,6 +579,53 @@ class WLED:
             WLEDError: Something went wrong setting the segment state.
 
         """
+        update = SegmentUpdate(
+            segment_id=segment_id,
+            brightness=brightness,
+            clones=clones,
+            color_primary=color_primary,
+            color_secondary=color_secondary,
+            color_tertiary=color_tertiary,
+            cct=cct,
+            effect=effect,
+            freeze=freeze,
+            individual=individual,
+            intensity=intensity,
+            length=length,
+            name=name,
+            on=on,
+            palette=palette,
+            reverse=reverse,
+            selected=selected,
+            speed=speed,
+            start=start,
+            stop=stop,
+        )
+        await self.segments([update], transition=transition)
+
+    async def segments(
+        self,
+        updates: Iterable[SegmentUpdate],
+        *,
+        transition: int | None = None,
+    ) -> None:
+        """Change the state of several WLED Light segments at once.
+
+        All changes go to the device in a single request, so they take
+        effect together, with one transition.
+
+        Args:
+        ----
+            updates: The changes to apply, one per segment.
+            transition: Duration of the crossfade between different
+                colors/brightness levels. One unit is 100ms, so a value of 4
+                results in a transition of 400ms.
+
+        Raises:
+        ------
+            WLEDError: Something went wrong setting the segment state.
+
+        """
         if self._device is None:
             await self.update()
 
@@ -586,86 +633,102 @@ class WLED:
             msg = "Unable to communicate with WLED to get the current state"
             raise WLEDError(msg)
 
-        state = {}  # type: ignore[var-annotated]
-        segment = {
-            "bri": brightness,
-            "cln": clones,
-            "frz": freeze,
-            "fx": effect,
-            "i": individual,
-            "ix": intensity,
-            "len": length,
-            "n": name,
-            "on": on,
-            "pal": palette,
-            "rev": reverse,
-            "sel": selected,
-            "start": start,
-            "stop": stop,
-            "sx": speed,
-            "cct": cct,
-        }
-
-        # Find effect if it was based on a name
-        if effect is not None and isinstance(effect, str):
-            segment["fx"] = next(
-                (
-                    item.effect_id
-                    for item in self._device.effects.values()
-                    if item.name.lower() == effect.lower()
-                ),
-                None,
-            )
-
-        # Find palette if it was based on a name
-        if palette is not None and isinstance(palette, str):
-            segment["pal"] = next(
-                (
-                    item.palette_id
-                    for item in self._device.palettes.values()
-                    if item.name.lower() == palette.lower()
-                ),
-                None,
-            )
-
-        # Filter out not set values
-        state = {k: v for k, v in state.items() if v is not None}
-        segment = {k: v for k, v in segment.items() if v is not None}
-
-        # Determine color set
-        colors = []
-        if color_primary is not None:
-            colors.append(color_primary)
-        elif color_secondary is not None or color_tertiary is not None:
-            if clrs := self._device.state.segments[segment_id].color:
-                colors.append(clrs.primary)
-            else:
-                colors.append((0, 0, 0))
-
-        if color_secondary is not None:
-            colors.append(color_secondary)
-        elif color_tertiary is not None:
-            if (
-                clrs := self._device.state.segments[segment_id].color
-            ) and clrs.secondary:
-                colors.append(clrs.secondary)
-            else:
-                colors.append((0, 0, 0))
-
-        if color_tertiary is not None:
-            colors.append(color_tertiary)
-
-        if colors:
-            segment["col"] = colors
-
-        if segment:
-            segment["id"] = segment_id
-            state["seg"] = [segment]
+        state: dict[str, Any] = {}
+        if segments := [
+            segment
+            for update in updates
+            if (segment := self._segment_payload(self._device, update))
+        ]:
+            state["seg"] = segments
 
         if transition is not None:
             state["tt"] = transition
 
         await self.request("/json/state", method="POST", data=state)
+
+    @staticmethod
+    def _segment_payload(device: Device, update: SegmentUpdate) -> dict[str, Any]:
+        """Return the JSON API payload for one segment update.
+
+        Returns an empty dict when the update doesn't change anything.
+        """
+        segment: dict[str, Any] = {
+            "bri": update.brightness,
+            "cln": update.clones,
+            "frz": update.freeze,
+            "fx": update.effect,
+            "i": update.individual,
+            "ix": update.intensity,
+            "len": update.length,
+            "n": update.name,
+            "on": update.on,
+            "pal": update.palette,
+            "rev": update.reverse,
+            "sel": update.selected,
+            "start": update.start,
+            "stop": update.stop,
+            "sx": update.speed,
+            "cct": update.cct,
+        }
+
+        # Effects and palettes can be given by name; an unknown name is left
+        # out rather than sent along.
+        if isinstance(update.effect, str):
+            segment["fx"] = next(
+                (
+                    item.effect_id
+                    for item in device.effects.values()
+                    if item.name.lower() == update.effect.lower()
+                ),
+                None,
+            )
+        if isinstance(update.palette, str):
+            segment["pal"] = next(
+                (
+                    item.palette_id
+                    for item in device.palettes.values()
+                    if item.name.lower() == update.palette.lower()
+                ),
+                None,
+            )
+
+        segment = {key: value for key, value in segment.items() if value is not None}
+
+        if colors := WLED._segment_colors(device, update):
+            segment["col"] = colors
+
+        if segment:
+            segment["id"] = update.segment_id
+
+        return segment
+
+    @staticmethod
+    def _segment_colors(device: Device, update: SegmentUpdate) -> list[ColorTuple]:
+        """Return the color list for a segment update.
+
+        WLED takes the colors as a list, so setting only a later one means
+        the earlier ones have to be sent along; those come from the current
+        state of the segment.
+        """
+        colors: list[ColorTuple] = []
+        if update.color_primary is not None:
+            colors.append(update.color_primary)
+        elif update.color_secondary is not None or update.color_tertiary is not None:
+            current = device.state.segments[update.segment_id].color
+            colors.append(current.primary if current else (0, 0, 0))
+
+        if update.color_secondary is not None:
+            colors.append(update.color_secondary)
+        elif update.color_tertiary is not None:
+            current = device.state.segments[update.segment_id].color
+            colors.append(
+                current.secondary if current and current.secondary else (0, 0, 0)
+            )
+
+        if update.color_tertiary is not None:
+            colors.append(update.color_tertiary)
+
+        return colors
 
     async def transition(self, transition: int) -> None:
         """Set the default transition time for manual control.
