@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import re
 import socket
 import time
@@ -104,6 +105,31 @@ def _firmware_file_name(info: Info, version: str | AwesomeVersion) -> str:
 
     architecture = info.architecture.upper()
     return f"WLED_{version}_{architecture}{ethernet}.bin{gzip}"
+
+
+# A release version as WLED tags them (without the "v"), like 0.15.0 or
+# 16.0.0-b1. It ends up in the download URL, so nothing else gets through.
+_FIRMWARE_VERSION = re.compile(r"\d+\.\d+\.\d+(?:[-+][\w.]+)?", re.ASCII)
+
+# GitHub publishes release asset digests as "sha256:<hex>".
+_SHA256_DIGEST = re.compile(r"sha256:([0-9a-f]{64})", re.ASCII)
+
+
+def _firmware_version(version: str | AwesomeVersion) -> str:
+    """Return the version to upgrade to, refusing anything that isn't one."""
+    if not _FIRMWARE_VERSION.fullmatch(str(version)):
+        msg = f"Invalid firmware version: {str(version)!r}"
+        raise WLEDUpgradeError(msg)
+
+    return str(version)
+
+
+@dataclass
+class _FirmwareAsset:
+    """A firmware file in a GitHub release."""
+
+    name: str
+    sha256: str | None = None
 
 
 @dataclass
@@ -786,47 +812,143 @@ class WLED:
             raise WLEDUpgradeError(msg)
 
         repo = _firmware_repo(repo, self._device.info)
-        url = URL.build(scheme="http", host=self.host, port=80, path="/update")
-        update_file = _firmware_file_name(self._device.info, version)
-        download_url = (
-            f"https://github.com/{repo}/releases/download/v{version}/{update_file}"
-        )
+        version = _firmware_version(version)
 
+        session = self.session
+        asset = await self._find_firmware_asset(
+            session, repo, version, self._device.info
+        )
+        firmware = await self._download_firmware(session, repo, version, asset)
+        await self._upload_firmware(session, asset.name, firmware)
+
+    async def _find_firmware_asset(
+        self, session: aiohttp.ClientSession, repo: str, version: str, info: Info
+    ) -> _FirmwareAsset:
+        """Pick the firmware file for this device from the GitHub release.
+
+        When the release can't be looked up (GitHub API down or rate
+        limited), fall back to the file name we expect, without a digest to
+        verify it against. The download then tells whether it exists.
+        """
+        expected = _firmware_file_name(info, version)
+        assets = await self._fetch_release_assets(session, repo, version)
+        if assets is None:
+            return _FirmwareAsset(expected)
+
+        if expected not in assets and info.release is not None:
+            # Forks don't always prefix their files with the brand the device
+            # reports, so settle for the one file matching version and release.
+            suffix = expected.removeprefix(info.brand)
+            matches = [name for name in assets if name.endswith(suffix)]
+            if len(matches) == 1:
+                expected = matches[0]
+
+        if expected not in assets:
+            msg = f"Requested firmware file {expected} does not exist"
+            raise WLEDUpgradeError(msg)
+
+        digest = _SHA256_DIGEST.fullmatch(str(assets[expected].get("digest")))
+        return _FirmwareAsset(expected, digest.group(1) if digest else None)
+
+    async def _fetch_release_assets(
+        self, session: aiohttp.ClientSession, repo: str, version: str
+    ) -> dict[str, dict[str, Any]] | None:
+        """Return the assets of a GitHub release by name, if GitHub tells us."""
+        url = URL.build(
+            scheme="https",
+            host="api.github.com",
+            path=f"/repos/{repo}/releases/tags/v{version}",
+        )
         try:
             async with (
-                asyncio.timeout(
-                    self.request_timeout * 10,
-                ),
-                self.session.get(
-                    download_url,
-                    raise_for_status=True,
-                ) as download,
+                asyncio.timeout(self.request_timeout),
+                session.get(
+                    url, headers={"Accept": "application/vnd.github+json"}
+                ) as response,
             ):
-                form = aiohttp.FormData()
-                form.add_field("file", await download.read(), filename=update_file)
-                async with self.session.post(url, data=form) as upload:
-                    upload_status = upload.status
-                    upload_page = await upload.text(errors="replace")
+                if response.status == 404:
+                    msg = f"WLED version {version} does not exist in {repo}"
+                    raise WLEDUpgradeError(msg)
+                if response.status != 200:
+                    return None
+                release = await response.json(content_type=None)
+        except (TimeoutError, aiohttp.ClientError, socket.gaierror, ValueError):
+            return None
+
+        assets = release.get("assets") if isinstance(release, dict) else None
+        if not isinstance(assets, list):
+            return None
+
+        return {
+            asset["name"]: asset
+            for asset in assets
+            if isinstance(asset, dict) and isinstance(asset.get("name"), str)
+        }
+
+    async def _download_firmware(
+        self,
+        session: aiohttp.ClientSession,
+        repo: str,
+        version: str,
+        asset: _FirmwareAsset,
+    ) -> bytes:
+        """Download a firmware file, and verify it if GitHub gave a digest."""
+        # Built from validated parts, never from a URL found in the metadata.
+        url = URL.build(
+            scheme="https",
+            host="github.com",
+            path=f"/{repo}/releases/download/v{version}/{asset.name}",
+        )
+        try:
+            async with (
+                asyncio.timeout(self.request_timeout * 10),
+                session.get(url, raise_for_status=True) as response,
+            ):
+                firmware = await response.read()
         except TimeoutError as exception:
-            msg = "Timeout occurred while fetching WLED version information from GitHub"
+            msg = "Timeout occurred while downloading the firmware from GitHub"
             raise WLEDConnectionTimeoutError(msg) from exception
         except aiohttp.ClientResponseError as exception:
             if exception.status == 404:
-                msg = f"Requested firmware file {update_file} does not exist"
+                msg = f"Requested firmware file {asset.name} does not exist"
                 raise WLEDUpgradeError(msg) from exception
-            msg = (
-                f"Could not download requested WLED version '{version}'"
-                f" from {download_url}"
-            )
+            msg = f"Could not download requested WLED version '{version}' from {url}"
             raise WLEDUpgradeError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
-            msg = (
-                "Error occurred while communicating with GitHub"
-                " for WLED version information"
-            )
+            msg = "Error occurred while downloading the firmware from GitHub"
             raise WLEDConnectionError(msg) from exception
 
-        _verify_upload_accepted(upload_status, upload_page)
+        if asset.sha256 and hashlib.sha256(firmware).hexdigest() != asset.sha256:
+            msg = (
+                f"Firmware file {asset.name} does not match the digest GitHub"
+                " published for it; refusing to install it"
+            )
+            raise WLEDUpgradeError(msg)
+
+        return firmware
+
+    async def _upload_firmware(
+        self, session: aiohttp.ClientSession, file_name: str, firmware: bytes
+    ) -> None:
+        """Upload a firmware file to the device, and check it got accepted."""
+        url = URL.build(scheme="http", host=self.host, port=80, path="/update")
+        form = aiohttp.FormData()
+        form.add_field("file", firmware, filename=file_name)
+        try:
+            async with (
+                asyncio.timeout(self.request_timeout * 10),
+                session.post(url, data=form) as response,
+            ):
+                status = response.status
+                page = await response.text(errors="replace")
+        except TimeoutError as exception:
+            msg = f"Timeout occurred while uploading the firmware to {self.host}"
+            raise WLEDConnectionTimeoutError(msg) from exception
+        except (aiohttp.ClientError, socket.gaierror) as exception:
+            msg = f"Error occurred while uploading the firmware to {self.host}"
+            raise WLEDConnectionError(msg) from exception
+
+        _verify_upload_accepted(status, page)
 
     async def reset(self) -> None:
         """Reboot WLED device."""

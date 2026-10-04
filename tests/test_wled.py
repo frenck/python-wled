@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1805,6 +1807,249 @@ async def test_upgrade_rejects_invalid_repo(
     await wled.update()
 
     with pytest.raises(WLEDUpgradeError, match="Invalid firmware repository"):
+        await wled.upgrade(version="0.15.0")
+
+
+FIRMWARE = b"fake firmware"
+FIRMWARE_SHA256 = hashlib.sha256(FIRMWARE).hexdigest()
+
+
+def mock_release(
+    responses: aioresponses,
+    assets: list[dict[str, Any]],
+    *,
+    repo: str = DEFAULT_REPO,
+    version: str = "0.15.0",
+) -> None:
+    """Register the GitHub API answer for a release and its assets."""
+    responses.get(
+        f"https://api.github.com/repos/{repo}/releases/tags/v{version}",
+        status=200,
+        body=json.dumps({"tag_name": f"v{version}", "assets": assets}),
+        content_type="application/json",
+    )
+
+
+def mock_download_and_upload(
+    responses: aioresponses,
+    file_name: str,
+    *,
+    repo: str = DEFAULT_REPO,
+    version: str = "0.15.0",
+) -> None:
+    """Register the firmware download and a successful upload to the device."""
+    responses.get(
+        f"https://github.com/{repo}/releases/download/v{version}/{file_name}",
+        status=200,
+        body=FIRMWARE,
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+
+
+def downloaded(responses: aioresponses, url: str) -> bool:
+    """Return whether the given URL was fetched."""
+    return bool(responses.requests and responses.requests.get(("GET", URL(url))))
+
+
+async def test_upgrade_finds_fork_asset_by_release_name(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade finds a fork's file when it isn't prefixed with the brand."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update(
+        {
+            "arch": "esp32",
+            "ver": "16.0.0",
+            "brand": "QuinLED",
+            "release": "Dig2Go-Audioreactive",
+            "repo": "intermittech/QuinLED-Firmware",
+        }
+    )
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    repo = "intermittech/QuinLED-Firmware"
+    mock_release(
+        responses,
+        [
+            {"name": "WLED_16.0.1_Dig2Go.bin"},
+            {"name": "WLED_16.0.1_Dig2Go-Audioreactive.bin"},
+        ],
+        repo=repo,
+        version="16.0.1",
+    )
+    mock_download_and_upload(
+        responses, "WLED_16.0.1_Dig2Go-Audioreactive.bin", repo=repo, version="16.0.1"
+    )
+
+    await wled.upgrade(version="16.0.1")
+
+    assert downloaded(
+        responses,
+        f"https://github.com/{repo}/releases/download/v16.0.1/"
+        "WLED_16.0.1_Dig2Go-Audioreactive.bin",
+    )
+
+
+async def test_upgrade_refuses_ambiguous_fork_asset(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade doesn't guess when several files match the release name."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update(
+        {"arch": "esp32", "ver": "0.14.0", "brand": "QuinLED", "release": "Dig2Go"}
+    )
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    mock_release(
+        responses,
+        [{"name": "WLED_0.15.0_Dig2Go.bin"}, {"name": "Other_0.15.0_Dig2Go.bin"}],
+    )
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("QuinLED_0.15.0_Dig2Go.bin does not")
+    ):
+        await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "digest",
+    [f"sha256:{FIRMWARE_SHA256}", None, "md5:0123456789abcdef", "sha256:short"],
+)
+async def test_upgrade_with_usable_or_missing_digest(
+    responses: aioresponses, wled: WLED, digest: str | None
+) -> None:
+    """Test upgrade installs a matching file, and one without a usable digest."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP32.bin", "digest": digest}])
+    mock_download_and_upload(responses, "WLED_0.15.0_ESP32.bin")
+
+    await wled.upgrade(version="0.15.0")
+
+
+async def test_upgrade_refuses_firmware_not_matching_digest(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade refuses a download that doesn't match GitHub's digest."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(
+        responses, [{"name": "WLED_0.15.0_ESP32.bin", "digest": f"sha256:{'0' * 64}"}]
+    )
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FIRMWARE,
+    )
+
+    with pytest.raises(WLEDUpgradeError, match="does not match the digest"):
+        await wled.upgrade(version="0.15.0")
+
+    # Nothing may have been sent to the device.
+    assert responses.requests
+    assert ("POST", URL("http://example.com/update")) not in responses.requests
+
+
+async def test_upgrade_release_does_not_exist(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade reports a version that has no release on GitHub."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.99.0",
+        status=404,
+        body='{"message": "Not Found"}',
+        content_type="application/json",
+    )
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("0.99.0 does not exist in wled/WLED")
+    ):
+        await wled.upgrade(version="0.99.0")
+
+
+async def test_upgrade_release_asset_does_not_exist(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade reports a release without a file for this device."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP8266.bin"}])
+
+    with pytest.raises(
+        WLEDUpgradeError, match=re.escape("WLED_0.15.0_ESP32.bin does not exist")
+    ):
+        await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (403, '{"message": "API rate limit exceeded"}'),
+        (200, "not json"),
+        (200, '{"assets": null}'),
+        (200, "[]"),
+    ],
+)
+async def test_upgrade_falls_back_when_release_lookup_fails(
+    responses: aioresponses, wled: WLED, status: int, body: str
+) -> None:
+    """Test upgrade still works by file name when GitHub's API can't help."""
+    await prepare_wled_for_upgrade(responses, wled)
+    responses.get(
+        "https://api.github.com/repos/wled/WLED/releases/tags/v0.15.0",
+        status=status,
+        body=body,
+        content_type="application/json",
+    )
+    mock_download_and_upload(responses, "WLED_0.15.0_ESP32.bin")
+
+    await wled.upgrade(version="0.15.0")
+
+
+@pytest.mark.parametrize(
+    "version",
+    ["0.15.0/../../../evil/repo/releases/download/v1.0.0", "latest", "v0.15.0", ""],
+)
+async def test_upgrade_rejects_invalid_version(
+    responses: aioresponses, wled: WLED, version: str
+) -> None:
+    """Test upgrade refuses a version that could change the download URL."""
+    await prepare_wled_for_upgrade(responses, wled)
+
+    with pytest.raises(WLEDUpgradeError, match="Invalid firmware version"):
+        await wled.upgrade(version=version)
+
+
+@pytest.mark.parametrize(
+    ("exception", "expected"),
+    [
+        (aiohttp.ClientError("gone"), WLEDConnectionError),
+        (TimeoutError(), WLEDConnectionTimeoutError),
+    ],
+)
+async def test_upgrade_upload_fails(
+    responses: aioresponses,
+    wled: WLED,
+    exception: Exception,
+    expected: type[Exception],
+) -> None:
+    """Test an upload failure names the device, not GitHub."""
+    await prepare_wled_for_upgrade(responses, wled)
+    mock_release(responses, [{"name": "WLED_0.15.0_ESP32.bin"}])
+    responses.get(
+        "https://github.com/wled/WLED/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=FIRMWARE,
+    )
+    responses.post("http://example.com/update", exception=exception)
+
+    with pytest.raises(
+        expected, match=re.escape("uploading the firmware to example.com")
+    ):
         await wled.upgrade(version="0.15.0")
 
 
