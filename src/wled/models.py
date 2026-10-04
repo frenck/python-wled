@@ -117,6 +117,21 @@ class Color(SerializableType):
         )
 
 
+@dataclass
+class SensorReading(SerializableType):
+    """Object holding a single sensor reading provided by a WLED usermod."""
+
+    value: Any
+    unit: str
+
+    def _serialize(self) -> list[Any]:
+        return [self.value, self.unit]
+
+    @classmethod
+    def _deserialize(cls, value: list[Any]) -> SensorReading:
+        return cls(value=value[0], unit=value[1])
+
+
 class BaseModel(DataClassORJSONMixin):
     """Base model for all WLED models."""
 
@@ -621,8 +636,8 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """If true, UI toggling also toggles sync receive."""
 
-    sensor: dict[str, Any] | None = None
-    """Optional additional sensors."""
+    sensor: dict[str, SensorReading] | None = None
+    """Optional additional sensors provided by usermods."""
 
     udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
     """The UDP port for realtime packets and WLED broadcast."""
@@ -643,6 +658,21 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     wifi: Wifi | None = None
     """Info about the Wi-Fi connection."""
+
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Info object."""
+        sensor = d.get("sensor")
+        if not isinstance(sensor, dict):
+            return d
+        # Since usermods are free to put anything in the sensor field, only keep
+        # entries that follow the expected [value, unit] shape.
+        d["sensor"] = {
+            name: entry
+            for name, entry in sensor.items()
+            if isinstance(entry, (list, tuple)) and len(entry) == 2
+        }
+        return d
 
     @classmethod
     def __post_deserialize__(cls, obj: Info) -> Info:

@@ -17,6 +17,7 @@ from wled.models import (
     Color,
     Filesystem,
     Info,
+    SensorReading,
     State,
     TimedeltaSerializationStrategy,
     TimestampSerializationStrategy,
@@ -329,12 +330,46 @@ def test_info_repo_uses_device_value_when_present() -> None:
 
 
 def test_info_sensor() -> None:
-    """Test sensor is deserialized."""
-    info = Info.from_dict(_base_info(sensor={"temperature": [77, "F"]}))
+    """Test sensor is deserialized into SensorReading objects."""
+    info = Info.from_dict(
+        _base_info(sensor={"temperature": [77, "F"], "humidity": [42.5, "%"]})
+    )
 
     assert isinstance(info.sensor, dict)
-    assert "temperature" in info.sensor
-    assert info.sensor["temperature"] == [77, "F"]
+    assert info.sensor["temperature"] == SensorReading(value=77, unit="F")
+    assert info.sensor["humidity"] == SensorReading(value=42.5, unit="%")
+
+
+def test_info_sensor_serializes_back_to_list() -> None:
+    """Test SensorReading serializes back to the [value, unit] shape."""
+    info = Info.from_dict(_base_info(sensor={"temperature": [77, "F"]}))
+
+    assert info.to_dict()["sensor"] == {"temperature": [77, "F"]}
+
+
+def test_info_sensor_skips_malformed_entries() -> None:
+    """Test malformed sensor entries are skipped, not breaking parsing."""
+    info = Info.from_dict(
+        _base_info(
+            sensor={
+                "temperature": [77, "F"],
+                "too_short": [77],
+                "too_long": [77, "F", "extra"],
+                "not_a_list": "77",
+                "is_null": None,
+            }
+        )
+    )
+
+    assert info.sensor is not None
+    assert info.sensor == {"temperature": SensorReading(value=77, unit="F")}
+
+
+def test_info_sensor_absent() -> None:
+    """Test sensor is None when not present in the payload."""
+    info = Info.from_dict(_base_info())
+
+    assert info.sensor is None
 
 
 # =========================================================================
