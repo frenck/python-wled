@@ -140,6 +140,33 @@ def _verify_upload_accepted(status: int, page: str) -> None:
     raise WLEDUpgradeError(msg)
 
 
+# The architectures WLED publishes firmware for, and upgrade() can flash.
+_UPGRADABLE_ARCHITECTURES = frozenset(
+    {"esp01", "esp02", "esp32", "esp8266", "esp32-c3", "esp32-s2", "esp32-s3"}
+)
+
+
+def _match_firmware_asset(
+    assets: Mapping[str, Any], info: Info, version: str
+) -> str | None:
+    """Return the name of the firmware file for this device in a release.
+
+    WLED names its files after the brand, version, and release name. Forks
+    don't always prefix them with the brand the device reports, so without
+    an exact match, the one file matching version and release will do.
+    """
+    expected = _firmware_file_name(info, version)
+    if expected in assets:
+        return expected
+
+    if info.release is None:
+        return None
+
+    suffix = expected.removeprefix(info.brand)
+    matches = [name for name in assets if name.endswith(suffix)]
+    return matches[0] if len(matches) == 1 else None
+
+
 def _firmware_repo(requested: str | None, info: Info) -> str:
     """Return the GitHub repository to download the firmware from.
 
@@ -234,7 +261,7 @@ class _CatalogVersion:
 
 
 @dataclass
-class WLED:
+class WLED:  # pylint: disable=too-many-public-methods
     """Main class for handling connections with WLED."""
 
     host: str
@@ -1038,15 +1065,7 @@ class WLED:
             msg = "Unexpected upgrade error; No session or device"
             raise WLEDUpgradeError(msg)
 
-        if self._device.info.architecture not in {
-            "esp01",
-            "esp02",
-            "esp32",
-            "esp8266",
-            "esp32-c3",
-            "esp32-s2",
-            "esp32-s3",
-        }:
+        if self._device.info.architecture not in _UPGRADABLE_ARCHITECTURES:
             msg = (
                 "Upgrade is only supported on ESP01, ESP02, ESP32, ESP8266, "
                 "ESP32-C3, ESP32-S2, and ESP32-S3 devices"
@@ -1071,6 +1090,62 @@ class WLED:
         firmware = await self._download_firmware(session, repo, version, asset)
         await self._upload_firmware(session, asset.name, firmware)
 
+    async def firmware_available(
+        self,
+        *,
+        version: str | AwesomeVersion,
+        repo: str | None = None,
+    ) -> bool:
+        """Return whether a release has a firmware file for this device.
+
+        This tells whether `upgrade()` can install a version, before offering
+        it. A custom build, for example, has no file in any release, and a
+        fork that doesn't say where its firmware comes from has no release to
+        look in at all.
+
+        Args:
+        ----
+            version: The version to look for.
+            repo: GitHub repository to look in. If not specified, the
+                repository reported by the device firmware is used.
+
+        Returns:
+        -------
+            True when the release has a firmware file for this device.
+
+        Raises:
+        ------
+            WLEDError: GitHub couldn't be asked, so it isn't known.
+            WLEDUpgradeError: The repository or version given isn't valid.
+
+        """
+        if self._device is None:
+            await self.update()
+
+        if self.session is None or self._device is None:
+            msg = "Unexpected error; No session or device"
+            raise WLEDError(msg)
+
+        info = self._device.info
+        if info.architecture not in _UPGRADABLE_ARCHITECTURES or (
+            repo is None and info.repo is None
+        ):
+            return False
+
+        repo = _firmware_repo(repo, info)
+        version = _firmware_version(version)
+        try:
+            assets = await self._fetch_release_assets(self.session, repo, version)
+        except WLEDUpgradeError:
+            # The release itself doesn't exist.
+            return False
+
+        if assets is None:
+            msg = f"Could not look up WLED version {version} in {repo} on GitHub"
+            raise WLEDError(msg)
+
+        return _match_firmware_asset(assets, info, version) is not None
+
     async def _find_firmware_asset(
         self, session: aiohttp.ClientSession, repo: str, version: str, info: Info
     ) -> _FirmwareAsset:
@@ -1080,25 +1155,19 @@ class WLED:
         limited), fall back to the file name we expect, without a digest to
         verify it against. The download then tells whether it exists.
         """
-        expected = _firmware_file_name(info, version)
         assets = await self._fetch_release_assets(session, repo, version)
         if assets is None:
-            return _FirmwareAsset(expected)
+            return _FirmwareAsset(_firmware_file_name(info, version))
 
-        if expected not in assets and info.release is not None:
-            # Forks don't always prefix their files with the brand the device
-            # reports, so settle for the one file matching version and release.
-            suffix = expected.removeprefix(info.brand)
-            matches = [name for name in assets if name.endswith(suffix)]
-            if len(matches) == 1:
-                expected = matches[0]
-
-        if expected not in assets:
-            msg = f"Requested firmware file {expected} does not exist"
+        if (name := _match_firmware_asset(assets, info, version)) is None:
+            msg = (
+                f"Requested firmware file {_firmware_file_name(info, version)}"
+                " does not exist"
+            )
             raise WLEDUpgradeError(msg)
 
-        digest = _SHA256_DIGEST.fullmatch(str(assets[expected].get("digest")))
-        return _FirmwareAsset(expected, digest.group(1) if digest else None)
+        digest = _SHA256_DIGEST.fullmatch(str(assets[name].get("digest")))
+        return _FirmwareAsset(name, digest.group(1) if digest else None)
 
     async def _fetch_release_assets(
         self, session: aiohttp.ClientSession, repo: str, version: str
