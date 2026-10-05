@@ -30,6 +30,7 @@ optional CLI ships under the `cli` extra.
 | `tests/`                   | pytest suite with syrupy snapshots                               |
 | `tests/cli/`               | Tests for the CLI                                                |
 | `tests/fixtures/versions/` | One real `/json` dump per WLED release                           |
+| `tests/fixtures/forks/`    | Real `/json` dumps from WLED forks, like WLED-MM                 |
 | `examples/`                | Runnable examples                                                |
 
 ## Commands
