@@ -28,7 +28,7 @@ from .const import (
     SyncGroup,
 )
 from .exceptions import WLEDUnsupportedVersionError
-from .utils import get_awesome_version
+from .utils import get_awesome_version, is_github_repo
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -87,6 +87,13 @@ class TimestampSerializationStrategy(SerializationStrategy, use_annotations=True
     def deserialize(self, value: float) -> datetime:
         """Deserialize timestamp to datetime object."""
         return datetime.fromtimestamp(value, tz=UTC)
+
+
+# Where the firmware comes from, for builds that don't report it themselves.
+_FIRMWARE_REPO_BY_PRODUCT = {
+    "FOSS": DEFAULT_REPO,
+    "MoonModules": "MoonModules/WLED-MM",
+}
 
 
 @dataclass
@@ -934,8 +941,11 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     product: str = "DIY Light"
     """The product name. Always FOSS for standard installations."""
 
-    repo: str = DEFAULT_REPO
-    """GitHub repository in 'owner/repository' format."""
+    repo: str | None = None
+    """GitHub repository the firmware comes from, in 'owner/repository' format.
+
+    None when that isn't known, like for a self-built firmware of a fork.
+    """
 
     release: str | None = None
     """The release name of the firmware build.
@@ -975,6 +985,16 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Info object."""
+        # Not every build says where its firmware comes from: WLED only does
+        # since 0.15.2, and a self-built firmware reports "unknown". Builds
+        # recognizable by their product fall back to their project; for any
+        # other, it isn't known. WLED itself has always reported its product.
+        repo = d.get("repo")
+        repo = repo.strip() if isinstance(repo, str) else ""
+        if not is_github_repo(repo):
+            repo = _FIRMWARE_REPO_BY_PRODUCT.get(d.get("product", "FOSS"))
+        d = d | {"repo": repo}
+
         sensor = d.get("sensor")
         if not isinstance(sensor, dict):
             # Remove malformed top-level sensor object

@@ -33,7 +33,7 @@ from .exceptions import (
     WLEDUpgradeError,
 )
 from .models import Device, Playlist, Preset, Releases, SegmentUpdate
-from .utils import get_awesome_version
+from .utils import get_awesome_version, is_github_repo
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -140,23 +140,25 @@ def _verify_upload_accepted(status: int, page: str) -> None:
     raise WLEDUpgradeError(msg)
 
 
-# A plain "owner/name" pair, as GitHub names repositories. Deliberately a bit
-# looser than GitHub's own rules: the point is keeping slashes, dot segments,
-# and URL syntax out of the download URL, not policing names.
-_GITHUB_REPO = re.compile(r"[A-Za-z0-9][\w-]{0,38}/(?!\.\.?$)[\w.-]{1,100}", re.ASCII)
-
-
 def _firmware_repo(requested: str | None, info: Info) -> str:
     """Return the GitHub repository to download the firmware from.
 
-    Without an explicit choice, this is the repository the device reports.
-    It ends up in the download URL, so it has to be a plain "owner/name"
-    pair; anything else could point the download somewhere else.
+    Without an explicit choice, this is the repository the device reports,
+    if known. It ends up in the download URL, so it has to be a plain
+    "owner/name" pair; anything else could point the download somewhere else.
     """
-    repo = (requested if requested is not None else info.repo).strip()
-    repo = repo or DEFAULT_REPO
+    if requested is None:
+        if info.repo is None:
+            msg = (
+                "Unknown where the firmware of this device comes from;"
+                " pass the repository to upgrade from"
+            )
+            raise WLEDUpgradeError(msg)
 
-    if not _GITHUB_REPO.fullmatch(repo):
+        return info.repo
+
+    repo = requested.strip() or DEFAULT_REPO
+    if not is_github_repo(repo):
         msg = f"Invalid firmware repository: {repo!r}"
         raise WLEDUpgradeError(msg)
 
