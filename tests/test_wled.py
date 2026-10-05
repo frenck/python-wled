@@ -1727,6 +1727,38 @@ async def test_sync_receive(  # noqa: PLR0913  # pylint: disable=too-many-argume
     )
 
 
+@pytest.mark.parametrize(
+    ("version", "expected"),
+    [("16.0.0", {"rgrp": 1}), (None, {"recv": True})],
+    ids=["loads_the_device_first", "unknown_version"],
+)
+async def test_sync_receive_without_loaded_device(
+    responses: aioresponses, wled: WLED, version: str | None, expected: dict
+) -> None:
+    """Test receive looks up the device first, and handles an unknown version."""
+    wled_data = load_fixture_json("wled")
+    if version is None:
+        del wled_data["info"]["ver"]
+    else:
+        wled_data["info"]["ver"] = version
+    wled_data["state"]["udpn"] |= {"rgrp": 0, "sgrp": 1}
+    mock_json_and_presets(responses, wled_data)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.sync(receive=True)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"udpn": expected, "v": True},
+    )
+
+
 async def test_sync_receive_uses_send_groups_set_along(
     responses: aioresponses, wled: WLED
 ) -> None:
