@@ -20,7 +20,12 @@ from wled import Device, Releases
 from wled._cli import main
 from wled.cli import cli
 from wled.cli.async_typer import AsyncTyper
-from wled.exceptions import WLEDConnectionError, WLEDUnsupportedVersionError
+from wled.exceptions import (
+    WLEDConnectionError,
+    WLEDConnectionTimeoutError,
+    WLEDError,
+    WLEDUnsupportedVersionError,
+)
 
 if TYPE_CHECKING:
     from syrupy.assertion import SnapshotAssertion
@@ -207,6 +212,47 @@ def test_async_typer_unhandled_exception_re_raises() -> None:
 
     result = CliRunner().invoke(app, [])
     assert result.exit_code != 0
+
+
+def test_async_typer_error_handler_covers_subclasses() -> None:
+    """Test a handler for a base class also handles its subclasses."""
+    app = AsyncTyper(add_completion=False)
+    handled: list[Exception] = []
+
+    @app.error_handler(LookupError)
+    def handle_lookup(error: LookupError) -> None:
+        handled.append(error)
+
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def fail() -> None:
+        msg = "missing"
+        raise KeyError(msg)
+
+    app([], standalone_mode=False)
+    assert len(handled) == 1
+    assert isinstance(handled[0], KeyError)
+
+
+def test_async_typer_most_specific_error_handler_wins() -> None:
+    """Test the handler for the closest class handles the exception."""
+    app = AsyncTyper(add_completion=False)
+    handled: list[str] = []
+
+    @app.error_handler(Exception)
+    def handle_any(_: Exception) -> None:
+        handled.append("any")
+
+    @app.error_handler(RuntimeError)
+    def handle_runtime(_: RuntimeError) -> None:
+        handled.append("runtime")
+
+    @app.command()  # ty: ignore[invalid-argument-type]
+    def fail() -> None:
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    app([], standalone_mode=False)
+    assert handled == ["runtime"]
 
 
 def test_async_typer_exit_re_raises() -> None:
@@ -633,6 +679,43 @@ def test_connection_error_handler(
         handler(WLEDConnectionError("fail"))
     assert exc_info.value.code == 1
     assert capsys.readouterr().out == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_error_handler(
+    capsys: pytest.CaptureFixture[str],
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Any other WLED error prints its message in a panel and exits with 1."""
+    handler = cli.error_handlers[WLEDError]  # pylint: disable=protected-access
+    with pytest.raises(SystemExit) as exc_info:
+        handler(WLEDError("Unknown preset: 'Nope'"))
+    assert exc_info.value.code == 1
+    assert capsys.readouterr().out == snapshot
+
+
+@pytest.mark.parametrize(
+    ("error", "title"),
+    [
+        (WLEDError("Unknown preset: 'Nope'"), "Error"),
+        (WLEDConnectionTimeoutError("Timeout"), "Connection error"),
+    ],
+)
+@pytest.mark.usefixtures("stable_terminal")
+def test_cli_errors_are_handled(
+    capsys: pytest.CaptureFixture[str], error: WLEDError, title: str
+) -> None:
+    """Test errors from a command end in their panel, not a traceback."""
+    mock = _mock_wled(_device())
+    mock.return_value.preset.side_effect = error
+
+    with patch("wled.cli.WLED", mock), pytest.raises(SystemExit) as exc_info:
+        cli(["preset", "--host", "example.com", "--preset", "Nope"])
+
+    assert exc_info.value.code == 1
+    output = capsys.readouterr().out
+    assert title in output
+    assert "Traceback" not in output
 
 
 @pytest.mark.usefixtures("stable_terminal")

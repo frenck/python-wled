@@ -94,6 +94,14 @@
   
   '''
 # ---
+# name: test_error_handler
+  '''
+  ╭──────── Error ─────────╮
+  │ Unknown preset: 'Nope' │
+  ╰────────────────────────╯
+  
+  '''
+# ---
 # name: test_info_command
   '''
                                                
