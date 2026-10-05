@@ -1385,7 +1385,14 @@ class Device(BaseModel):
         presets: dict[int, dict[str, Any]] = {}
         playlists: dict[int, dict[str, Any]] = {}
         for raw_id, entry in raw.items():
-            if not (entry_id := int(raw_id)):
+            # WLED only writes numbered presets, but the file can be edited by
+            # hand or by other tools. Anything else isn't a preset.
+            try:
+                entry_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+
+            if not entry_id or not isinstance(entry, dict):
                 continue
 
             # Anything other than a dict with presets in it, like an empty

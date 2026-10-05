@@ -299,11 +299,73 @@ async def test_update_corrupt_json_response(
         await wled.update()
 
 
-@pytest.mark.parametrize("body", ["AAAA", b"\xff\xfe"])
-async def test_update_corrupt_presets_response(
-    responses: aioresponses, wled: WLED, body: str | bytes
+@pytest.mark.parametrize(
+    ("status", "body", "content_type"),
+    [
+        (200, "AAAA", "application/json"),
+        (200, b"\xff\xfe", "application/json"),
+        (200, "", "application/json"),
+        (200, "", "text/plain"),
+        (200, "[1, 2]", "application/json"),
+        (404, "Not Found", "text/plain"),
+    ],
+)
+async def test_update_keeps_presets_when_the_file_is_unusable(  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    responses: aioresponses,
+    wled: WLED,
+    status: int,
+    body: str | bytes,
+    content_type: str,
 ) -> None:
-    """Test update() raises on corrupt /presets.json response."""
+    """Test an unusable presets file keeps the presets, and is tried again."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["fs"]["pmt"] = 9999999999.0
+
+    # First update: the presets load fine.
+    mock_json_and_presets(responses, wled_data)
+    # Second update: the presets changed, but the file can't be used.
+    responses.get(
+        "http://example.com/json/si",
+        status=200,
+        body=json.dumps({key: changed_data[key] for key in ("state", "info")}),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=status,
+        body=body,
+        content_type=content_type,
+    )
+    # Third update: nothing changed, but the presets are fetched again.
+    responses.get(
+        "http://example.com/json/si",
+        status=200,
+        body=json.dumps({key: changed_data[key] for key in ("state", "info")}),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps({"0": {}, "1": {"n": "Updated Preset"}}),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert device.presets[1].name == "My Preset"
+
+    device = await wled.update()
+    assert device.presets[1].name == "My Preset"
+
+    device = await wled.update()
+    assert device.presets[1].name == "Updated Preset"
+    assert requests_to(responses, "/presets.json") == 3
+
+
+async def test_update_without_a_usable_presets_file(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a device without a usable presets file can still be set up."""
     wled_data = load_fixture_json("wled")
     responses.get(
         "http://example.com/json",
@@ -311,43 +373,38 @@ async def test_update_corrupt_presets_response(
         body=json.dumps(wled_data),
         content_type="application/json",
     )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"])
     responses.get(
         "http://example.com/presets.json",
-        status=200,
-        body=body,
-        content_type="application/json",
+        status=404,
+        body="Not Found",
+        content_type="text/plain",
     )
-    with pytest.raises(
-        WLEDInvalidResponseError, match=r"GET /presets\.json"
-    ) as exc_info:
-        await wled.update()
-    assert exc_info.value.method == "GET"
-    assert exc_info.value.path == "/presets.json"
+
+    device = await wled.update()
+
+    assert device.presets == {}
+    assert device.playlists == {}
 
 
-async def test_update_empty_presets_response(
+async def test_update_raises_when_presets_connection_fails(
     responses: aioresponses, wled: WLED
 ) -> None:
-    """Test update() raises on empty /presets.json response."""
-    # Backoff on update() retries 3 times for WLEDEmptyResponseError
+    """Test update() still fails when the device is gone while fetching presets."""
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(load_fixture_json("wled")),
+        content_type="application/json",
+    )
     for _ in range(3):
         responses.get(
-            "http://example.com/json",
-            status=200,
-            body=json.dumps(load_fixture_json("wled")),
-            content_type="application/json",
-        )
-        responses.get(
             "http://example.com/presets.json",
-            status=200,
-            body="",
-            content_type="text/plain",
+            exception=aiohttp.ClientError("gone"),
         )
 
-    with pytest.raises(WLEDEmptyResponseError) as exc_info:
+    with pytest.raises(WLEDConnectionError):
         await wled.update()
-    assert exc_info.value.method == "GET"
-    assert exc_info.value.path == "/presets.json"
 
 
 async def test_update_skips_presets_when_unchanged(
@@ -1230,10 +1287,10 @@ async def test_listen_preset_change_via_websocket(
     callback.assert_called_once()
 
 
-async def test_listen_preset_change_empty_response(
+async def test_listen_keeps_presets_when_the_file_is_unusable(
     responses: aioresponses, wled: WLED
 ) -> None:
-    """Test listen() raises when preset refetch returns empty."""
+    """Test listen() keeps the presets when the presets file can't be used."""
     wled_data = load_fixture_json("wled")
 
     mock_client = MagicMock()
@@ -1241,12 +1298,16 @@ async def test_listen_preset_change_empty_response(
     mock_client.close = AsyncMock()
     wled._client = mock_client  # pylint: disable=protected-access
     wled._device = Device.from_dict(full_device_data())  # pylint: disable=protected-access
+    presets = wled._device.presets  # pylint: disable=protected-access
 
     text_msg = MagicMock()
     text_msg.type = aiohttp.WSMsgType.TEXT
     text_msg.json.return_value = wled_data
 
-    mock_client.receive = AsyncMock(return_value=text_msg)
+    close_msg = MagicMock()
+    close_msg.type = aiohttp.WSMsgType.CLOSE
+
+    mock_client.receive = AsyncMock(side_effect=[text_msg, close_msg])
 
     responses.get(
         "http://example.com/presets.json",
@@ -1255,10 +1316,31 @@ async def test_listen_preset_change_empty_response(
         content_type="text/plain",
     )
 
-    with pytest.raises(WLEDEmptyResponseError) as exc_info:
+    callback = MagicMock()
+    with pytest.raises(WLEDConnectionClosedError):
+        await wled.listen(callback)
+
+    callback.assert_called_once()
+    assert callback.call_args.args[0].presets == presets
+    # Not marked as seen, so the next message tries the presets again.
+    assert wled._presets_version is None  # pylint: disable=protected-access
+
+
+async def test_listen_invalid_json_message(wled: WLED) -> None:
+    """Test listen() raises a WLED error for a message that isn't valid JSON."""
+    mock_client = MagicMock()
+    mock_client.closed = False
+    mock_client.close = AsyncMock()
+    wled._client = mock_client  # pylint: disable=protected-access
+    wled._device = Device.from_dict(full_device_data())  # pylint: disable=protected-access
+
+    text_msg = MagicMock()
+    text_msg.type = aiohttp.WSMsgType.TEXT
+    text_msg.json.side_effect = json.JSONDecodeError("Expecting value", "{", 1)
+    mock_client.receive = AsyncMock(return_value=text_msg)
+
+    with pytest.raises(WLEDInvalidResponseError, match="WebSocket"):
         await wled.listen(MagicMock())
-    assert exc_info.value.method == "GET"
-    assert exc_info.value.path == "/presets.json"
 
 
 # =========================================================================

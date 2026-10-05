@@ -310,12 +310,8 @@ class WLED:
                 to the WLED device.
             WLEDConnectionClosedError: The WebSocket connection to the remote WLED
                 has been closed.
-            WLEDEmptyResponseError: The WLED device returned an empty response
-                when fetching presets.
-            WLEDInvalidResponseError: The WLED device returned an invalid response
-                when fetching presets.
-            WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status
-                when fetching presets.
+            WLEDInvalidResponseError: The WLED device sent a message that
+                isn't valid JSON.
 
         """
         if not self._client or not self.connected or not self._device:
@@ -332,7 +328,14 @@ class WLED:
                 raise WLEDConnectionError(self._client.exception())
 
             if message.type == aiohttp.WSMsgType.TEXT:
-                message_data = message.json()
+                try:
+                    message_data = message.json()
+                except ValueError as exception:
+                    msg = (
+                        f"Received an invalid JSON message from the WLED"
+                        f" WebSocket on {self.host}"
+                    )
+                    raise WLEDInvalidResponseError(msg) from exception
 
                 # A busy device sends an error instead of its state; ask for
                 # the state again rather than reporting the old one. Only once:
@@ -348,15 +351,11 @@ class WLED:
 
                 changed, new_version = self._check_presets_changed(message_data)
                 if changed:
-                    if not (presets := await self.request("/presets.json")):
-                        msg = (
-                            f"WLED device at {self.host} returned an empty API"
-                            " response on presets update"
-                        )
-                        raise WLEDEmptyResponseError(
-                            msg, method="GET", path="/presets.json"
-                        )
-                    message_data["presets"] = presets
+                    if (presets := await self._fetch_presets()) is None:
+                        # Keep the presets we have, and try again next time.
+                        new_version = None
+                    else:
+                        message_data["presets"] = presets
 
                 device = self._device.update_from_dict(data=message_data)
                 self._presets_version = new_version
@@ -510,13 +509,11 @@ class WLED:
 
         changed, new_version = self._check_presets_changed(data)
         if changed:
-            if not (presets := await self.request("/presets.json")):
-                msg = (
-                    f"WLED device at {self.host} returned an empty API"
-                    " response on presets update"
-                )
-                raise WLEDEmptyResponseError(msg, method="GET", path="/presets.json")
-            data["presets"] = presets
+            if (presets := await self._fetch_presets()) is None:
+                # Keep the presets we have, and try again on the next update.
+                new_version = None
+            else:
+                data["presets"] = presets
 
         # On ESP8266 devices, /json can be cut off when it doesn't fit the
         # output buffer, losing part of the effects list and all palettes
@@ -1230,6 +1227,27 @@ class WLED:
 
         """
         await self.close()
+
+    async def _fetch_presets(self) -> dict[str, Any] | None:
+        """Fetch the presets file from the device.
+
+        A device can hold a presets file that is broken, empty, or missing,
+        for example after a crash while saving it, or on a fork without one.
+        That shouldn't take the whole device down, so this returns None
+        instead. A connection error still propagates: if the device is gone,
+        the update should fail.
+        """
+        try:
+            presets = await self.request("/presets.json")
+        except WLEDConnectionError:
+            raise
+        except WLEDError:
+            return None
+
+        if not isinstance(presets, dict):
+            return None
+
+        return presets
 
     def _check_presets_changed(
         self, data: dict[str, Any]
