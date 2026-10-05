@@ -73,16 +73,30 @@ def mock_json_and_presets(
     mocked: aioresponses,
     wled_data: dict[str, Any] | None = None,
     presets_data: dict[str, Any] | None = None,
+    *,
+    cached: bool = False,
 ) -> None:
-    """Register the GET endpoints that a first WLED.update() calls."""
+    """Register the GET endpoints that WLED.update() calls.
+
+    With cached, the effects and palettes are already cached from an earlier
+    update, so update() asks for just the state and info.
+    """
     if wled_data is None:
         wled_data = load_fixture_json("wled")
-    mocked.get(
-        "http://example.com/json",
-        status=200,
-        body=json.dumps(wled_data),
-        content_type="application/json",
-    )
+    if cached:
+        mocked.get(
+            "http://example.com/json/si",
+            status=200,
+            body=json.dumps({key: wled_data[key] for key in ("state", "info")}),
+            content_type="application/json",
+        )
+    else:
+        mocked.get(
+            "http://example.com/json",
+            status=200,
+            body=json.dumps(wled_data),
+            content_type="application/json",
+        )
     mock_catalog(mocked, wled_data["effects"], wled_data["palettes"])
     if presets_data is None:
         presets_data = load_fixture_json("presets")

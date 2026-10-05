@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -248,7 +249,7 @@ async def test_update_creates_device(responses: aioresponses, wled: WLED) -> Non
 async def test_update_uses_existing_device(responses: aioresponses, wled: WLED) -> None:
     """Test that subsequent update() calls use update_from_dict."""
     mock_json_and_presets(responses)
-    mock_json_and_presets(responses)
+    mock_json_and_presets(responses, cached=True)
 
     device1 = await wled.update()
     device2 = await wled.update()
@@ -359,7 +360,7 @@ async def test_update_skips_presets_when_unchanged(
     )
     # Second update: same pmt and uptime, only /json fetched
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
@@ -368,7 +369,7 @@ async def test_update_skips_presets_when_unchanged(
     changed_data = json.loads(json.dumps(wled_data))
     changed_data["info"]["fs"]["pmt"] = 9999999999.0
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(changed_data),
         content_type="application/json",
@@ -403,7 +404,7 @@ async def test_update_refetches_presets_when_info_incomplete(
 
     mock_json_and_presets(responses, wled_data)
     # Second call: still no fs, presets refetched again
-    mock_json_and_presets(responses, wled_data)
+    mock_json_and_presets(responses, wled_data, cached=True)
 
     await wled.update()
     # Without fs/pmt, every update refetches presets
@@ -423,14 +424,14 @@ async def test_update_skips_effects_when_unchanged(
     mock_json_and_presets(responses, wled_data)
     # Second update: same fxcount and boot_time — only /json fetched
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
     )
     # Third update: fxcount increased — /json/effects refetched with extra effect
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(changed_data),
         content_type="application/json",
@@ -462,7 +463,7 @@ async def test_update_refetches_effects_after_device_restart(
 
     mock_json_and_presets(responses, wled_data)
     # After restart uptime drops from 32489 → 5, so boot_time shifts by ~32484s
-    mock_json_and_presets(responses, restarted_data)
+    mock_json_and_presets(responses, restarted_data, cached=True)
 
     device1 = await wled.update()
     assert device1.info.effect_count == wled_data["info"]["fxcount"]
@@ -501,7 +502,7 @@ async def test_update_uses_effects_endpoint_for_full_list(
     # Second update: /json still truncated, fxcount unchanged — no /json/effects stub.
     # The cached full list must survive and not be overwritten by the truncated payload.
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
@@ -561,7 +562,7 @@ async def test_update_uses_palettes_endpoint_when_json_is_cut_off(
 @pytest.mark.parametrize(
     ("effects_status", "effects_body", "palettes_body"),
     [
-        (503, "Service Unavailable", ["Default"]),
+        (500, "Internal Server Error", ["Default"]),
         (200, {"not": "a list"}, ["Default"]),
         (200, None, "not a list"),
     ],
@@ -656,7 +657,7 @@ async def test_update_accepts_device_without_palettes(
 
     mock_json_and_presets(responses, wled_data)
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(wled_data),
         content_type="application/json",
@@ -678,7 +679,7 @@ async def test_update_refetches_catalog_when_info_incomplete(
     del wled_data["info"]["uptime"]
 
     mock_json_and_presets(responses, wled_data)
-    mock_json_and_presets(responses, wled_data)
+    mock_json_and_presets(responses, wled_data, cached=True)
 
     await wled.update()
     await wled.update()
@@ -703,7 +704,7 @@ async def test_update_picks_up_custom_palettes_without_refetch(
 
     mock_json_and_presets(responses, wled_data)
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(changed_data),
         content_type="application/json",
@@ -732,7 +733,7 @@ async def test_update_picks_up_renamed_usermod_palettes(
 
     mock_json_and_presets(responses, wled_data)
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(renamed_data),
         content_type="application/json",
@@ -773,8 +774,8 @@ async def test_update_keeps_effects_when_only_palettes_fail(
     )
     responses.get(
         "http://example.com/json/palettes",
-        status=503,
-        body="Service Unavailable",
+        status=500,
+        body="Internal Server Error",
         content_type="text/plain",
     )
 
@@ -796,7 +797,7 @@ async def test_update_keeps_cached_catalog_when_refetch_fails(
 
     mock_json_and_presets(responses, wled_data)
     responses.get(
-        "http://example.com/json",
+        "http://example.com/json/si",
         status=200,
         body=json.dumps(truncated_data),
         content_type="application/json",
@@ -804,8 +805,8 @@ async def test_update_keeps_cached_catalog_when_refetch_fails(
     for endpoint in ("effects", "palettes"):
         responses.get(
             f"http://example.com/json/{endpoint}",
-            status=503,
-            body="Service Unavailable",
+            status=500,
+            body="Internal Server Error",
             content_type="text/plain",
         )
 
@@ -814,6 +815,137 @@ async def test_update_keeps_cached_catalog_when_refetch_fails(
 
     assert len(device.effects) == 3
     assert [device.palettes[i].name for i in range(3)] == wled_data["palettes"]
+
+
+def requests_to(responses: aioresponses, path: str) -> int:
+    """Return how often a path on the device was requested."""
+    if not responses.requests:
+        return 0
+
+    return sum(
+        len(calls)
+        for (_, url), calls in responses.requests.items()
+        if url.host == "example.com" and url.path == path
+    )
+
+
+async def test_update_polls_state_and_info_once_catalog_is_cached(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test later updates skip the effects and palettes lists of /json."""
+    mock_json_and_presets(responses)
+    mock_json_and_presets(responses, cached=True)
+
+    await wled.update()
+    await wled.update()
+
+    assert requests_to(responses, "/json") == 1
+    assert requests_to(responses, "/json/si") == 1
+
+
+async def test_update_keeps_presets_when_their_version_is_zero(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test presets aren't fetched again while the device reports pmt 0."""
+    # Without NTP, a device reports a pmt of 0 until a preset is saved.
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["fs"]["pmt"] = 0
+    mock_json_and_presets(responses, wled_data)
+    mock_json_and_presets(responses, wled_data, cached=True)
+
+    await wled.update()
+    await wled.update()
+
+    assert requests_to(responses, "/presets.json") == 1
+
+
+async def test_request_retries_when_device_is_busy(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a busy answer from older WLED versions is tried again."""
+    responses.get(
+        "http://example.com/json/state",
+        status=503,
+        body='{"error": 3}',
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/state",
+        status=200,
+        body='{"on": true}',
+        content_type="application/json",
+    )
+
+    assert await wled.request("/json/state") == {"on": True}
+
+
+async def test_request_gives_up_when_device_stays_busy(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a device that stays busy ends with its status error."""
+    for _ in range(3):
+        responses.get(
+            "http://example.com/json/state",
+            status=503,
+            body='{"error": 3}',
+            content_type="application/json",
+        )
+
+    with pytest.raises(WLEDStatusError) as exc_info:
+        await wled.request("/json/state")
+
+    assert exc_info.value.status == 503
+
+
+async def test_request_timeout_covers_reading_the_response(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a response that stalls halfway still times out."""
+    wled.request_timeout = 0.05
+    for _ in range(3):
+        responses.get(
+            "http://example.com/json",
+            status=200,
+            body="{}",
+            content_type="application/json",
+        )
+
+    async def stalled_read(*_: Any) -> bytes:
+        await asyncio.sleep(5)
+        return b"{}"
+
+    with (
+        patch("aiohttp.ClientResponse.read", stalled_read),
+        pytest.raises(WLEDConnectionTimeoutError),
+    ):
+        await wled.request("/json")
+
+
+async def test_listen_asks_again_when_device_is_busy(wled: WLED) -> None:
+    """Test listen() asks for the state again instead of reporting old data."""
+    mock_client = MagicMock()
+    mock_client.closed = False
+    mock_client.close = AsyncMock()
+    mock_client.send_json = AsyncMock()
+    wled._client = mock_client  # pylint: disable=protected-access
+    wled._device = Device.from_dict(full_device_data())  # pylint: disable=protected-access
+
+    # A busy device sends an error instead of its state.
+    busy_msg = MagicMock()
+    busy_msg.type = aiohttp.WSMsgType.TEXT
+    busy_msg.json.return_value = {"error": 3}
+
+    close_msg = MagicMock()
+    close_msg.type = aiohttp.WSMsgType.CLOSE
+
+    mock_client.receive = AsyncMock(side_effect=[busy_msg, close_msg])
+
+    callback = MagicMock()
+    with pytest.raises(WLEDConnectionClosedError):
+        await wled.listen(callback)
+
+    mock_client.send_json.assert_awaited_once_with({"v": True})
+    callback.assert_not_called()
 
 
 async def test_listen_preset_change_via_websocket(

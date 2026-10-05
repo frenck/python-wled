@@ -36,6 +36,49 @@ if TYPE_CHECKING:
     from .const import LiveDataOverride
     from .models import ColorTuple, Info
 
+
+def _decode_response(
+    method: str, uri: str, *, status: int, content_type: str, contents: bytes
+) -> Any:
+    """Return the decoded body of a WLED response, or raise its error."""
+    is_error = status // 100 in [4, 5]
+    kind = "error response" if is_error else "response"
+
+    try:
+        response_data: Any = contents.decode("utf-8")
+    except UnicodeDecodeError as exception:
+        msg = f"Received a non-UTF-8 {kind} from request: {method} {uri}"
+        raise WLEDInvalidResponseError(msg, method=method, path=uri) from exception
+
+    if "application/json" in content_type:
+        try:
+            response_data = orjson.loads(response_data)
+        except orjson.JSONDecodeError as exception:
+            msg = f"Received an invalid JSON {kind} from request: {method} {uri}"
+            raise WLEDInvalidResponseError(msg, method=method, path=uri) from exception
+
+    if is_error:
+        body = (
+            response_data
+            if isinstance(response_data, dict)
+            else {"message": response_data}
+        )
+        raise WLEDStatusError(
+            status, body, method=method, path=uri, status=status, body=body
+        )
+
+    return response_data
+
+
+def _is_not_retryable(exception: Exception) -> bool:
+    """Return whether a failed request is not worth trying again.
+
+    Connection errors are retried, and so is a 503: older WLED versions
+    answer with it while they're busy handling another request.
+    """
+    return isinstance(exception, WLEDStatusError) and exception.status != 503
+
+
 # The heading WLED shows after it accepted a firmware upload (since 0.14).
 _UPDATE_SUCCESSFUL = "Update successful!"
 
@@ -249,6 +292,12 @@ class WLED:
             if message.type == aiohttp.WSMsgType.TEXT:
                 message_data = message.json()
 
+                # A busy device sends an error instead of its state; ask for
+                # the state again rather than reporting the old one.
+                if isinstance(message_data, dict) and "state" not in message_data:
+                    await self._client.send_json({"v": True})
+                    continue
+
                 changed, new_version = self._check_presets_changed(message_data)
                 if changed:
                     if not (presets := await self.request("/presets.json")):
@@ -280,7 +329,13 @@ class WLED:
 
         await self._client.close()
 
-    @backoff.on_exception(backoff.expo, WLEDConnectionError, max_tries=3, logger=None)
+    @backoff.on_exception(
+        backoff.expo,
+        (WLEDConnectionError, WLEDStatusError),
+        max_tries=3,
+        giveup=_is_not_retryable,
+        logger=None,
+    )
     async def request(
         self,
         uri: str = "",
@@ -332,83 +387,32 @@ class WLED:
             data["v"] = True
 
         try:
-            async with asyncio.timeout(self.request_timeout):
-                response = await self.session.request(
+            # The timeout covers reading the response too: a device that drops
+            # off the network halfway through shouldn't hang the request.
+            async with (
+                asyncio.timeout(self.request_timeout),
+                self.session.request(
                     method,
                     url,
                     data=orjson.dumps(data) if data is not None else None,
                     headers=headers | {"Content-Type": "application/json"}
                     if data is not None
                     else headers,
-                )
-
-            content_type = response.headers.get("Content-Type", "")
-            if response.status // 100 in [4, 5]:
+                ) as response,
+            ):
+                status = response.status
+                content_type = response.headers.get("Content-Type", "")
                 contents = await response.read()
-                response.close()
-
-                if "application/json" in content_type:
-                    try:
-                        error_body = orjson.loads(contents)
-                    except orjson.JSONDecodeError as exception:
-                        msg = (
-                            "Received an invalid JSON error response "
-                            f"from request: {method} {uri}"
-                        )
-                        raise WLEDInvalidResponseError(
-                            msg, method=method, path=uri
-                        ) from exception
-                    raise WLEDStatusError(
-                        response.status,
-                        error_body,
-                        method=method,
-                        path=uri,
-                        status=response.status,
-                        body=error_body,
-                    )
-                try:
-                    message = contents.decode("utf-8")
-                except UnicodeDecodeError as exception:
-                    msg = (
-                        "Received a non-UTF-8 error response "
-                        f"from request: {method} {uri}"
-                    )
-                    raise WLEDInvalidResponseError(
-                        msg, method=method, path=uri
-                    ) from exception
-                raise WLEDStatusError(
-                    response.status,
-                    {"message": message},
-                    method=method,
-                    path=uri,
-                    status=response.status,
-                    body={"message": message},
-                )
-
-            try:
-                response_data = await response.text()
-            except UnicodeDecodeError as exception:
-                msg = f"Received a non-UTF-8 response from request: {method} {uri}"
-                raise WLEDInvalidResponseError(
-                    msg, method=method, path=uri
-                ) from exception
-            if "application/json" in content_type:
-                try:
-                    response_data = orjson.loads(response_data)
-                except orjson.JSONDecodeError as exception:
-                    msg = (
-                        "Received an invalid JSON response "
-                        f"from request: {method} {uri}"
-                    )
-                    raise WLEDInvalidResponseError(
-                        msg, method=method, path=uri
-                    ) from exception
         except TimeoutError as exception:
             msg = f"Timeout occurred while connecting to WLED device at {self.host}"
             raise WLEDConnectionTimeoutError(msg) from exception
         except (aiohttp.ClientError, socket.gaierror) as exception:
             msg = f"Error occurred while communicating with WLED device at {self.host}"
             raise WLEDConnectionError(msg) from exception
+
+        response_data = _decode_response(
+            method, uri, status=status, content_type=content_type, contents=contents
+        )
 
         if "application/json" in content_type and (
             method == "POST"
@@ -443,12 +447,18 @@ class WLED:
             WLEDStatusError: The WLED device returned a 4xx/5xx HTTP status.
 
         """
-        if not (data := await self.request("/json")):
+        # Once the complete effects and palettes lists are cached, the state
+        # and info are all that's needed; /json would send the lists along on
+        # every update. Until then, its lists are the fallback.
+        path = (
+            "/json/si" if {"effects", "palettes"} <= self._catalog.keys() else "/json"
+        )
+        if not (data := await self.request(path)):
             msg = (
                 f"WLED device at {self.host} returned an empty API"
                 " response on full update"
             )
-            raise WLEDEmptyResponseError(msg, method="GET", path="/json")
+            raise WLEDEmptyResponseError(msg, method="GET", path=path)
 
         changed, new_version = self._check_presets_changed(data)
         if changed:
@@ -1114,10 +1124,12 @@ class WLED:
             return (False, self._presets_version)
 
         info = data["info"]
+        # A pmt of 0 is a valid version: the device reports 0 until it saves
+        # a preset or learns the time, which without NTP may never happen.
         if (
-            not (uptime := info.get("uptime"))
-            or not (fs := info.get("fs"))
-            or not (pmt := fs.get("pmt"))
+            (uptime := info.get("uptime")) is None
+            or not isinstance(fs := info.get("fs"), dict)
+            or (pmt := fs.get("pmt")) is None
         ):
             return (True, None)
 
