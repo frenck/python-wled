@@ -144,8 +144,8 @@ def _parse_color(
     """
     if isinstance(color, (list, tuple)) and 1 <= len(color) <= 4:
         if len(color) >= 3:
-            # What the device reports itself; passed on as is.
-            return color
+            # What the device reports itself, as the tuple the type promises.
+            return tuple(color)
 
         # WLED fills in the missing channels with 0.
         return (*color, *[0] * (3 - len(color)))  # ty: ignore[invalid-return-type]

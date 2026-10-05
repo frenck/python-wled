@@ -1361,24 +1361,24 @@
           cct=53,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               0,
               0,
               0,
               255,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -2762,21 +2762,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               127,
               172,
               255,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -2816,21 +2816,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               170,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -4213,21 +4213,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               127,
               172,
               255,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -5610,21 +5610,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               127,
               172,
               255,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -7007,24 +7007,24 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               0,
               0,
               139,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -8407,21 +8407,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               62,
               255,
               41,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -9804,21 +9804,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -11208,21 +11208,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -12612,21 +12612,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -14016,21 +14016,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -15420,21 +15420,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -16824,21 +16824,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -18413,21 +18413,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               255,
               160,
               0,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
@@ -20002,21 +20002,21 @@
           cct=127,
           clones=-1,
           color=Color(
-            primary=list([
+            primary=tuple(
               0,
               0,
               255,
-            ]),
-            secondary=list([
+            ),
+            secondary=tuple(
               0,
               0,
               0,
-            ]),
-            tertiary=list([
+            ),
+            tertiary=tuple(
               0,
               0,
               0,
-            ]),
+            ),
           ),
           custom1=128,
           custom2=128,
