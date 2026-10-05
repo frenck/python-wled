@@ -664,13 +664,19 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         """Pre deserialize hook for Info object."""
         sensor = d.get("sensor")
         if not isinstance(sensor, dict):
+            # Remove malformed top-level sensor object
+            d.pop("sensor", None)
             return d
         # Since usermods are free to put anything in the sensor field, only keep
-        # entries that follow the expected [value, unit] shape.
+        # entries that follow the expected [value, unit] shape with a string unit.
         d["sensor"] = {
             name: entry
             for name, entry in sensor.items()
-            if isinstance(entry, (list, tuple)) and len(entry) == 2
+            if (
+                isinstance(entry, (list, tuple))
+                and len(entry) == 2
+                and isinstance(entry[1], str)
+            )
         }
         return d
 

@@ -357,12 +357,28 @@ def test_info_sensor_skips_malformed_entries() -> None:
                 "too_long": [77, "F", "extra"],
                 "not_a_list": "77",
                 "is_null": None,
+                "null_unit": [77, None],
+                "dict_unit": [77, {"unit": "F"}],
             }
         )
     )
 
     assert info.sensor is not None
     assert info.sensor == {"temperature": SensorReading(value=77, unit="F")}
+
+
+def test_info_sensor_drops_non_dict_value() -> None:
+    """Test a non-dict sensor value is dropped instead of breaking parsing."""
+    info = Info.from_dict(_base_info(sensor="temperature"))
+
+    assert info.sensor is None
+
+
+def test_info_sensor_drops_null_value() -> None:
+    """Test a null sensor value is dropped instead of breaking parsing."""
+    info = Info.from_dict(_base_info(sensor=None))
+
+    assert info.sensor is None
 
 
 def test_info_sensor_absent() -> None:
