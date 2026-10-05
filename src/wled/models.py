@@ -198,6 +198,121 @@ def _color_from_hex(
     return (value >> 16, value >> 8 & 0xFF, value & 0xFF)
 
 
+# The effect controls in metadata order, by the names python-wled uses for
+# them, with the labels WLED shows when the metadata doesn't name them.
+_EFFECT_SLIDERS = (
+    ("speed", "Effect speed"),
+    ("intensity", "Effect intensity"),
+    ("custom1", "Custom 1"),
+    ("custom2", "Custom 2"),
+    ("custom3", "Custom 3"),
+)
+_EFFECT_OPTIONS = (
+    ("option1", "Option 1"),
+    ("option2", "Option 2"),
+    ("option3", "Option 3"),
+)
+_EFFECT_COLORS = ("Fx", "Bg", "Cs")
+
+
+@dataclass(frozen=True, kw_only=True)
+class EffectMetadata(SerializableType):
+    """Which controls an effect uses, from WLED's effect metadata.
+
+    WLED describes each effect in a string like `!,Duty cycle;!,!;!;01`:
+    its sliders and options, colors, palette, flags, and defaults, separated
+    by semicolons. This follows how WLED's own interface reads it.
+    """
+
+    sliders: dict[str, str]
+    """The sliders the effect uses, like speed or custom1, with their label."""
+
+    options: dict[str, str]
+    """The options the effect uses, like option1, with their label."""
+
+    colors: dict[int, str]
+    """The color slots the effect uses, by index, with their label."""
+
+    palette: bool
+    """Whether the effect uses a palette."""
+
+    requires_matrix: bool
+    """Whether the effect needs a 2D matrix, rather than a strip."""
+
+    audio_reactive: bool
+    """Whether the effect reacts to sound."""
+
+    defaults: dict[str, int]
+    """Values that work well for the effect, by their JSON API key, like sx."""
+
+    raw: str = ""
+    """The metadata string as WLED sent it."""
+
+    def _serialize(self) -> str:
+        return self.raw
+
+    @classmethod
+    def _deserialize(cls, value: str) -> EffectMetadata:
+        # Without metadata, WLED shows its default controls.
+        if not value:
+            return cls(
+                sliders=dict(_EFFECT_SLIDERS[:2]),
+                options={},
+                colors=dict(enumerate(_EFFECT_COLORS)),
+                palette=True,
+                requires_matrix=False,
+                audio_reactive=False,
+                defaults={},
+                raw=value,
+            )
+
+        sections = value.split(";")
+        controls, colors, palette, flags, defaults = (
+            sections[index] if index < len(sections) else "" for index in range(5)
+        )
+        labels = controls.split(",") if controls else []
+        color_labels = colors.split(",") if colors else []
+        palette_label = palette.split(",")[0]
+
+        return cls(
+            sliders=_used_labels(_EFFECT_SLIDERS, labels),
+            options=_used_labels(_EFFECT_OPTIONS, labels[len(_EFFECT_SLIDERS) :]),
+            colors={
+                index: _EFFECT_COLORS[index] if label == "!" else label
+                for index, label in enumerate(color_labels[: len(_EFFECT_COLORS)])
+                if label
+            },
+            # A palette section that's empty or a plain number means no palette.
+            palette=bool(palette_label) and not palette_label.isdecimal(),
+            requires_matrix="2" in flags and "1" not in flags,
+            audio_reactive="v" in flags or "f" in flags,
+            defaults=_effect_defaults(defaults),
+            raw=value,
+        )
+
+
+def _used_labels(
+    controls: tuple[tuple[str, str], ...], labels: list[str]
+) -> dict[str, str]:
+    """Return the controls a metadata section uses, with their label."""
+    return {
+        name: default if label == "!" else label
+        for (name, default), label in zip(controls, labels, strict=False)
+        if label
+    }
+
+
+def _effect_defaults(section: str) -> dict[str, int]:
+    """Return the defaults of a metadata section, like sx=24,pal=50."""
+    defaults: dict[str, int] = {}
+    for item in section.split(","):
+        key, _, value = item.partition("=")
+        if key and value.lstrip("-").isdecimal():
+            defaults[key] = int(value)
+
+    return defaults
+
+
 @dataclass
 class SensorReading(SerializableType):
     """Object holding a single sensor reading provided by a WLED usermod.
@@ -301,6 +416,12 @@ class Effect(BaseModel):
 
     effect_id: int
     name: str
+
+    metadata: EffectMetadata | None = None
+    """Which controls the effect uses, from WLED's effect metadata.
+
+    None when the device didn't provide the metadata.
+    """
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -601,8 +722,22 @@ class Leds:
     )
     """Capabilities of each segment."""
 
+    matrix: Matrix | None = None
+    """The size of the 2D matrix the LEDs form; None for a strip."""
+
     wv: bool = False
     """True if the white channel slider should be displayed."""
+
+
+@dataclass(frozen=True, kw_only=True)
+class Matrix(BaseModel):
+    """Object holding the size of a 2D LED matrix in WLED."""
+
+    width: int = field(metadata=field_options(alias="w"))
+    """The number of LEDs across."""
+
+    height: int = field(metadata=field_options(alias="h"))
+    """The number of LEDs down."""
 
 
 @dataclass(kw_only=True)
@@ -1138,17 +1273,33 @@ class Device(BaseModel):
     # from the device into these dicts, so the rules live in one place.
 
     @staticmethod
-    def _effects_from_names(names: list[Any]) -> dict[int, dict[str, Any]]:
+    def _effects_from_names(
+        names: list[Any], metadata: Any = None
+    ) -> dict[int, dict[str, Any]]:
         """Return the effects by ID, skipping placeholders and junk.
 
         Effects named RSVD are placeholders in the firmware. Names that
         aren't strings have been seen when a device cuts off its response.
+        The effect metadata, when the device provided it, is a list in the
+        same order as the names.
         """
-        return {
-            effect_id: {"effect_id": effect_id, "name": name}
-            for effect_id, name in enumerate(names)
-            if isinstance(name, str) and "RSVD" not in name
-        }
+        if not isinstance(metadata, list):
+            metadata = []
+        elif metadata:
+            # Solid has no metadata in the firmware; WLED's own interface
+            # fills it in as using the primary color only.
+            metadata = [";!;", *metadata[1:]]
+
+        effects: dict[int, dict[str, Any]] = {}
+        for effect_id, name in enumerate(names):
+            if not isinstance(name, str) or "RSVD" in name:
+                continue
+
+            effects[effect_id] = {"effect_id": effect_id, "name": name}
+            if effect_id < len(metadata) and isinstance(metadata[effect_id], str):
+                effects[effect_id]["metadata"] = metadata[effect_id]
+
+        return effects
 
     @classmethod
     def _palettes_from_names(  # pylint: disable=too-many-arguments
@@ -1219,7 +1370,7 @@ class Device(BaseModel):
                 raise WLEDUnsupportedVersionError(msg)
 
         if _effects := d.get("effects"):
-            d["effects"] = cls._effects_from_names(_effects)
+            d["effects"] = cls._effects_from_names(_effects, d.get("fxdata"))
 
         if _palettes := d.get("palettes"):
             info = d.get("info", {})
@@ -1261,9 +1412,10 @@ class Device(BaseModel):
             self.info = Info.from_dict(_info)
 
         if _effects := data.get("effects"):
+            effects = self._effects_from_names(_effects, data.get("fxdata"))
             self.effects = {
-                effect_id: Effect(**effect)
-                for effect_id, effect in self._effects_from_names(_effects).items()
+                effect_id: Effect.from_dict(effect)
+                for effect_id, effect in effects.items()
             }
 
         if _palettes := data.get("palettes"):

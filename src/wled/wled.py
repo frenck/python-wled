@@ -84,6 +84,10 @@ def _is_not_retryable(exception: Exception) -> bool:
     return isinstance(exception, WLEDStatusError) and exception.status != 503
 
 
+# The complete lists fetched from their own endpoints, rather than taken from
+# /json: the effects, the palettes, and the effect metadata.
+_CATALOG_LISTS = ("effects", "palettes", "fxdata")
+
 # WLED keeps transitions in milliseconds in 16 bits, so anything above this
 # many units of 100ms wraps around to a short transition.
 _MAX_TRANSITION = 655
@@ -240,6 +244,7 @@ class WLED:
     _presets_version: _PresetsVersion | None = None
     _catalog_version: _CatalogVersion | None = None
     _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
+    _catalog_missing: set[str] = field(default_factory=set)
 
     @property
     def connected(self) -> bool:
@@ -516,9 +521,11 @@ class WLED:
         # output buffer, losing part of the effects list and all palettes
         # (WLED issue #5674). The dedicated endpoints don't have that problem.
         catalog_changed, new_catalog_version = self._check_catalog_changed(data)
-        if catalog_changed and not await self._fetch_catalog():
-            # Try the missing list(s) again on the next update.
-            new_catalog_version = None
+        if catalog_changed:
+            self._catalog_missing = await self._fetch_catalog(_CATALOG_LISTS)
+        elif self._catalog_missing:
+            # Only the lists that failed before are tried again.
+            self._catalog_missing = await self._fetch_catalog(self._catalog_missing)
 
         # Prefer the complete lists over the ones from /json, on every update.
         # Device rebuilds the custom and usermod palettes from the fresh info
@@ -1301,28 +1308,28 @@ class WLED:
         )
         return (changed, new_version)
 
-    async def _fetch_catalog(self) -> bool:
-        """Fetch the complete effects and palettes lists into the cache.
+    async def _fetch_catalog(self, lists: Iterable[str]) -> set[str]:
+        """Fetch complete lists, like the effects, into the cache.
 
         Each list is fetched on its own, so one failing endpoint doesn't
-        throw away the other. When the device answers with an error or
+        throw away the others. When the device answers with an error or
         something unexpected, the previously cached list (if any) is kept.
         A connection error still propagates: if the device is gone, the
         update should fail.
 
         Returns
         -------
-            True if both lists were fetched, False if either needs a retry.
+            The lists that couldn't be fetched, to try again later.
 
         """
-        complete = True
-        for key in ("effects", "palettes"):
+        missing: set[str] = set()
+        for key in lists:
             try:
                 value = await self.request(f"/json/{key}")
             except WLEDConnectionError:
                 raise
             except WLEDError:
-                complete = False
+                missing.add(key)
                 continue
 
             # Some less capable devices have no palettes and return `null`,
@@ -1330,9 +1337,9 @@ class WLED:
             if isinstance(value, list) or (key == "palettes" and value is None):
                 self._catalog[key] = value
             else:
-                complete = False
+                missing.add(key)
 
-        return complete
+        return missing
 
 
 @dataclass
