@@ -1346,11 +1346,7 @@ def test_device_fork_fixture(
     fork_fixture: str,
     snapshot_dataclass: SnapshotAssertion,
 ) -> None:
-    """Test Device parsing against real /json from WLED forks.
-
-    Forks, like WLED-MM, number their versions and report their builds in
-    their own way, so they get their own fixtures next to the releases.
-    """
+    """Test Device parsing against real /json from WLED forks, like WLED-MM."""
     data = load_fixture_json(f"forks/{fork_fixture}")
     device = Device.from_dict(data)
     assert device == snapshot_dataclass
