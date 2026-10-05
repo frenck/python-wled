@@ -16,7 +16,7 @@ from aioresponses import aioresponses
 from yarl import URL
 
 from wled import WLED, Device, Releases, SegmentUpdate
-from wled.const import DEFAULT_REPO, LiveDataOverride
+from wled.const import DEFAULT_REPO, LiveDataOverride, NightlightMode, SyncGroup
 from wled.exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -1451,14 +1451,15 @@ async def test_segments_without_updates(responses: aioresponses, wled: WLED) -> 
     [
         (1, 1),
         ("My Preset", 1),
-        ("NonExistent", "NonExistent"),
+        ("my preset", 1),
+        ("5", 5),
     ],
-    ids=["by_id", "by_name", "name_not_found"],
+    ids=["by_id", "by_name", "by_name_any_case", "by_id_as_text"],
 )
 async def test_preset(
     responses: aioresponses, wled: WLED, preset_input: int | str, expected_ps: int | str
 ) -> None:
-    """Test setting preset by ID, name, or non-existent name."""
+    """Test setting a preset by ID or by name."""
     await prepare_wled_with_device(responses, wled)
     responses.post(
         "http://example.com/json/state",
@@ -1504,9 +1505,9 @@ async def test_preset_by_object(responses: aioresponses, wled: WLED) -> None:
     [
         (2, 2),
         ("My Playlist", 2),
-        ("NonExistent", "NonExistent"),
+        ("7", 7),
     ],
-    ids=["by_id", "by_name", "name_not_found"],
+    ids=["by_id", "by_name", "by_id_as_text"],
 )
 async def test_playlist(
     responses: aioresponses,
@@ -1514,7 +1515,7 @@ async def test_playlist(
     playlist_input: int | str,
     expected_ps: int | str,
 ) -> None:
-    """Test setting playlist by ID, name, or non-existent name."""
+    """Test setting a playlist by ID or by name."""
     await prepare_wled_with_device(responses, wled)
     responses.post(
         "http://example.com/json/state",
@@ -1599,9 +1600,16 @@ async def test_live(responses: aioresponses, wled: WLED) -> None:
     ("kwargs", "expected_payload"),
     [
         ({"send": True}, {"udpn": {"send": True}, "v": True}),
-        ({"receive": True}, {"udpn": {"recv": True}, "v": True}),
+        (
+            {"send_groups": SyncGroup.GROUP1 | SyncGroup.GROUP3},
+            {"udpn": {"sgrp": 5}, "v": True},
+        ),
+        (
+            {"receive": False, "receive_groups": SyncGroup.GROUP2},
+            {"udpn": {"rgrp": 2}, "v": True},
+        ),
     ],
-    ids=["send", "receive"],
+    ids=["send", "send_groups", "receive_groups_win"],
 )
 async def test_sync(
     responses: aioresponses, wled: WLED, kwargs: dict, expected_payload: dict
@@ -1629,10 +1637,13 @@ async def test_sync(
         ({"on": True}, {"on": True}),
         (
             {"duration": 30, "fade": True, "on": True, "target_brightness": 50},
-            {"dur": 30, "fade": True, "on": True, "tbri": 50},
+            {"dur": 30, "mode": 1, "on": True, "tbri": 50},
         ),
+        ({"fade": False}, {"mode": 0}),
+        ({"mode": NightlightMode.SUNRISE}, {"mode": 3}),
+        ({"mode": NightlightMode.COLOR_FADE, "fade": False}, {"mode": 2}),
     ],
-    ids=["on", "all_params"],
+    ids=["on", "all_params", "no_fade", "mode", "mode_wins_over_fade"],
 )
 async def test_nightlight(
     responses: aioresponses, wled: WLED, kwargs: dict, expected_nl: dict
@@ -1651,6 +1662,102 @@ async def test_nightlight(
         responses,
         "http://example.com/json/state",
         {"nl": expected_nl, "v": True},
+    )
+
+
+@pytest.mark.parametrize("method", ["preset", "playlist"])
+async def test_unknown_preset_or_playlist_name(
+    responses: aioresponses, wled: WLED, method: str
+) -> None:
+    """Test an unknown name is refused rather than sent to the device."""
+    # WLED would read a name starting with "r" as a random preset.
+    await prepare_wled_with_device(responses, wled)
+
+    with pytest.raises(WLEDError, match="Unknown"):
+        await getattr(wled, method)("relax")
+
+
+@pytest.mark.parametrize(
+    ("version", "receive", "sync_state", "expected"),
+    [
+        ("0.14.0", True, {}, {"recv": True}),
+        ("0.14.0", False, {}, {"recv": False}),
+        ("16.0.0", False, {"rgrp": 6}, {"rgrp": 0}),
+        ("16.0.0", True, {"rgrp": 6, "sgrp": 1}, {"rgrp": 6}),
+        ("16.0.0", True, {"rgrp": 0, "sgrp": 4}, {"rgrp": 4}),
+        ("16.0.0", True, {"rgrp": 0, "sgrp": 0}, {"rgrp": 1}),
+        ("0.15.0-b1", False, {"rgrp": 1}, {"rgrp": 0}),
+    ],
+    ids=[
+        "0.14_on",
+        "0.14_off",
+        "groups_off",
+        "groups_keep_current",
+        "groups_from_send_groups",
+        "groups_fallback",
+        "groups_on_beta",
+    ],
+)
+async def test_sync_receive(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    responses: aioresponses,
+    wled: WLED,
+    version: str,
+    receive: bool,
+    sync_state: dict,
+    expected: dict,
+) -> None:
+    """Test receiving sync is switched the way the firmware version takes it."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["ver"] = version
+    wled_data["state"]["udpn"] |= sync_state
+    await prepare_wled_with_device(responses, wled, wled_data=wled_data)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.sync(receive=receive)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"udpn": expected, "v": True},
+    )
+
+
+@pytest.mark.parametrize(
+    ("call", "key", "expected"),
+    [
+        ("master", "tt", 655),
+        ("transition", "transition", 655),
+        ("segments", "tt", 655),
+    ],
+)
+async def test_transition_is_clamped(
+    responses: aioresponses, wled: WLED, call: str, key: str, expected: int
+) -> None:
+    """Test a transition beyond what WLED can hold is capped, not wrapped."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    if call == "master":
+        await wled.master(transition=700)
+    elif call == "transition":
+        await wled.transition(700)
+    else:
+        await wled.segments([], transition=700)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {key: expected, "v": True},
     )
 
 
