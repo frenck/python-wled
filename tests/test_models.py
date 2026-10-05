@@ -1338,6 +1338,20 @@ def test_device_version_fixture(
     assert device == snapshot_dataclass
 
 
+@pytest.mark.parametrize(
+    "fork_fixture",
+    [p.stem for p in sorted((FIXTURES_DIR / "forks").glob("*.json"))],
+)
+def test_device_fork_fixture(
+    fork_fixture: str,
+    snapshot_dataclass: SnapshotAssertion,
+) -> None:
+    """Test Device parsing against real /json from WLED forks, like WLED-MM."""
+    data = load_fixture_json(f"forks/{fork_fixture}")
+    device = Device.from_dict(data)
+    assert device == snapshot_dataclass
+
+
 # =========================================================================
 # Effect metadata
 # =========================================================================
