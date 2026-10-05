@@ -699,7 +699,7 @@ class Segment(BaseModel):
         # as having no colors rather than failing on it.
         colors = d.get("col")
         if isinstance(colors, list) and (not colors or _parse_color(colors[0]) is None):
-            d.pop("col")
+            return {key: value for key, value in d.items() if key != "col"}
 
         return d
 
@@ -971,22 +971,23 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
         sensor = d.get("sensor")
         if not isinstance(sensor, dict):
             # Remove malformed top-level sensor object
-            d.pop("sensor", None)
-            return d
+            return {key: value for key, value in d.items() if key != "sensor"}
+
         # Since usermods are free to put anything in the sensor field, only keep
         # entries that are a [value, unit] pair with a string unit, or a bare
         # value without a unit (like the PIR sensor switch reports motion).
-        d["sensor"] = {
-            name: entry
-            for name, entry in sensor.items()
-            if (
-                isinstance(entry, (list, tuple))
-                and len(entry) == 2
-                and isinstance(entry[1], str)
-            )
-            or isinstance(entry, (bool, int, float, str))
+        return d | {
+            "sensor": {
+                name: entry
+                for name, entry in sensor.items()
+                if (
+                    isinstance(entry, (list, tuple))
+                    and len(entry) == 2
+                    and isinstance(entry[1], str)
+                )
+                or isinstance(entry, (bool, int, float, str))
+            }
         }
-        return d
 
     @classmethod
     def __post_deserialize__(cls, obj: Info) -> Info:
@@ -1083,8 +1084,7 @@ class State(BaseModel):
                 segment_id = position
             segments[segment_id] = segment | {"id": segment_id}
 
-        d["seg"] = segments
-        return d
+        return d | {"seg": segments}
 
     @classmethod
     def __post_deserialize__(cls, obj: State) -> State:
@@ -1137,7 +1137,7 @@ class Preset(BaseModel):
         """Pre deserialize hook for Preset object."""
         # If the segment is a single value, we will convert it to a list.
         if "seg" in d and not isinstance(d["seg"], list):
-            d["seg"] = [d["seg"]]
+            return d | {"seg": [d["seg"]]}
 
         return d
 
@@ -1194,7 +1194,7 @@ class Playlist(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Playlist object."""
-        d |= d["playlist"]
+        d = d | d["playlist"]
         # The presets, durations, and transitions are separate lists in the
         # playlist data; combine them into one entry per preset.
         presets = d.get("ps", [])
@@ -1394,6 +1394,9 @@ class Device(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Device object."""
+        # Work on a copy, so the data handed in stays as it was.
+        d = dict(d)
+
         # Extract version once at the top to avoid recomputation
         version_str = d.get("info", {}).get("ver")
         version = get_awesome_version(version_str) if version_str else None
