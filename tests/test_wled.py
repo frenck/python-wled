@@ -1127,6 +1127,54 @@ async def test_segment_secondary_no_color_in_state(
     )
 
 
+async def test_segment_colors_use_the_segment_with_that_id(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test partial colors fall back on the segment with that ID, not position."""
+    wled_data = load_fixture_json("wled")
+    first = wled_data["state"]["seg"][0]
+    wled_data["state"]["seg"] = [
+        first | {"id": 0, "col": [[1, 1, 1]]},
+        first | {"id": 2, "col": [[2, 2, 2]]},
+    ]
+    await prepare_wled_with_device(responses, wled, wled_data=wled_data)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segment(2, color_secondary=(0, 255, 0))
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [{"col": [[2, 2, 2], [0, 255, 0]], "id": 2}], "v": True},
+    )
+
+
+async def test_segment_colors_for_an_unknown_segment(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test partial colors on a segment that isn't in the state don't crash."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segment(5, color_tertiary=(0, 0, 255))
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [{"col": [[0, 0, 0], [0, 0, 0], [0, 0, 255]], "id": 5}], "v": True},
+    )
+
+
 async def test_segment_tertiary_no_color_in_state(
     responses: aioresponses, wled: WLED
 ) -> None:

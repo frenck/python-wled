@@ -474,6 +474,33 @@ def test_state_multiple_segments_indexed() -> None:
     assert state.segments[1].segment_id == 1
 
 
+def test_state_segments_keep_reported_ids_with_gaps() -> None:
+    """Test segments are keyed by their reported ID, not their position."""
+    # WLED leaves inactive segments out, so deleting segment 1 of three
+    # leaves IDs 0 and 2 in the list.
+    base = _base_state()
+    segment = base["seg"][0]
+    data = _base_state(
+        seg=[segment | {"id": 0}, segment | {"id": 2, "start": 20, "stop": 30}]
+    )
+
+    state = State.from_dict(data)
+
+    assert set(state.segments) == {0, 2}
+    assert state.segments[2].segment_id == 2
+    assert state.segments[2].start == 20
+
+
+def test_state_segment_without_id_falls_back_to_position() -> None:
+    """Test a segment that doesn't report its ID is keyed by its position."""
+    base = _base_state()
+    segment = {key: value for key, value in base["seg"][0].items() if key != "id"}
+
+    state = State.from_dict(_base_state(seg=[segment]))
+
+    assert state.segments[0].segment_id == 0
+
+
 def test_state_playlist_id_minus_one_becomes_none() -> None:
     """Test playlist_id -1 is converted to None."""
     state = State.from_dict(_base_state(pl=-1))

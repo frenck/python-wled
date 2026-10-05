@@ -773,13 +773,18 @@ class State(BaseModel):
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for State object."""
-        # Segments are not indexed, which is suboptimal for the user.
-        # We will add the segment ID to the segment data and convert
-        # the segments list to an indexed dict.
-        d["seg"] = {
-            segment_id: segment | {"id": segment_id}
-            for segment_id, segment in enumerate(d.get("seg", []))
-        }
+        # Key the segments by the ID the device reports. WLED leaves inactive
+        # segments out of the list, so once a segment in the middle is deleted,
+        # the position in the list no longer matches the ID. The position is
+        # only a fallback for a segment that doesn't report its ID.
+        segments: dict[int, dict[str, Any]] = {}
+        for position, segment in enumerate(d.get("seg", [])):
+            segment_id = segment.get("id")
+            if not isinstance(segment_id, int):
+                segment_id = position
+            segments[segment_id] = segment | {"id": segment_id}
+
+        d["seg"] = segments
         return d
 
     @classmethod
