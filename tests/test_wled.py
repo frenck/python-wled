@@ -572,19 +572,20 @@ async def test_update_uses_palettes_endpoint_when_json_is_cut_off(
 
 
 @pytest.mark.parametrize(
-    ("effects_status", "effects_body", "palettes_body"),
+    ("effects_status", "effects_body", "palettes_body", "failed"),
     [
-        (500, "Internal Server Error", ["Default"]),
-        (200, {"not": "a list"}, ["Default"]),
-        (200, None, "not a list"),
+        (500, "Internal Server Error", ["Default"], "effects"),
+        (200, {"not": "a list"}, ["Default"], "effects"),
+        (200, None, "not a list", "palettes"),
     ],
 )
-async def test_update_falls_back_when_catalog_is_unusable(
+async def test_update_falls_back_when_catalog_is_unusable(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
     responses: aioresponses,
     wled: WLED,
     effects_status: int,
     effects_body: object,
     palettes_body: object,
+    failed: str,
 ) -> None:
     """Test update() uses the /json lists when the catalog endpoints fail."""
     wled_data = load_fixture_json("wled")
@@ -634,8 +635,11 @@ async def test_update_falls_back_when_catalog_is_unusable(
     assert len(device.effects) == 3
     assert device.palettes[0].name == "Default"
 
+    # Only the list that failed is fetched again.
     await wled.update()
-    assert catalog_requests(responses) == 2
+    working = "palettes" if failed == "effects" else "effects"
+    assert requests_to(responses, f"/json/{failed}") == 2
+    assert requests_to(responses, f"/json/{working}") == 1
 
 
 async def test_update_raises_when_catalog_connection_fails(
@@ -909,6 +913,65 @@ async def test_update_without_effect_metadata(
 
     assert len(device.effects) == 3
     assert all(effect.metadata is None for effect in device.effects.values())
+
+
+async def test_update_retries_only_the_effect_metadata(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a failed metadata fetch is retried without the other lists."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(wled_data["effects"]),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/palettes",
+        status=200,
+        body=json.dumps(wled_data["palettes"]),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=500,
+        body="Internal Server Error",
+        content_type="text/plain",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    # Second update: the metadata endpoint has recovered.
+    responses.get(
+        "http://example.com/json/si",
+        status=200,
+        body=json.dumps({key: wled_data[key] for key in ("state", "info")}),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=200,
+        body=json.dumps(["", "!,Duty cycle;!,!;!;01", "", ""]),
+        content_type="application/json",
+    )
+
+    await wled.update()
+    device = await wled.update()
+
+    assert device.effects[1].metadata is not None
+    assert device.effects[1].metadata.sliders["intensity"] == "Duty cycle"
+    assert requests_to(responses, "/json/fxdata") == 2
+    assert requests_to(responses, "/json/effects") == 1
+    assert requests_to(responses, "/json/palettes") == 1
 
 
 async def test_update_polls_state_and_info_once_catalog_is_cached(

@@ -1483,3 +1483,24 @@ def test_leds_matrix(matrix: dict | None, expected: Matrix | None) -> None:
     device = Device.from_dict(data)
 
     assert device.info.leds.matrix == expected
+
+
+def test_solid_effect_uses_the_primary_color_only() -> None:
+    """Test Solid, which has no metadata, gets what WLED's interface gives it."""
+    data = full_device_data()
+    data["effects"] = ["Solid", "Blink"]
+    data["fxdata"] = ["", ""]
+
+    device = Device.from_dict(data)
+
+    solid = device.effects[0].metadata
+    assert solid is not None
+    assert solid.sliders == {}
+    assert solid.colors == {0: "Fx"}
+    assert solid.palette is False
+    # Other effects without metadata keep the default controls.
+    assert device.effects[1].metadata is not None
+    assert device.effects[1].metadata.sliders == {
+        "speed": "Effect speed",
+        "intensity": "Effect intensity",
+    }

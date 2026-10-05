@@ -1285,6 +1285,10 @@ class Device(BaseModel):
         """
         if not isinstance(metadata, list):
             metadata = []
+        elif metadata:
+            # Solid has no metadata in the firmware; WLED's own interface
+            # fills it in as using the primary color only.
+            metadata = [";!;", *metadata[1:]]
 
         effects: dict[int, dict[str, Any]] = {}
         for effect_id, name in enumerate(names):
