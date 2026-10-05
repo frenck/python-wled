@@ -1167,6 +1167,60 @@ async def test_segment(
     )
 
 
+@pytest.mark.parametrize(
+    ("kwargs", "expected_seg"),
+    [
+        (
+            {"custom1": 10, "custom2": 200, "custom3": 31},
+            {"c1": 10, "c2": 200, "c3": 31, "id": 0},
+        ),
+        (
+            {"option1": True, "option2": False, "option3": True},
+            {"o1": True, "o2": False, "o3": True, "id": 0},
+        ),
+    ],
+    ids=["custom_sliders", "options"],
+)
+async def test_segment_effect_parameters(
+    responses: aioresponses, wled: WLED, kwargs: dict, expected_seg: dict
+) -> None:
+    """Test the effect sliders and options are sent, including a false option."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segment(0, **kwargs)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [expected_seg], "v": True},
+    )
+
+
+async def test_segments_effect_parameters(responses: aioresponses, wled: WLED) -> None:
+    """Test SegmentUpdate carries the effect sliders and options too."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.segments([SegmentUpdate(segment_id=0, custom1=64, option3=True)])
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [{"c1": 64, "o3": True, "id": 0}], "v": True},
+    )
+
+
 async def test_segment_with_transition(responses: aioresponses, wled: WLED) -> None:
     """Test setting segment with transition."""
     await prepare_wled_with_device(responses, wled)
