@@ -575,6 +575,9 @@ class WLED:
         color_primary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
         color_secondary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
         color_tertiary: tuple[int, int, int, int] | tuple[int, int, int] | None = None,
+        custom1: int | None = None,
+        custom2: int | None = None,
+        custom3: int | None = None,
         effect: int | str | None = None,
         freeze: bool | None = None,
         individual: Sequence[
@@ -585,6 +588,9 @@ class WLED:
         length: int | None = None,
         name: str | None = None,
         on: bool | None = None,
+        option1: bool | None = None,
+        option2: bool | None = None,
+        option3: bool | None = None,
         palette: int | str | None = None,
         reverse: bool | None = None,
         selected: bool | None = None,
@@ -604,6 +610,9 @@ class WLED:
             color_primary: The primary color of this segment.
             color_secondary: The secondary color of this segment.
             color_tertiary: The tertiary color of this segment.
+            custom1: Effect custom slider 1, between 0 and 255.
+            custom2: Effect custom slider 2, between 0 and 255.
+            custom3: Effect custom slider 3, between 0 and 31.
             effect: The effect number (or name) to use on this segment.
             freeze: Freeze the current segment state.
             individual: A list of colors to use for each LED in the segment.
@@ -612,6 +621,9 @@ class WLED:
             name: The name of the segment. Pass an empty string to clear the
                 name. None leaves the name unchanged.
             on: A boolean, true to turn this segment on, false otherwise.
+            option1: Effect option 1.
+            option2: Effect option 2.
+            option3: Effect option 3.
             palette: The palette number or name to use on this segment.
             reverse: Flips the segment, causing animations to change direction.
             selected: Selected segments will have their state (color/FX) updated
@@ -639,6 +651,9 @@ class WLED:
             color_secondary=color_secondary,
             color_tertiary=color_tertiary,
             cct=cct,
+            custom1=custom1,
+            custom2=custom2,
+            custom3=custom3,
             effect=effect,
             freeze=freeze,
             individual=individual,
@@ -646,6 +661,9 @@ class WLED:
             length=length,
             name=name,
             on=on,
+            option1=option1,
+            option2=option2,
+            option3=option3,
             palette=palette,
             reverse=reverse,
             selected=selected,
@@ -706,6 +724,9 @@ class WLED:
         """
         segment: dict[str, Any] = {
             "bri": update.brightness,
+            "c1": update.custom1,
+            "c2": update.custom2,
+            "c3": update.custom3,
             "cln": update.clones,
             "frz": update.freeze,
             "fx": update.effect,
@@ -713,6 +734,9 @@ class WLED:
             "ix": update.intensity,
             "len": update.length,
             "n": update.name,
+            "o1": update.option1,
+            "o2": update.option2,
+            "o3": update.option3,
             "on": update.on,
             "pal": update.palette,
             "rev": update.reverse,

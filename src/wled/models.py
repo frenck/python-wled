@@ -344,6 +344,15 @@ class SegmentUpdate:
     cct: int | None = None
     """White spectrum color temperature."""
 
+    custom1: int | None = None
+    """Effect custom slider 1, between 0 and 255."""
+
+    custom2: int | None = None
+    """Effect custom slider 2, between 0 and 255."""
+
+    custom3: int | None = None
+    """Effect custom slider 3, between 0 and 31."""
+
     effect: int | str | None = None
     """The effect to use, by ID or by name."""
 
@@ -364,6 +373,15 @@ class SegmentUpdate:
 
     on: bool | None = None
     """True to turn the segment on, false to turn it off."""
+
+    option1: bool | None = None
+    """Effect option 1."""
+
+    option2: bool | None = None
+    """Effect option 2."""
+
+    option3: bool | None = None
+    """Effect option 3."""
 
     palette: int | str | None = None
     """The palette to use, by ID or by name."""

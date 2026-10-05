@@ -111,7 +111,9 @@ if __name__ == "__main__":
 
 `master()` controls the light as a whole; `segment()` controls a single
 segment. Effects and palettes can be given by name or by ID, and colors as
-RGB or RGBW tuples. Transitions are in units of 100ms.
+RGB or RGBW tuples. Transitions are in units of 100ms. Effects with more
+settings than speed and intensity take `custom1` to `custom3` for their extra
+sliders and `option1` to `option3` for their checkboxes.
 
 ```python
 async with WLED("wled-frenck.local") as led:
