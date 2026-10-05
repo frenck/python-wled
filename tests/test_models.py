@@ -237,7 +237,8 @@ def test_color_deserialize_mixed() -> None:
         ("ff990011", (255, 153, 0, 17)),
         ({"r": 255, "g": 153, "b": 0}, (255, 153, 0)),
         ({"r": 1, "g": 2, "b": 3, "w": 4}, (1, 2, 3, 4)),
-        ([1, 2, 3], [1, 2, 3]),
+        ([1, 2, 3], (1, 2, 3)),
+        ([1, 2, 3, 4], (1, 2, 3, 4)),
         ([255], (255, 0, 0)),
         ([1, 2], (1, 2, 0)),
     ],
@@ -1672,3 +1673,16 @@ def test_presets_cleared_by_an_empty_presets_file() -> None:
 
     assert device.presets == {}
     assert device.playlists == {}
+
+
+def test_segment_colors_are_tuples() -> None:
+    """Test the colors the device reports as lists come out as tuples."""
+    data = full_device_data()
+    data["state"]["seg"][0]["col"] = [[255, 0, 0], [0, 255, 0], [0, 0, 255]]
+
+    color = Device.from_dict(data).state.segments[0].color
+
+    assert color is not None
+    assert color.primary == (255, 0, 0)
+    assert color.secondary == (0, 255, 0)
+    assert color.tertiary == (0, 0, 255)
