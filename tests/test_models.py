@@ -1526,6 +1526,7 @@ def test_segment_light_capabilities(
     data = full_device_data()
     data["info"]["leds"]["seglc"] = seglc
     if segment_lc is not None:
+        data["info"]["ver"] = "16.0.0"
         data["state"]["seg"][0]["lc"] = segment_lc
 
     device = Device.from_dict(data)
@@ -1533,15 +1534,21 @@ def test_segment_light_capabilities(
     assert device.state.segments[0].light_capabilities == expected
 
 
-def test_segment_light_capabilities_after_an_update() -> None:
-    """Test segment capabilities from the LED info survive a state update."""
+@pytest.mark.parametrize("keys", [("info", "state"), ("info",)])
+@pytest.mark.parametrize(
+    ("seglc", "expected"), [([1], LightCapability.RGB_COLOR), ([], None)]
+)
+def test_segment_light_capabilities_after_an_update(
+    keys: tuple[str, ...], seglc: list[int], expected: LightCapability | None
+) -> None:
+    """Test segment capabilities follow the LED info, also without a new state."""
     device = Device.from_dict(full_device_data())
     data = full_device_data()
-    data["info"]["leds"]["seglc"] = [1]
+    data["info"]["leds"]["seglc"] = seglc
 
-    device.update_from_dict({"info": data["info"], "state": data["state"]})
+    device.update_from_dict({key: data[key] for key in keys})
 
-    assert device.state.segments[0].light_capabilities == LightCapability.RGB_COLOR
+    assert device.state.segments[0].light_capabilities == expected
 
 
 @pytest.mark.parametrize(
