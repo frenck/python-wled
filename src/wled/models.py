@@ -112,7 +112,9 @@ class Color(SerializableType):
         return cls(*colors)  # ty: ignore[invalid-argument-type]
 
 
-def _spread_over_entries(value: Any, count: int, *, default: int) -> list[int]:
+def _spread_over_entries(
+    value: Any, count: int, *, default: int | None
+) -> list[int | None]:
     """Spread a playlist setting over its entries, the way WLED does.
 
     WLED takes one value for all entries, or a list with one per entry. It
@@ -122,7 +124,8 @@ def _spread_over_entries(value: Any, count: int, *, default: int) -> list[int]:
     if not isinstance(value, list):
         return [value if isinstance(value, int) else default] * count
 
-    values = [item for item in value if isinstance(item, int)][:count] or [default]
+    values: list[int | None] = [item for item in value if isinstance(item, int)]
+    values = values[:count] or [default]
     return values + [values[-1]] * (count - len(values))
 
 
@@ -136,9 +139,13 @@ def _parse_color(
     color and a color temperature in Kelvin; neither is a fixed color, so
     those, like anything unknown, return None.
     """
-    if isinstance(color, (list, tuple)) and len(color) in (3, 4):
-        # What the device reports itself; passed on as is.
-        return color
+    if isinstance(color, (list, tuple)) and 1 <= len(color) <= 4:
+        if len(color) >= 3:
+            # What the device reports itself; passed on as is.
+            return color
+
+        # WLED fills in the missing channels with 0.
+        return (*color, *[0] * (3 - len(color)))  # ty: ignore[invalid-return-type]
 
     if isinstance(color, dict):
         return _color_from_channels(color)
@@ -152,13 +159,25 @@ def _parse_color(
 
 def _color_from_channels(
     channels: dict[str, Any],
-) -> tuple[int, int, int, int] | tuple[int, int, int]:
-    """Return the color for an object of channel values, like {"r": 255}."""
-    red = int(channels.get("r", 0))
-    green = int(channels.get("g", 0))
-    blue = int(channels.get("b", 0))
+) -> tuple[int, int, int, int] | tuple[int, int, int] | None:
+    """Return the color for an object of channel values, like {"r": 255}.
+
+    WLED keeps the current value of every channel the object leaves out,
+    which isn't known here; only an object that sets r, g, and b is a fixed
+    color.
+    """
+    red, green, blue = (channels.get(channel) for channel in "rgb")
+    white = channels.get("w", 0)
+    if not (
+        isinstance(red, int)
+        and isinstance(green, int)
+        and isinstance(blue, int)
+        and isinstance(white, int)
+    ):
+        return None
+
     if "w" in channels:
-        return (red, green, blue, int(channels["w"]))
+        return (red, green, blue, white)
 
     return (red, green, blue)
 
@@ -942,7 +961,12 @@ class PlaylistEntry(BaseModel):
     duration: int = field(metadata=field_options(alias="dur"))
     entry_id: int
     preset: int = field(metadata=field_options(alias="ps"))
-    transition: int
+    transition: int | None = None
+    """The transition to this entry, in units of 100ms.
+
+    None when the playlist doesn't set one; the device then uses its default
+    transition.
+    """
 
 
 @dataclass(kw_only=True)
@@ -979,7 +1003,10 @@ class Playlist(BaseModel):
         # playlist data; combine them into one entry per preset.
         presets = d.get("ps", [])
         durations = _spread_over_entries(d.get("dur"), len(presets), default=100)
-        transitions = _spread_over_entries(d.get("transition"), len(presets), default=0)
+        # Without a transition, WLED uses its own default transition.
+        transitions = _spread_over_entries(
+            d.get("transition"), len(presets), default=None
+        )
 
         d["entries"] = [
             {

@@ -231,9 +231,11 @@ def test_color_deserialize_mixed() -> None:
         ("FF9900", (255, 153, 0)),
         ("#FF9900", (255, 153, 0)),
         ("ff990011", (255, 153, 0, 17)),
-        ({"r": 255, "g": 153}, (255, 153, 0)),
+        ({"r": 255, "g": 153, "b": 0}, (255, 153, 0)),
         ({"r": 1, "g": 2, "b": 3, "w": 4}, (1, 2, 3, 4)),
         ([1, 2, 3], [1, 2, 3]),
+        ([255], (255, 0, 0)),
+        ([1, 2], (1, 2, 0)),
     ],
 )
 def test_color_deserialize_forms(raw: object, expected: object) -> None:
@@ -243,7 +245,20 @@ def test_color_deserialize_forms(raw: object, expected: object) -> None:
     assert color.primary == expected
 
 
-@pytest.mark.parametrize("raw", ["r", 2700, "XYZ123", "0xFFFF", [1, 2]])
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "r",
+        2700,
+        "XYZ123",
+        "0xFFFF",
+        [],
+        [1, 2, 3, 4, 5],
+        # WLED keeps the current value of a channel an object leaves out.
+        {"r": 255, "g": 153},
+        {"r": None, "g": 0, "b": 0},
+    ],
+)
 def test_color_deserialize_unusable_primary(raw: object) -> None:
     """Test a primary color that isn't a fixed color is refused."""
     with pytest.raises(ValueError, match="Unusable primary color"):
@@ -720,7 +735,7 @@ def test_playlist_single_transition() -> None:
 
 
 def test_playlist_no_transition() -> None:
-    """Test playlist without a transition defaults to zero."""
+    """Test a playlist without a transition leaves it to the device."""
     playlist = Playlist.from_dict(
         {
             "playlist_id": 5,
@@ -734,7 +749,7 @@ def test_playlist_no_transition() -> None:
         }
     )
     assert len(playlist.entries) == 1
-    assert playlist.entries[0].transition == 0
+    assert playlist.entries[0].transition is None
 
 
 def test_playlist_defaults_and_padding_like_wled() -> None:
