@@ -1339,6 +1339,15 @@ class WLED:
             else:
                 missing.add(key)
 
+        # Metadata is matched to effects by position, so it only fits the
+        # effect list it was fetched with. When either one failed, the
+        # cached metadata may belong to another catalog. Drop it, and fetch
+        # it again together with the effects.
+        if missing & {"effects", "fxdata"}:
+            self._catalog.pop("fxdata", None)
+        if "effects" in missing:
+            missing.add("fxdata")
+
         return missing
 
 

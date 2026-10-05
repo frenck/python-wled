@@ -974,6 +974,79 @@ async def test_update_retries_only_the_effect_metadata(
     assert requests_to(responses, "/json/palettes") == 1
 
 
+@pytest.mark.parametrize("failed", ["effects", "fxdata"])
+async def test_update_drops_metadata_that_no_longer_fits(
+    responses: aioresponses, wled: WLED, failed: str
+) -> None:
+    """Test metadata from an older catalog isn't paired with other effects."""
+    wled_data = load_fixture_json("wled")
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["fxcount"] += 1
+    changed_data["effects"] = ["New Effect", *wled_data["effects"]]
+    old_fxdata = ["", "!,Duty cycle;!,!;!;01", ""]
+
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"], old_fxdata)
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    # Second update: the catalog changed, and one of the two lists fails.
+    responses.get(
+        "http://example.com/json/si",
+        status=200,
+        body=json.dumps({key: changed_data[key] for key in ("state", "info")}),
+        content_type="application/json",
+    )
+    for key, body in (
+        ("effects", changed_data["effects"]),
+        ("palettes", changed_data["palettes"]),
+        ("fxdata", ["", "", "", ""]),
+    ):
+        if key == failed:
+            responses.get(
+                f"http://example.com/json/{key}",
+                status=500,
+                body="Internal Server Error",
+                content_type="text/plain",
+            )
+        else:
+            responses.get(
+                f"http://example.com/json/{key}",
+                status=200,
+                body=json.dumps(body),
+                content_type="application/json",
+            )
+    # Third update: both recover, and are fetched again together.
+    responses.get(
+        "http://example.com/json/si",
+        status=200,
+        body=json.dumps({key: changed_data[key] for key in ("state", "info")}),
+        content_type="application/json",
+    )
+    mock_catalog(responses, changed_data["effects"], changed_data["palettes"])
+
+    device = await wled.update()
+    assert device.effects[1].metadata is not None
+
+    device = await wled.update()
+    assert all(effect.metadata is None for effect in device.effects.values())
+
+    device = await wled.update()
+    assert device.effects[0].name == "New Effect"
+    assert all(effect.metadata is not None for effect in device.effects.values())
+    assert requests_to(responses, "/json/effects") == 2 + (failed == "effects")
+    assert requests_to(responses, "/json/fxdata") == 3
+    assert requests_to(responses, "/json/palettes") == 2
+
+
 async def test_update_polls_state_and_info_once_catalog_is_cached(
     responses: aioresponses, wled: WLED
 ) -> None:
