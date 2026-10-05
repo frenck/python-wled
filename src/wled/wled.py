@@ -50,7 +50,8 @@ def _decode_response(
         msg = f"Received a non-UTF-8 {kind} from request: {method} {uri}"
         raise WLEDInvalidResponseError(msg, method=method, path=uri) from exception
 
-    if "application/json" in content_type:
+    is_json = "application/json" in content_type
+    if is_json:
         try:
             response_data = orjson.loads(response_data)
         except orjson.JSONDecodeError as exception:
@@ -58,11 +59,9 @@ def _decode_response(
             raise WLEDInvalidResponseError(msg, method=method, path=uri) from exception
 
     if is_error:
-        body = (
-            response_data
-            if isinstance(response_data, dict)
-            else {"message": response_data}
-        )
+        # A JSON error is passed on as the device sent it; plain text is
+        # wrapped, as it always was.
+        body = response_data if is_json else {"message": response_data}
         raise WLEDStatusError(
             status, body, method=method, path=uri, status=status, body=body
         )
@@ -283,6 +282,9 @@ class WLED:
             msg = "Not connected to a WLED WebSocket"
             raise WLEDError(msg)
 
+        # Whether the state was asked for again after the device reported
+        # being busy; asked once, the device sends its state when it can.
+        asked_again = False
         while not self._client.closed:
             message = await self._client.receive()
 
@@ -293,10 +295,16 @@ class WLED:
                 message_data = message.json()
 
                 # A busy device sends an error instead of its state; ask for
-                # the state again rather than reporting the old one.
+                # the state again rather than reporting the old one. Only once:
+                # a device that stays busy answers every request with another
+                # error.
                 if isinstance(message_data, dict) and "state" not in message_data:
-                    await self._client.send_json({"v": True})
+                    if not asked_again:
+                        await self._client.send_json({"v": True})
+                        asked_again = True
                     continue
+
+                asked_again = False
 
                 changed, new_version = self._check_presets_changed(message_data)
                 if changed:
