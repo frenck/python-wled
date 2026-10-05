@@ -1399,9 +1399,21 @@ class Device(BaseModel):
             # list, leaves the entry a plain preset.
             playlist = entry.get("playlist")
             if isinstance(playlist, dict) and playlist.get("ps"):
-                playlists[entry_id] = entry | {"playlist_id": entry_id}
+                model, target = Playlist, playlists
+                item = entry | {"playlist_id": entry_id}
             else:
-                presets[entry_id] = entry | {"preset_id": entry_id}
+                model, target = Preset, presets
+                item = entry | {"preset_id": entry_id}
+
+            # One entry that can't be read, like a playlist with a single
+            # number instead of a list of presets, shouldn't take the others
+            # down with it.
+            try:
+                model.from_dict(item)
+            except (LookupError, TypeError, ValueError):
+                continue
+
+            target[entry_id] = item
 
         return presets, playlists
 
@@ -1521,7 +1533,8 @@ class Device(BaseModel):
                 for palette_id, palette in palettes.items()
             }
 
-        if _presets := data.get("presets"):
+        # An empty presets file means there are no presets (anymore).
+        if (_presets := data.get("presets")) is not None:
             presets, playlists = self._split_presets(_presets)
             self.presets = {
                 preset_id: Preset.from_dict(preset)
