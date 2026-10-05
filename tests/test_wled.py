@@ -1727,6 +1727,40 @@ async def test_sync_receive(  # noqa: PLR0913  # pylint: disable=too-many-argume
     )
 
 
+async def test_sync_receive_uses_send_groups_set_along(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test turning receive on uses the send groups set in the same call."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["ver"] = "16.0.0"
+    wled_data["state"]["udpn"] |= {"rgrp": 0, "sgrp": 1}
+    await prepare_wled_with_device(responses, wled, wled_data=wled_data)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.sync(send_groups=SyncGroup.GROUP4, receive=True)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"udpn": {"sgrp": 8, "rgrp": 8}, "v": True},
+    )
+
+
+async def test_preset_name_with_digit_like_characters(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a name of characters that look like digits is looked up by name."""
+    await prepare_wled_with_device(responses, wled)
+
+    with pytest.raises(WLEDError, match="Unknown preset"):
+        await wled.preset("²")
+
+
 @pytest.mark.parametrize(
     ("call", "key", "expected"),
     [

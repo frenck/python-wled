@@ -100,7 +100,8 @@ def _resolve_by_name(name: str, ids_by_name: dict[str, int], kind: str) -> int:
     WLED reads a name it gets for "ps" as a number, and one starting with "r"
     as a random preset, so an unknown name must never be sent along.
     """
-    if name.isdigit():
+    # isdecimal, unlike isdigit, only accepts what int() takes.
+    if name.isdecimal():
         return int(name)
 
     for item_name, item_id in ids_by_name.items():
@@ -877,12 +878,18 @@ class WLED:
         if receive_groups is not None:
             sync["rgrp"] = int(receive_groups)
         elif receive is not None:
-            sync |= await self._sync_receive(receive=receive)
+            sync |= await self._sync_receive(receive=receive, send_groups=send_groups)
 
         await self.request("/json/state", method="POST", data={"udpn": sync})
 
-    async def _sync_receive(self, *, receive: bool) -> dict[str, bool | int]:
-        """Return what turns receiving sync on or off for this device."""
+    async def _sync_receive(
+        self, *, receive: bool, send_groups: SyncGroup | None
+    ) -> dict[str, bool | int]:
+        """Return what turns receiving sync on or off for this device.
+
+        The send groups are the ones being set along with this change, if any;
+        those are the ones to receive from when there are no receive groups.
+        """
         if self._device is None:
             await self.update()
 
@@ -900,7 +907,9 @@ class WLED:
             return {"rgrp": 0}
 
         sync = device.state.sync
-        groups = sync.receive_groups or sync.send_groups or SyncGroup.GROUP1
+        groups = (
+            sync.receive_groups or send_groups or sync.send_groups or SyncGroup.GROUP1
+        )
         return {"rgrp": int(groups)}
 
     async def nightlight(
