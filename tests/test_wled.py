@@ -615,6 +615,12 @@ async def test_update_falls_back_when_catalog_is_unusable(
         body=json.dumps(palettes_body),
         content_type="application/json",
     )
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=200,
+        body="[]",
+        content_type="application/json",
+    )
     # Second update: the catalog is fetched again, and now it works.
     responses.get(
         "http://example.com/json",
@@ -790,6 +796,12 @@ async def test_update_keeps_effects_when_only_palettes_fail(
         body="Internal Server Error",
         content_type="text/plain",
     )
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=200,
+        body="[]",
+        content_type="application/json",
+    )
 
     device = await wled.update()
 
@@ -814,7 +826,7 @@ async def test_update_keeps_cached_catalog_when_refetch_fails(
         body=json.dumps(truncated_data),
         content_type="application/json",
     )
-    for endpoint in ("effects", "palettes"):
+    for endpoint in ("effects", "palettes", "fxdata"):
         responses.get(
             f"http://example.com/json/{endpoint}",
             status=500,
@@ -827,6 +839,76 @@ async def test_update_keeps_cached_catalog_when_refetch_fails(
 
     assert len(device.effects) == 3
     assert [device.palettes[i].name for i in range(3)] == wled_data["palettes"]
+
+
+async def test_update_fetches_effect_metadata(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test update() fetches the effect metadata and attaches it."""
+    wled_data = load_fixture_json("wled")
+    fxdata = ["", "!,Duty cycle;!,!;!;01", "", "!;;!;2"]
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    mock_catalog(responses, wled_data["effects"], wled_data["palettes"], fxdata)
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+
+    assert device.effects[1].metadata is not None
+    assert device.effects[1].metadata.sliders["intensity"] == "Duty cycle"
+    assert device.effects[3].metadata is not None
+    assert device.effects[3].metadata.requires_matrix
+
+
+async def test_update_without_effect_metadata(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a failing metadata endpoint leaves the metadata out, nothing else."""
+    wled_data = load_fixture_json("wled")
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/effects",
+        status=200,
+        body=json.dumps(wled_data["effects"]),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/palettes",
+        status=200,
+        body=json.dumps(wled_data["palettes"]),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=500,
+        body="Internal Server Error",
+        content_type="text/plain",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+
+    assert len(device.effects) == 3
+    assert all(effect.metadata is None for effect in device.effects.values())
 
 
 async def test_update_polls_state_and_info_once_catalog_is_cached(

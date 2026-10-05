@@ -112,8 +112,17 @@ def mock_catalog(
     mocked: aioresponses,
     effects: list[Any] | None,
     palettes: list[Any] | None,
+    fxdata: list[Any] | None = None,
 ) -> None:
-    """Register the dedicated effects and palettes endpoints."""
+    """Register the dedicated effects, palettes, and effect metadata endpoints."""
+    if fxdata is None:
+        fxdata = [""] * len(effects or [])
+    mocked.get(
+        "http://example.com/json/fxdata",
+        status=200,
+        body=json.dumps(fxdata),
+        content_type="application/json",
+    )
     mocked.get(
         "http://example.com/json/effects",
         status=200,

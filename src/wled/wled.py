@@ -1302,21 +1302,21 @@ class WLED:
         return (changed, new_version)
 
     async def _fetch_catalog(self) -> bool:
-        """Fetch the complete effects and palettes lists into the cache.
+        """Fetch the complete effects, palettes, and effect metadata lists.
 
         Each list is fetched on its own, so one failing endpoint doesn't
-        throw away the other. When the device answers with an error or
+        throw away the others. When the device answers with an error or
         something unexpected, the previously cached list (if any) is kept.
         A connection error still propagates: if the device is gone, the
         update should fail.
 
         Returns
         -------
-            True if both lists were fetched, False if either needs a retry.
+            True if all lists were fetched, False if any needs a retry.
 
         """
         complete = True
-        for key in ("effects", "palettes"):
+        for key in ("effects", "palettes", "fxdata"):
             try:
                 value = await self.request(f"/json/{key}")
             except WLEDConnectionError:

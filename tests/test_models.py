@@ -15,8 +15,10 @@ from wled.exceptions import WLEDUnsupportedVersionError
 from wled.models import (
     AwesomeVersionSerializationStrategy,
     Color,
+    EffectMetadata,
     Filesystem,
     Info,
+    Matrix,
     SensorReading,
     State,
     TimedeltaSerializationStrategy,
@@ -1331,3 +1333,153 @@ def test_device_version_fixture(
     data = load_fixture_json(f"versions/{version_fixture}")
     device = Device.from_dict(data)
     assert device == snapshot_dataclass
+
+
+# =========================================================================
+# Effect metadata
+# =========================================================================
+
+
+@pytest.mark.parametrize(
+    ("raw", "sliders", "options", "colors", "palette", "flags", "defaults"),
+    [
+        # No metadata: WLED shows its default controls.
+        (
+            "",
+            {"speed": "Effect speed", "intensity": "Effect intensity"},
+            {},
+            {0: "Fx", 1: "Bg", 2: "Cs"},
+            True,
+            (False, False),
+            {},
+        ),
+        # Blink: a named second slider, two colors, a palette, 1D.
+        (
+            "!,Duty cycle;!,!;!;01",
+            {"speed": "Effect speed", "intensity": "Duty cycle"},
+            {},
+            {0: "Fx", 1: "Bg"},
+            True,
+            (False, False),
+            {},
+        ),
+        # Copy Segment: skips the speed slider, has options, 1D and 2D.
+        (
+            (
+                ",Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;"
+                "ix=0,c1=0,c2=0,c3=0"
+            ),
+            {
+                "intensity": "Color shift",
+                "custom1": "Lighten",
+                "custom2": "Brighten",
+                "custom3": "ID",
+            },
+            {"option1": "Axis(2D)", "option2": "FullStack(last frame)"},
+            {},
+            False,
+            (False, False),
+            {"ix": 0, "c1": 0, "c2": 0, "c3": 0},
+        ),
+        # Only the background color, by position.
+        (
+            "!;,!;!;01",
+            {"speed": "Effect speed"},
+            {},
+            {1: "Bg"},
+            True,
+            (False, False),
+            {},
+        ),
+        # A 2D effect reacting to volume, without a palette.
+        (
+            "Speed;!;;2v",
+            {"speed": "Speed"},
+            {},
+            {0: "Fx"},
+            False,
+            (True, True),
+            {},
+        ),
+        # Defaults, skipping one that isn't a number.
+        (
+            "!,!;;!;1;sx=24,pal=50,bad=x",
+            {"speed": "Effect speed", "intensity": "Effect intensity"},
+            {},
+            {},
+            True,
+            (False, False),
+            {"sx": 24, "pal": 50},
+        ),
+    ],
+    ids=["none", "blink", "copy_segment", "background_only", "2d_audio", "defaults"],
+)
+def test_effect_metadata(  # noqa: PLR0913  # pylint: disable=too-many-arguments,too-many-positional-arguments
+    raw: str,
+    sliders: dict,
+    options: dict,
+    colors: dict,
+    palette: bool,
+    flags: tuple[bool, bool],
+    defaults: dict,
+) -> None:
+    """Test effect metadata is read the way WLED's own interface reads it."""
+    metadata = EffectMetadata._deserialize(raw)  # pylint: disable=protected-access
+
+    assert metadata.sliders == sliders
+    assert metadata.options == options
+    assert metadata.colors == colors
+    assert metadata.palette is palette
+    assert (metadata.requires_matrix, metadata.audio_reactive) == flags
+    assert metadata.defaults == defaults
+    assert metadata._serialize() == raw  # pylint: disable=protected-access
+
+
+def test_device_effects_get_their_metadata() -> None:
+    """Test each effect gets the metadata at its own index, RSVD included."""
+    data = full_device_data()
+    data["effects"] = ["Solid", "Blink", "RSVD", "Matrix"]
+    data["fxdata"] = ["", "!,Duty cycle;!,!;!;01", "", "!;;!;2"]
+
+    device = Device.from_dict(data)
+
+    assert set(device.effects) == {0, 1, 3}
+    assert device.effects[1].metadata is not None
+    assert device.effects[1].metadata.sliders["intensity"] == "Duty cycle"
+    assert device.effects[3].metadata is not None
+    assert device.effects[3].metadata.requires_matrix
+
+    device.update_from_dict(
+        {"effects": ["Solid", "Blink"], "fxdata": ["", "Rate;!;;2"]}
+    )
+    assert device.effects[1].metadata is not None
+    assert device.effects[1].metadata.sliders == {"speed": "Rate"}
+
+
+def test_device_effects_without_usable_metadata() -> None:
+    """Test effects without metadata, or with broken metadata, get None."""
+    data = full_device_data()
+    data["effects"] = ["Solid", "Blink", "Breathe"]
+    data["fxdata"] = ["", None]
+
+    device = Device.from_dict(data)
+
+    assert device.effects[0].metadata is not None
+    assert device.effects[1].metadata is None
+    assert device.effects[2].metadata is None
+
+
+@pytest.mark.parametrize(
+    ("matrix", "expected"),
+    [({"w": 16, "h": 8}, Matrix(width=16, height=8)), (None, None)],
+    ids=["matrix", "strip"],
+)
+def test_leds_matrix(matrix: dict | None, expected: Matrix | None) -> None:
+    """Test the matrix size is reported for a 2D setup, and None for a strip."""
+    data = full_device_data()
+    if matrix is not None:
+        data["info"]["leds"]["matrix"] = matrix
+
+    device = Device.from_dict(data)
+
+    assert device.info.leds.matrix == expected
