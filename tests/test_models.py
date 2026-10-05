@@ -1614,7 +1614,10 @@ def test_parsing_leaves_the_data_alone(fixture: str) -> None:
     assert data == original
 
 
-@pytest.mark.parametrize("sensor", ["not a dict", {"Temperature": [21.5, "°C"]}])
+@pytest.mark.parametrize(
+    "sensor",
+    ["not a dict", {"Temperature": [21.5, "°C"], "Broken": [1, 2, 3]}],
+)
 def test_parsing_leaves_reshaped_data_alone(sensor: object) -> None:
     """Test the data reshaped while parsing is left alone for the caller."""
     data = full_device_data()
