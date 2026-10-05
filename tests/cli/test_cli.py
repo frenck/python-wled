@@ -64,6 +64,13 @@ def _device_no_wifi() -> Device:
     return Device.from_dict(data)
 
 
+def _device_wired() -> Device:
+    """Return a Device on a wired connection, without Wi-Fi signal."""
+    data = full_device_data()
+    data["info"]["wifi"] = {"bssid": "00:00:00:00:00:00", "rssi": 0, "signal": 100}
+    return Device.from_dict(data)
+
+
 def _device_websocket_none() -> Device:
     """Return a Device with websocket disabled (ws: -1)."""
     data = full_device_data()
@@ -329,6 +336,20 @@ def test_info_command_no_wifi(
         runner, ["info", "--host", "example.com"], _device_no_wifi()
     )
     assert exit_code == 0
+    assert output == snapshot
+
+
+@pytest.mark.usefixtures("stable_terminal")
+def test_info_command_wired(
+    runner: CliRunner,
+    snapshot: SnapshotAssertion,
+) -> None:
+    """Info command shows a wired device as not connected to Wi-Fi."""
+    exit_code, output = _invoke(
+        runner, ["info", "--host", "example.com"], _device_wired()
+    )
+    assert exit_code == 0
+    assert "Not connected" in output
     assert output == snapshot
 
 

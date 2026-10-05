@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import string
+import warnings
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -18,6 +19,7 @@ from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
     DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
+    BuildOption,
     LightCapability,
     LiveDataOverride,
     NightlightMode,
@@ -451,7 +453,7 @@ class SegmentUpdate:
     """The brightness of the segment, between 0 and 255."""
 
     clones: int | None = None
-    """Deprecated."""
+    """Deprecated: WLED ignores this, and it will be removed."""
 
     color_primary: ColorTuple | None = None
     """The primary color of the segment."""
@@ -525,6 +527,15 @@ class SegmentUpdate:
     Setting it at or below `start` (0 is recommended) deletes the segment.
     """
 
+    def __post_init__(self) -> None:
+        """Warn about the deprecated fields that are used."""
+        if self.clones is not None:
+            warnings.warn(
+                "Segment clones are no longer supported by WLED and are ignored",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+
 
 @dataclass(kw_only=True)
 class Segment(BaseModel):
@@ -544,7 +555,7 @@ class Segment(BaseModel):
     """
 
     clones: int = field(default=-1, metadata=field_options(alias="cln"))
-    """The segment this segment clones."""
+    """Deprecated: WLED no longer reports this, so it is always -1."""
 
     color: Color | None = field(default=None, metadata=field_options(alias="col"))
     """The primary, secondary (background) and tertiary colors of the segment.
@@ -591,6 +602,15 @@ class Segment(BaseModel):
     """Length of the segment (stop - start).
 
     Stop has preference, so if it is included, length is ignored.
+    """
+
+    light_capabilities: LightCapability | None = field(
+        default=None, metadata=field_options(alias="lc")
+    )
+    """What the LEDs in this segment can do, like RGB or a white channel.
+
+    WLED reports this since 16.0. For older versions, the device fills it in
+    from the per segment list in the LED info.
     """
 
     mirror: bool = field(default=False, metadata=field_options(alias="mi"))
@@ -744,10 +764,28 @@ class Matrix(BaseModel):
 class Wifi(BaseModel):
     """Object holding Wi-Fi information from WLED."""
 
+    access_point: bool = field(default=False, metadata=field_options(alias="ap"))
+    """True if the device's own access point is active."""
+
     bssid: str = "00:00:00:00:00:00"
     channel: int = 0
-    rssi: int = 0
-    signal: int = 0
+
+    rssi: int | None = None
+    """The signal strength in dBm; None when not connected to a network."""
+
+    signal: int | None = None
+    """The signal quality in percent; None when not connected to a network."""
+
+    @classmethod
+    def __post_deserialize__(cls, obj: Wifi) -> Wifi:
+        """Post deserialize hook for Wifi object."""
+        # Without a Wi-Fi connection, like on a wired device, WLED reports
+        # an RSSI of 0 dBm, which it then turns into a 100% signal.
+        if not obj.rssi:
+            obj.rssi = None
+            obj.signal = None
+
+        return obj
 
 
 @dataclass(kw_only=True)
@@ -826,6 +864,11 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     brand: str = "WLED"
     """The producer/vendor of the light. Always WLED for standard installations."""
+
+    build_options: BuildOption = field(
+        default=BuildOption.NONE, metadata=field_options(alias="opt")
+    )
+    """The features this build was compiled with, like OTA updates."""
 
     build: str = field(default="Unknown", metadata=field_options(alias="vid"))
     """Build ID (YYMMDDB, B = daily build index)."""
@@ -1394,6 +1437,25 @@ class Device(BaseModel):
 
         return d
 
+    @classmethod
+    def __post_deserialize__(cls, obj: Device) -> Device:
+        """Post deserialize hook for Device object."""
+        obj._fill_segment_light_capabilities()  # pylint: disable=protected-access
+        return obj
+
+    def _fill_segment_light_capabilities(self) -> None:
+        """Fill in the light capabilities of segments on WLED before 16.0.
+
+        Older versions only list them in the LED info, one entry for each
+        active segment, in the same order as the segments in the state.
+        """
+        capabilities = self.info.leds.segment_light_capabilities
+        for segment, light_capabilities in zip(
+            self.state.segments.values(), capabilities, strict=False
+        ):
+            if segment.light_capabilities is None:
+                segment.light_capabilities = light_capabilities
+
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
 
@@ -1445,6 +1507,7 @@ class Device(BaseModel):
         if _state := data.get("state"):
             self.state = State.from_dict(_state)
 
+        self._fill_segment_light_capabilities()
         return self
 
 

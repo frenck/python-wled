@@ -1,6 +1,7 @@
 """Asynchronous Python client for WLED."""
 
 from .const import (
+    BuildOption,
     LightCapability,
     LiveDataOverride,
     NightlightMode,
@@ -47,6 +48,7 @@ from .wled import WLED, WLEDReleases
 __all__ = [
     "WLED",
     "AudioReactive",
+    "BuildOption",
     "Color",
     "Device",
     "Effect",

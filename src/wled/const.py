@@ -15,6 +15,20 @@ CUSTOM_PALETTE_ID_CHANGE_VERSION = AwesomeVersion("16.0.0")
 SYNC_RECEIVE_BY_GROUPS_VERSION = AwesomeVersion("0.15.0")
 
 
+class BuildOption(IntFlag):
+    """Enumeration representing the features a WLED build was compiled with."""
+
+    NONE = 0
+    OTA = 1
+    ADALIGHT = 2
+    HUE_SYNC = 4
+    FILESYSTEM = 8
+    CRONIXIE = 16
+    ALEXA = 64
+    DEBUG = 128
+    NETWORK_DEBUG = 256
+
+
 class LightCapability(IntFlag):
     """Enumeration representing the capabilities of a light in WLED."""
 

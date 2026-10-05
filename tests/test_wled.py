@@ -1805,6 +1805,44 @@ async def test_playlist(
     )
 
 
+async def test_next_playlist_entry(responses: aioresponses, wled: WLED) -> None:
+    """Test skipping to the next entry of the running playlist."""
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    await wled.next_playlist_entry()
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"np": True, "v": True},
+    )
+
+
+async def test_segment_clones_is_not_sent(responses: aioresponses, wled: WLED) -> None:
+    """Test the deprecated clones warns, and isn't sent to the device."""
+    await prepare_wled_with_device(responses, wled)
+    responses.post(
+        "http://example.com/json/state",
+        status=200,
+        body="{}",
+        content_type="application/json",
+    )
+
+    with pytest.warns(DeprecationWarning, match="clones"):
+        await wled.segment(0, clones=1, on=True)
+
+    assert_post_payload(
+        responses,
+        "http://example.com/json/state",
+        {"seg": [{"id": 0, "on": True}], "v": True},
+    )
+
+
 async def test_playlist_by_object(responses: aioresponses, wled: WLED) -> None:
     """Test setting a playlist using a Playlist object."""
     await prepare_wled_with_device(responses, wled)

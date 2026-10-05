@@ -908,6 +908,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=4,
       effect_count=187,
       filesystem=Filesystem(
@@ -950,6 +951,7 @@
       version=<AwesomeVersion SemVer '0.15.0-b3'>,
       websocket=1,
       wifi=Wifi(
+        access_point=False,
         bssid='AA:AA:AA:AA:AA:BB',
         channel=11,
         rssi=-44,
@@ -1387,6 +1389,7 @@
           grouping=1,
           intensity=128,
           length=178,
+          light_capabilities=<LightCapability.RGB_COLOR|WHITE_CHANNEL|COLOR_TEMPERATURE: 7>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -2325,6 +2328,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -2368,6 +2372,7 @@
       version=<AwesomeVersion SemVer '0.14.4'>,
       websocket=None,
       wifi=Wifi(
+        access_point=False,
         bssid='AA:AA:AA:AA:AA:BB',
         channel=11,
         rssi=-43,
@@ -2782,6 +2787,7 @@
           grouping=1,
           intensity=128,
           length=15,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name='Ceiling',
@@ -2835,6 +2841,7 @@
           grouping=1,
           intensity=64,
           length=15,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -3773,6 +3780,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -3815,6 +3823,7 @@
       version=<AwesomeVersion PEP 440 '1.0.0b4'>,
       websocket=None,
       wifi=Wifi(
+        access_point=False,
         bssid='AA:AA:AA:AA:AA:BB',
         channel=11,
         rssi=-44,
@@ -4229,6 +4238,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -5167,6 +5177,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -5209,6 +5220,7 @@
       version=<AwesomeVersion SemVer '0.99.0'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='AA:AA:AA:AA:AA:BB',
         channel=11,
         rssi=-44,
@@ -5623,6 +5635,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -6561,6 +6574,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -6603,6 +6617,7 @@
       version=<AwesomeVersion PEP 440 '0.99.0b1'>,
       websocket=None,
       wifi=Wifi(
+        access_point=False,
         bssid='AA:AA:AA:AA:AA:BB',
         channel=11,
         rssi=-44,
@@ -7020,6 +7035,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR|WHITE_CHANNEL: 3>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -7958,6 +7974,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2404040',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -8000,6 +8017,7 @@
       version=<AwesomeVersion SemVer '0.14.3'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-55,
@@ -8414,6 +8432,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -9352,6 +9371,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2405180',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -9394,6 +9414,7 @@
       version=<AwesomeVersion SemVer '0.14.4'>,
       websocket=1,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-55,
@@ -9808,6 +9829,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -10751,6 +10773,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2412100',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -10793,6 +10816,7 @@
       version=<AwesomeVersion SemVer '0.15.0'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-56,
@@ -11209,6 +11233,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -12152,6 +12177,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2507300',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -12194,6 +12220,7 @@
       version=<AwesomeVersion SemVer '0.15.1'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-55,
@@ -12610,6 +12637,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -13553,6 +13581,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2508020',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -13595,6 +13624,7 @@
       version=<AwesomeVersion SemVer '0.15.2'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-56,
@@ -14011,6 +14041,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -14954,6 +14985,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2508020',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -14996,6 +15028,7 @@
       version=<AwesomeVersion SemVer '0.15.3'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-55,
@@ -15412,6 +15445,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -16355,6 +16389,7 @@
       arduino_core_version='v3.3.6-16-gcc5440f6a2',
       brand='WLED',
       build='2508020',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=187,
       filesystem=Filesystem(
@@ -16397,6 +16432,7 @@
       version=<AwesomeVersion SemVer '0.15.4'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-62,
@@ -16813,6 +16849,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
@@ -17936,6 +17973,7 @@
       arduino_core_version='4.4.8.240628',
       brand='WLED',
       build='2605030',
+      build_options=<BuildOption.OTA|ADALIGHT|HUE_SYNC|FILESYSTEM|ALEXA: 79>,
       custom_palette_count=0,
       effect_count=220,
       filesystem=Filesystem(
@@ -17978,6 +18016,7 @@
       version=<AwesomeVersion CalVer '16.0.0'>,
       websocket=0,
       wifi=Wifi(
+        access_point=False,
         bssid='82:22:1D:9A:7F:66',
         channel=6,
         rssi=-60,
@@ -18399,6 +18438,7 @@
           grouping=1,
           intensity=128,
           length=30,
+          light_capabilities=<LightCapability.RGB_COLOR: 1>,
           mirror=False,
           mirror_y=False,
           name=None,
