@@ -1700,3 +1700,34 @@ def test_segment_colors_are_tuples() -> None:
     assert color.primary == (255, 0, 0)
     assert color.secondary == (0, 255, 0)
     assert color.tertiary == (0, 0, 255)
+
+
+@pytest.mark.parametrize(
+    ("product", "repo", "expected"),
+    [
+        # What the device reports wins, when it's a usable owner/name pair.
+        ("FOSS", "wled/WLED", "wled/WLED"),
+        ("Dig-Octa", "intermittech/QuinLED-Firmware", "intermittech/QuinLED-Firmware"),
+        ("FOSS", " wled/WLED ", "wled/WLED"),
+        # WLED before 0.15.2 doesn't report it.
+        ("FOSS", None, "wled/WLED"),
+        # Older WLED-MM builds don't either, and self-built ones say "unknown".
+        ("MoonModules", None, "MoonModules/WLED-MM"),
+        ("MoonModules", "unknown", "MoonModules/WLED-MM"),
+        ("FOSS", "../..", "wled/WLED"),
+        # Any other build that doesn't say is unknown.
+        ("Some Fork", None, None),
+        ("Some Fork", "unknown", None),
+        # WLED itself always reports its product.
+        (None, None, "wled/WLED"),
+    ],
+)
+def test_info_repo(product: str | None, repo: str | None, expected: str | None) -> None:
+    """Test where the firmware comes from, also for builds that don't say."""
+    data = full_device_data()
+    for key, value in (("product", product), ("repo", repo)):
+        data["info"].pop(key, None)
+        if value is not None:
+            data["info"][key] = value
+
+    assert Device.from_dict(data).info.repo == expected

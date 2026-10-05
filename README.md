@@ -218,18 +218,23 @@ from wled import WLED, WLEDReleases
 async with WLED("wled-frenck.local") as led:
     device = await led.update()
 
-    async with WLEDReleases(repo=device.info.repo) as wled_releases:
-        releases = await wled_releases.releases()
+    # None when it isn't known where this device's firmware comes from
+    if device.info.repo:
+        async with WLEDReleases(repo=device.info.repo) as wled_releases:
+            releases = await wled_releases.releases()
 
-    # Only move forward: a device on a newer beta or nightly stays put
-    current = device.info.version
-    if releases.stable and current and releases.stable > current:
-        await led.upgrade(version=releases.stable)
+        # Only move forward: a device on a newer beta or nightly stays put
+        current = device.info.version
+        if releases.stable and current and releases.stable > current:
+            await led.upgrade(version=releases.stable)
 ```
 
 By default, the firmware comes from the repository the device reports as
-`device.info.repo`; older firmware that doesn't report one falls back to
-`wled/WLED`. Pass `repo` to `upgrade()` to pick another one.
+`device.info.repo`. Not every build reports one: WLED only does since 0.15.2,
+and a self-built firmware reports `unknown`. Upstream WLED then falls back to
+`wled/WLED`, and older WLED-MM builds to `MoonModules/WLED-MM`. For any other
+build, `device.info.repo` is `None`, and `upgrade()` needs `repo` to know
+where to look. Pass `repo` to `upgrade()` to pick another one anyway.
 
 The release is looked up through the GitHub API, and the download is checked
 against the SHA256 digest GitHub publishes for it; a firmware file that

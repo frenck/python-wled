@@ -8205,7 +8205,7 @@
       palette_count=75,
       product='MoonModules',
       release='Apollo_M-1-Rev2',
-      repo='wled/WLED',
+      repo='MoonModules/WLED-MM',
       sensor=None,
       sync_toggle_receive=False,
       udp_port=21324,

@@ -2717,12 +2717,41 @@ async def test_upgrade_rejects_invalid_repo(
     wled_data = load_fixture_json("wled")
     wled_data["info"]["arch"] = "esp32"
     wled_data["info"]["ver"] = "0.14.0"
-    wled_data["info"]["repo"] = repo
     mock_json_and_presets(responses, wled_data)
     await wled.update()
 
     with pytest.raises(WLEDUpgradeError, match="Invalid firmware repository"):
+        await wled.upgrade(version="0.15.0", repo=repo)
+
+
+async def test_upgrade_without_a_known_repo(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test upgrade asks for a repository when the device's isn't known."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    wled_data["info"]["ver"] = "0.14.0"
+    wled_data["info"]["product"] = "Some Fork"
+    wled_data["info"]["repo"] = "unknown"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    with pytest.raises(WLEDUpgradeError, match="pass the repository"):
         await wled.upgrade(version="0.15.0")
+
+    # With the repository given, it upgrades as usual.
+    responses.get(
+        "https://github.com/some/fork/releases/download/v0.15.0/WLED_0.15.0_ESP32.bin",
+        status=200,
+        body=b"fake firmware",
+    )
+    responses.post(
+        "http://example.com/update",
+        status=200,
+        body=UPDATE_SUCCESSFUL_PAGE,
+        content_type="text/html",
+    )
+    await wled.upgrade(version="0.15.0", repo="some/fork")
 
 
 FIRMWARE = b"fake firmware"
