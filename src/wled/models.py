@@ -117,6 +117,28 @@ class Color(SerializableType):
         )
 
 
+@dataclass
+class SensorReading(SerializableType):
+    """Object holding a single sensor reading provided by a WLED usermod.
+
+    Most usermods report a reading as ``[value, unit]``; some, like the PIR
+    sensor switch, report a bare value without a unit.
+    """
+
+    value: Any
+    unit: str | None = None
+
+    def _serialize(self) -> Any:
+        return self.value if self.unit is None else [self.value, self.unit]
+
+    @classmethod
+    def _deserialize(cls, value: Any) -> SensorReading:
+        if isinstance(value, (list, tuple)):
+            # Some usermods pad the unit with spaces, like " RH".
+            return cls(value=value[0], unit=value[1].strip())
+        return cls(value=value)
+
+
 class BaseModel(DataClassORJSONMixin):
     """Base model for all WLED models."""
 
@@ -621,6 +643,9 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
     )
     """If true, UI toggling also toggles sync receive."""
 
+    sensor: dict[str, SensorReading] | None = None
+    """Optional additional sensors provided by usermods."""
+
     udp_port: int = field(default=0, metadata=field_options(alias="udpport"))
     """The UDP port for realtime packets and WLED broadcast."""
 
@@ -640,6 +665,29 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
 
     wifi: Wifi | None = None
     """Info about the Wi-Fi connection."""
+
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Info object."""
+        sensor = d.get("sensor")
+        if not isinstance(sensor, dict):
+            # Remove malformed top-level sensor object
+            d.pop("sensor", None)
+            return d
+        # Since usermods are free to put anything in the sensor field, only keep
+        # entries that are a [value, unit] pair with a string unit, or a bare
+        # value without a unit (like the PIR sensor switch reports motion).
+        d["sensor"] = {
+            name: entry
+            for name, entry in sensor.items()
+            if (
+                isinstance(entry, (list, tuple))
+                and len(entry) == 2
+                and isinstance(entry[1], str)
+            )
+            or isinstance(entry, (bool, int, float, str))
+        }
+        return d
 
     @classmethod
     def __post_deserialize__(cls, obj: Info) -> Info:
