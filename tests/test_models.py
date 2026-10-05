@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -1595,3 +1596,33 @@ def test_segment_update_clones_is_deprecated() -> None:
     """Test setting clones on a segment update warns that it's ignored."""
     with pytest.warns(DeprecationWarning, match="clones"):
         SegmentUpdate(segment_id=0, clones=1)
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    sorted(path.stem for path in (FIXTURES_DIR / "versions").glob("*.json")),
+)
+def test_parsing_leaves_the_data_alone(fixture: str) -> None:
+    """Test parsing a device doesn't change the data it was given."""
+    data = load_fixture_json(f"versions/{fixture}")
+    data["presets"] = load_fixture_json("presets")
+    original = copy.deepcopy(data)
+
+    device = Device.from_dict(data)
+    device.update_from_dict(data)
+
+    assert data == original
+
+
+@pytest.mark.parametrize("sensor", ["not a dict", {"Temperature": [21.5, "°C"]}])
+def test_parsing_leaves_reshaped_data_alone(sensor: object) -> None:
+    """Test the data reshaped while parsing is left alone for the caller."""
+    data = full_device_data()
+    data["info"]["sensor"] = sensor
+    data["state"]["seg"][0]["col"] = ["r"]
+    data["presets"]["1"]["seg"] = data["presets"]["1"]["seg"][0]
+    original = copy.deepcopy(data)
+
+    Device.from_dict(data)
+
+    assert data == original
