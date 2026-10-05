@@ -135,13 +135,16 @@ async with WLED("wled-frenck.local") as led:
     # Activate a preset or a playlist, by name or ID
     await led.preset("Movie night")
     await led.playlist(1)
+    await led.next_playlist_entry()
 ```
 
 Each effect also tells which of those controls it uses, through
 `effect.metadata`: its sliders and options with their labels, its color
 slots, whether it uses a palette, needs a 2D matrix (see
 `device.info.leds.matrix`), or reacts to sound. That's the information to
-show only the controls that matter for the chosen effect.
+show only the controls that matter for the chosen effect. Segments do the
+same for colors: `segment.light_capabilities` says whether the LEDs in it do
+RGB, a white channel, or color temperature.
 
 To change several segments at once, so they switch together with one
 transition, pass a `SegmentUpdate` for each to `segments()`:

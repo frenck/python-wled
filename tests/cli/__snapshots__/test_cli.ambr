@@ -225,6 +225,51 @@
   
   '''
 # ---
+# name: test_info_command_wired
+  '''
+                                               
+             WLED device information           
+  ┌───────────────────────┬───────────────────┐
+  │ Name                  │ WLED              │
+  │ Brand                 │ WLED              │
+  │ Product               │ DIY Light         │
+  ├───────────────────────┼───────────────────┤
+  │ IP address            │ 192.168.1.100     │
+  │ MAC address           │ aabbccddeeff      │
+  │ Wi-Fi BSSID           │ 00:00:00:00:00:00 │
+  │ Wi-Fi channel         │ 0                 │
+  │ Wi-Fi RSSI            │ Not connected     │
+  │ Wi-Fi signal strength │ Not connected     │
+  ├───────────────────────┼───────────────────┤
+  │ Version               │ 0.14.0            │
+  │ Build                 │ 2312080           │
+  │ Architecture          │ esp32             │
+  │ Arduino version       │ v3.3.6-16         │
+  ├───────────────────────┼───────────────────┤
+  │ Uptime                │ 32489 seconds     │
+  │ Free heap             │ 116864 bytes      │
+  │ Total storage         │ 64 bytes          │
+  │ Used storage          │ 12 bytes          │
+  │ % Used storage        │ 19%               │
+  ├───────────────────────┼───────────────────┤
+  │ Effect count          │ 187 effects       │
+  │ Palette count         │ 71 palettes       │
+  │ Custom palette count  │ 2 custom palettes │
+  ├───────────────────────┼───────────────────┤
+  │ Sync UDP port         │ 21324             │
+  │ WebSocket             │ 0 client(s)       │
+  ├───────────────────────┼───────────────────┤
+  │ Live                  │ No                │
+  │ Live IP               │                   │
+  │ Live mode             │                   │
+  ├───────────────────────┼───────────────────┤
+  │ LED count             │ 30 LEDs           │
+  │ LED power             │ 0 mA              │
+  │ LED max power         │ 850 mA            │
+  └───────────────────────┴───────────────────┘
+  
+  '''
+# ---
 # name: test_json_output[effects]
   list([
     dict({

@@ -613,7 +613,7 @@ class WLED:
         ----
             segment_id: The ID of the segment to adjust.
             brightness: The brightness of the segment, between 0 and 255.
-            clones: Deprecated.
+            clones: Deprecated: WLED ignores this, and it will be removed.
             color_primary: The primary color of this segment.
             color_secondary: The secondary color of this segment.
             color_tertiary: The tertiary color of this segment.
@@ -734,7 +734,6 @@ class WLED:
             "c1": update.custom1,
             "c2": update.custom2,
             "c3": update.custom3,
-            "cln": update.clones,
             "frz": update.freeze,
             "fx": update.effect,
             "i": update.individual,
@@ -868,6 +867,10 @@ class WLED:
             )
 
         await self.request("/json/state", method="POST", data={"ps": playlist})
+
+    async def next_playlist_entry(self) -> None:
+        """Skip to the next entry of the running playlist on a WLED device."""
+        await self.request("/json/state", method="POST", data={"np": True})
 
     async def live(self, live: LiveDataOverride) -> None:
         """Set the live override mode on a WLED device.

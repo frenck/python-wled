@@ -196,8 +196,19 @@ async def command_info(
     if device.info.wifi:
         info_table.add_row("Wi-Fi BSSID", device.info.wifi.bssid)
         info_table.add_row("Wi-Fi channel", str(device.info.wifi.channel))
-        info_table.add_row("Wi-Fi RSSI", f"{device.info.wifi.rssi} dBm")
-        info_table.add_row("Wi-Fi signal strength", f"{device.info.wifi.signal}%")
+        # Without a connection, like on a wired device, there is no signal.
+        info_table.add_row(
+            "Wi-Fi RSSI",
+            "Not connected"
+            if device.info.wifi.rssi is None
+            else f"{device.info.wifi.rssi} dBm",
+        )
+        info_table.add_row(
+            "Wi-Fi signal strength",
+            "Not connected"
+            if device.info.wifi.signal is None
+            else f"{device.info.wifi.signal}%",
+        )
 
     info_table.add_section()
     info_table.add_row("Version", device.info.version)

@@ -10,7 +10,7 @@ from awesomeversion import AwesomeVersion
 from syrupy.assertion import SnapshotAssertion
 
 from wled import Device, Playlist, Preset, Releases
-from wled.const import DEFAULT_REPO
+from wled.const import DEFAULT_REPO, BuildOption, LightCapability
 from wled.exceptions import WLEDUnsupportedVersionError
 from wled.models import (
     AwesomeVersionSerializationStrategy,
@@ -19,6 +19,7 @@ from wled.models import (
     Filesystem,
     Info,
     Matrix,
+    SegmentUpdate,
     SensorReading,
     State,
     TimedeltaSerializationStrategy,
@@ -1504,3 +1505,93 @@ def test_solid_effect_uses_the_primary_color_only() -> None:
         "speed": "Effect speed",
         "intensity": "Effect intensity",
     }
+
+
+@pytest.mark.parametrize(
+    ("segment_lc", "seglc", "expected"),
+    [
+        # WLED 16.0 reports it on the segment itself.
+        (3, [7], LightCapability.RGB_COLOR | LightCapability.WHITE_CHANNEL),
+        # Older versions only list it in the LED info.
+        (None, [7], LightCapability(7)),
+        # Without either, it isn't known.
+        (None, [], None),
+    ],
+)
+def test_segment_light_capabilities(
+    segment_lc: int | None, seglc: list[int], expected: LightCapability | None
+) -> None:
+    """Test segment capabilities come from the segment, or the LED info."""
+    data = full_device_data()
+    data["info"]["leds"]["seglc"] = seglc
+    if segment_lc is not None:
+        data["state"]["seg"][0]["lc"] = segment_lc
+
+    device = Device.from_dict(data)
+
+    assert device.state.segments[0].light_capabilities == expected
+
+
+def test_segment_light_capabilities_after_an_update() -> None:
+    """Test segment capabilities from the LED info survive a state update."""
+    device = Device.from_dict(full_device_data())
+    data = full_device_data()
+    data["info"]["leds"]["seglc"] = [1]
+
+    device.update_from_dict({"info": data["info"], "state": data["state"]})
+
+    assert device.state.segments[0].light_capabilities == LightCapability.RGB_COLOR
+
+
+@pytest.mark.parametrize(
+    ("opt", "expected"),
+    [
+        (
+            79,
+            BuildOption.OTA
+            | BuildOption.ADALIGHT
+            | BuildOption.HUE_SYNC
+            | BuildOption.FILESYSTEM
+            | BuildOption.ALEXA,
+        ),
+        (8, BuildOption.FILESYSTEM),
+        (None, BuildOption.NONE),
+    ],
+)
+def test_info_build_options(opt: int | None, expected: BuildOption) -> None:
+    """Test the build options are read from the info."""
+    data = full_device_data()
+    if opt is not None:
+        data["info"]["opt"] = opt
+
+    device = Device.from_dict(data)
+
+    assert device.info.build_options == expected
+    assert (BuildOption.OTA in device.info.build_options) == bool(
+        expected & BuildOption.OTA
+    )
+
+
+def test_wifi_without_a_connection() -> None:
+    """Test a device without Wi-Fi connection reports no signal, not 100%."""
+    data = full_device_data()
+    data["info"]["wifi"] = {
+        "bssid": "00:00:00:00:00:00",
+        "rssi": 0,
+        "signal": 100,
+        "channel": 0,
+        "ap": True,
+    }
+
+    device = Device.from_dict(data)
+
+    assert device.info.wifi is not None
+    assert device.info.wifi.rssi is None
+    assert device.info.wifi.signal is None
+    assert device.info.wifi.access_point
+
+
+def test_segment_update_clones_is_deprecated() -> None:
+    """Test setting clones on a segment update warns that it's ignored."""
+    with pytest.warns(DeprecationWarning, match="clones"):
+        SegmentUpdate(segment_id=0, clones=1)
