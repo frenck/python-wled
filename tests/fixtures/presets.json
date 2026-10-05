@@ -17,7 +17,7 @@
     "playlist": {
       "ps": [1],
       "dur": [100],
-      "transitions": [10],
+      "transition": [10],
       "end": 0,
       "r": false,
       "repeat": 3
