@@ -1460,11 +1460,13 @@ class Device(BaseModel):
         ):
             return
 
+        # A segment the LED info has no entry for is unknown, also when it
+        # had one before.
         capabilities = self.info.leds.segment_light_capabilities
-        for segment, light_capabilities in zip(
-            self.state.segments.values(), capabilities, strict=False
-        ):
-            segment.light_capabilities = light_capabilities
+        for position, segment in enumerate(self.state.segments.values()):
+            segment.light_capabilities = (
+                capabilities[position] if position < len(capabilities) else None
+            )
 
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.
