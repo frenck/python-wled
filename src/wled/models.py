@@ -724,15 +724,21 @@ class Leds:
     """Capabilities of the light."""
 
     max_power: int = field(default=0, metadata=field_options(alias="maxpwr"))
-    """Maximum power budget in milliamperes for the ABL. 0 if ABL is disabled."""
+    """The total current limit in milliamperes for the brightness limiter.
+
+    0 when there is no total limit. Since 0.15, limits can also be set per
+    LED output instead, and those aren't included here.
+    """
 
     max_segments: int = field(default=0, metadata=field_options(alias="maxseg"))
     """Maximum number of segments supported by this version."""
 
     power: int = field(default=0, metadata=field_options(alias="pwr"))
-    """
-    Current LED power usage in milliamperes as determined by the ABL.
-    0 if ABL is disabled.
+    """The estimated current draw in milliamperes.
+
+    Only estimated while the brightness limiter is in use. Since 0.15, it
+    includes the controller itself (about 80 mA for an ESP8266, 120 mA for
+    an ESP32), so without the limiter it's that amount instead of 0.
     """
 
     rgbw: bool = False
