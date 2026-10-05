@@ -710,17 +710,19 @@ class WLED:
         the earlier ones have to be sent along; those come from the current
         state of the segment.
         """
+        # A segment we don't know (yet) has no current colors to fall back on.
+        segment = device.state.segments.get(update.segment_id)
+        current = segment.color if segment else None
+
         colors: list[ColorTuple] = []
         if update.color_primary is not None:
             colors.append(update.color_primary)
         elif update.color_secondary is not None or update.color_tertiary is not None:
-            current = device.state.segments[update.segment_id].color
             colors.append(current.primary if current else (0, 0, 0))
 
         if update.color_secondary is not None:
             colors.append(update.color_secondary)
         elif update.color_tertiary is not None:
-            current = device.state.segments[update.segment_id].color
             colors.append(
                 current.secondary if current and current.secondary else (0, 0, 0)
             )
