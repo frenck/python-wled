@@ -355,7 +355,7 @@ def test_info_sensor_skips_malformed_entries() -> None:
                 "temperature": [77, "F"],
                 "too_short": [77],
                 "too_long": [77, "F", "extra"],
-                "not_a_list": "77",
+                "is_dict": {"value": 77},
                 "is_null": None,
                 "null_unit": [77, None],
                 "dict_unit": [77, {"unit": "F"}],
@@ -365,6 +365,38 @@ def test_info_sensor_skips_malformed_entries() -> None:
 
     assert info.sensor is not None
     assert info.sensor == {"temperature": SensorReading(value=77, unit="F")}
+
+
+def test_info_sensor_from_usermods() -> None:
+    """Test the sensor readings the WLED usermods report are all parsed."""
+    # As the Temperature, Internal Temperature v2, SHT, and PIR sensor switch
+    # usermods write them; note the padded unit and the bare motion value.
+    info = Info.from_dict(
+        _base_info(
+            sensor={
+                "temperature": [21.5, "°C"],
+                "Internal Temperature": [41.2, "°C"],
+                "temp": [21.4, "°C"],
+                "humidity": [45.1, " RH"],
+                "motion": True,
+            }
+        )
+    )
+
+    assert info.sensor == {
+        "temperature": SensorReading(value=21.5, unit="°C"),
+        "Internal Temperature": SensorReading(value=41.2, unit="°C"),
+        "temp": SensorReading(value=21.4, unit="°C"),
+        "humidity": SensorReading(value=45.1, unit="RH"),
+        "motion": SensorReading(value=True),
+    }
+
+
+def test_info_sensor_bare_value_serializes_back() -> None:
+    """Test a reading without a unit serializes back to its bare value."""
+    info = Info.from_dict(_base_info(sensor={"motion": False}))
+
+    assert info.to_dict()["sensor"] == {"motion": False}
 
 
 def test_info_sensor_drops_non_dict_value() -> None:

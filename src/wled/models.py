@@ -119,17 +119,24 @@ class Color(SerializableType):
 
 @dataclass
 class SensorReading(SerializableType):
-    """Object holding a single sensor reading provided by a WLED usermod."""
+    """Object holding a single sensor reading provided by a WLED usermod.
+
+    Most usermods report a reading as ``[value, unit]``; some, like the PIR
+    sensor switch, report a bare value without a unit.
+    """
 
     value: Any
-    unit: str
+    unit: str | None = None
 
-    def _serialize(self) -> list[Any]:
-        return [self.value, self.unit]
+    def _serialize(self) -> Any:
+        return self.value if self.unit is None else [self.value, self.unit]
 
     @classmethod
-    def _deserialize(cls, value: list[Any]) -> SensorReading:
-        return cls(value=value[0], unit=value[1])
+    def _deserialize(cls, value: Any) -> SensorReading:
+        if isinstance(value, (list, tuple)):
+            # Some usermods pad the unit with spaces, like " RH".
+            return cls(value=value[0], unit=value[1].strip())
+        return cls(value=value)
 
 
 class BaseModel(DataClassORJSONMixin):
@@ -668,7 +675,8 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
             d.pop("sensor", None)
             return d
         # Since usermods are free to put anything in the sensor field, only keep
-        # entries that follow the expected [value, unit] shape with a string unit.
+        # entries that are a [value, unit] pair with a string unit, or a bare
+        # value without a unit (like the PIR sensor switch reports motion).
         d["sensor"] = {
             name: entry
             for name, entry in sensor.items()
@@ -677,6 +685,7 @@ class Info(BaseModel):  # pylint: disable=too-many-instance-attributes
                 and len(entry) == 2
                 and isinstance(entry[1], str)
             )
+            or isinstance(entry, (bool, int, float, str))
         }
         return d
 
