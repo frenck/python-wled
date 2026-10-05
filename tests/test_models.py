@@ -225,6 +225,64 @@ def test_color_deserialize_mixed() -> None:
     assert color.secondary == (0, 0, 0)
 
 
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("FF9900", (255, 153, 0)),
+        ("#FF9900", (255, 153, 0)),
+        ("ff990011", (255, 153, 0, 17)),
+        ({"r": 255, "g": 153, "b": 0}, (255, 153, 0)),
+        ({"r": 1, "g": 2, "b": 3, "w": 4}, (1, 2, 3, 4)),
+        ([1, 2, 3], [1, 2, 3]),
+        ([255], (255, 0, 0)),
+        ([1, 2], (1, 2, 0)),
+    ],
+)
+def test_color_deserialize_forms(raw: object, expected: object) -> None:
+    """Test every fixed color form WLED takes is understood."""
+    color = Color._deserialize([raw])  # pylint: disable=protected-access
+
+    assert color.primary == expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "r",
+        2700,
+        "XYZ123",
+        "0xFFFF",
+        [],
+        [1, 2, 3, 4, 5],
+        # WLED keeps the current value of a channel an object leaves out.
+        {"r": 255, "g": 153},
+        {"r": None, "g": 0, "b": 0},
+    ],
+)
+def test_color_deserialize_unusable_primary(raw: object) -> None:
+    """Test a primary color that isn't a fixed color is refused."""
+    with pytest.raises(ValueError, match="Unusable primary color"):
+        Color._deserialize([raw])  # pylint: disable=protected-access
+
+
+def test_color_deserialize_unusable_secondary() -> None:
+    """Test a later color that isn't a fixed color is left out."""
+    color = Color._deserialize(["FF0000", "r"])  # pylint: disable=protected-access
+
+    assert color.primary == (255, 0, 0)
+    assert color.secondary is None
+
+
+def test_segment_without_usable_colors() -> None:
+    """Test a segment with a random primary color is parsed without colors."""
+    base = _base_state()
+    segment = base["seg"][0] | {"col": ["r", "r", "r"]}
+
+    state = State.from_dict(_base_state(seg=[segment]))
+
+    assert state.segments[0].color is None
+
+
 # =========================================================================
 # Filesystem model
 # =========================================================================
@@ -234,6 +292,14 @@ def test_filesystem_free_space() -> None:
     """Test free space calculation."""
     fs = Filesystem.from_dict({"u": 12, "t": 64, "pmt": 1702050803.0})
     assert fs.free == 52
+
+
+def test_filesystem_without_size() -> None:
+    """Test the percentages of a filesystem reported without a size are 0."""
+    filesystem = Filesystem.from_dict({"t": 0, "u": 0, "pmt": 0})
+
+    assert filesystem.free_percentage == 0
+    assert filesystem.used_percentage == 0
 
 
 def test_filesystem_free_percentage() -> None:
@@ -611,7 +677,7 @@ def test_playlist_basic() -> None:
             "playlist": {
                 "ps": [1, 2],
                 "dur": [100, 200],
-                "transitions": [10, 20],
+                "transition": [10, 20],
                 "end": 0,
                 "r": False,
                 "repeat": 3,
@@ -639,7 +705,7 @@ def test_playlist_single_duration() -> None:
             "playlist": {
                 "ps": [1, 2, 3],
                 "dur": 50,
-                "transitions": [10, 20, 30],
+                "transition": [10, 20, 30],
                 "end": 0,
                 "r": False,
             },
@@ -658,7 +724,7 @@ def test_playlist_single_transition() -> None:
             "playlist": {
                 "ps": [1, 2],
                 "dur": [100, 200],
-                "transitions": 5,
+                "transition": 5,
                 "end": 0,
                 "r": True,
             },
@@ -668,8 +734,8 @@ def test_playlist_single_transition() -> None:
     assert all(e.transition == 5 for e in playlist.entries)
 
 
-def test_playlist_no_transitions() -> None:
-    """Test playlist without transitions key defaults to zero."""
+def test_playlist_no_transition() -> None:
+    """Test a playlist without a transition leaves it to the device."""
     playlist = Playlist.from_dict(
         {
             "playlist_id": 5,
@@ -683,7 +749,40 @@ def test_playlist_no_transitions() -> None:
         }
     )
     assert len(playlist.entries) == 1
-    assert playlist.entries[0].transition == 0
+    assert playlist.entries[0].transition is None
+
+
+def test_playlist_defaults_and_padding_like_wled() -> None:
+    """Test missing and short lists are filled in the way WLED does."""
+    playlist = Playlist.from_dict(
+        {
+            "playlist_id": 6,
+            "playlist": {
+                "ps": [1, 2, 3],
+                "transition": [5],
+            },
+        }
+    )
+
+    assert [entry.duration for entry in playlist.entries] == [100, 100, 100]
+    assert [entry.transition for entry in playlist.entries] == [5, 5, 5]
+
+
+def test_playlist_short_and_long_lists() -> None:
+    """Test a short list is padded with its last value, a long one cut off."""
+    playlist = Playlist.from_dict(
+        {
+            "playlist_id": 7,
+            "playlist": {
+                "ps": [1, 2, 3],
+                "dur": [30, 40],
+                "transition": [1, 2, 3, 4, 5],
+            },
+        }
+    )
+
+    assert [entry.duration for entry in playlist.entries] == [30, 40, 40]
+    assert [entry.transition for entry in playlist.entries] == [1, 2, 3]
 
 
 def test_playlist_empty_name_uses_id() -> None:

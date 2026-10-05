@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import string
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from functools import cached_property
@@ -102,19 +103,99 @@ class Color(SerializableType):
         return colors
 
     @classmethod
-    def _deserialize(
-        cls, value: list[tuple[int, int, int, int] | tuple[int, int, int] | str]
-    ) -> Color:
-        # Some values in the list can be strings, which indicates that the
-        # color is a hex color value.
-        return cls(
-            *[
-                tuple(int(color[i : i + 2], 16) for i in (1, 3, 5))
-                if isinstance(color, str)
-                else color
-                for color in value
-            ]  # ty: ignore[invalid-argument-type]
-        )
+    def _deserialize(cls, value: list[Any]) -> Color:
+        colors = [_parse_color(color) for color in value]
+        if not colors or colors[0] is None:
+            msg = f"Unusable primary color: {value!r}"
+            raise ValueError(msg)
+
+        return cls(*colors)  # ty: ignore[invalid-argument-type]
+
+
+def _spread_over_entries(
+    value: Any, count: int, *, default: int | None
+) -> list[int | None]:
+    """Spread a playlist setting over its entries, the way WLED does.
+
+    WLED takes one value for all entries, or a list with one per entry. It
+    pads a list that's too short with its last value and ignores the excess
+    of a list that's too long.
+    """
+    if not isinstance(value, list):
+        return [value if isinstance(value, int) else default] * count
+
+    values: list[int | None] = [item for item in value if isinstance(item, int)]
+    values = values[:count] or [default]
+    return values + [values[-1]] * (count - len(values))
+
+
+def _parse_color(
+    color: Any,
+) -> tuple[int, int, int, int] | tuple[int, int, int] | None:
+    """Return a color in any of the forms WLED knows as RGB(W) values.
+
+    WLED takes a list of channel values, a hex string (RRGGBB or RRGGBBWW),
+    or an object with r, g, b, and w keys. It also takes "r" for a random
+    color and a color temperature in Kelvin; neither is a fixed color, so
+    those, like anything unknown, return None.
+    """
+    if isinstance(color, (list, tuple)) and 1 <= len(color) <= 4:
+        if len(color) >= 3:
+            # What the device reports itself; passed on as is.
+            return color
+
+        # WLED fills in the missing channels with 0.
+        return (*color, *[0] * (3 - len(color)))  # ty: ignore[invalid-return-type]
+
+    if isinstance(color, dict):
+        return _color_from_channels(color)
+
+    if isinstance(color, str):
+        # Older WLED versions, and hand-written presets, prefix a #.
+        return _color_from_hex(color.removeprefix("#"))
+
+    return None
+
+
+def _color_from_channels(
+    channels: dict[str, Any],
+) -> tuple[int, int, int, int] | tuple[int, int, int] | None:
+    """Return the color for an object of channel values, like {"r": 255}.
+
+    WLED keeps the current value of every channel the object leaves out,
+    which isn't known here; only an object that sets r, g, and b is a fixed
+    color.
+    """
+    red, green, blue = (channels.get(channel) for channel in "rgb")
+    white = channels.get("w", 0)
+    if not (
+        isinstance(red, int)
+        and isinstance(green, int)
+        and isinstance(blue, int)
+        and isinstance(white, int)
+    ):
+        return None
+
+    if "w" in channels:
+        return (red, green, blue, white)
+
+    return (red, green, blue)
+
+
+def _color_from_hex(
+    hex_color: str,
+) -> tuple[int, int, int, int] | tuple[int, int, int] | None:
+    """Return the color for a RRGGBB or RRGGBBWW hex string, if it is one."""
+    if len(hex_color) not in (6, 8) or not all(
+        character in string.hexdigits for character in hex_color
+    ):
+        return None
+
+    value = int(hex_color, 16)
+    if len(hex_color) == 8:
+        return (value >> 24, value >> 16 & 0xFF, value >> 8 & 0xFF, value & 0xFF)
+
+    return (value >> 16, value >> 8 & 0xFF, value & 0xFF)
 
 
 @dataclass
@@ -451,6 +532,18 @@ class Segment(BaseModel):
     transpose: bool = field(default=False, metadata=field_options(alias="tp"))
     """Transposes the segment, swapping X and Y dimensions (2D only)."""
 
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for Segment object."""
+        # Presets can hold colors that aren't fixed, like a random "r" or a
+        # Kelvin temperature. Without a usable primary color, treat the segment
+        # as having no colors rather than failing on it.
+        colors = d.get("col")
+        if isinstance(colors, list) and (not colors or _parse_color(colors[0]) is None):
+            d.pop("col")
+
+        return d
+
 
 @dataclass(kw_only=True)
 class Leds:
@@ -539,9 +632,14 @@ class Filesystem(BaseModel):
 
         Returns
         -------
-            The free percentage of the filesystem.
+            The free percentage of the filesystem, or 0 when the device
+            reports no filesystem (it reports a size of 0 when it fails to
+            mount one).
 
         """
+        if not self.total:
+            return 0
+
         return round((self.free / self.total) * 100)
 
     @cached_property
@@ -550,9 +648,14 @@ class Filesystem(BaseModel):
 
         Returns
         -------
-            The used percentage of the filesystem.
+            The used percentage of the filesystem, or 0 when the device
+            reports no filesystem (it reports a size of 0 when it fails to
+            mount one).
 
         """
+        if not self.total:
+            return 0
+
         return round((self.used / self.total) * 100)
 
 
@@ -858,7 +961,12 @@ class PlaylistEntry(BaseModel):
     duration: int = field(metadata=field_options(alias="dur"))
     entry_id: int
     preset: int = field(metadata=field_options(alias="ps"))
-    transition: int
+    transition: int | None = None
+    """The transition to this entry, in units of 100ms.
+
+    None when the playlist doesn't set one; the device then uses its default
+    transition.
+    """
 
 
 @dataclass(kw_only=True)
@@ -891,34 +999,24 @@ class Playlist(BaseModel):
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
         """Pre deserialize hook for Playlist object."""
         d |= d["playlist"]
-        # Duration, presets and transitions values are separate lists stored
-        # in the playlist data. We will combine those into a list of
-        # dictionaries, which will make it easier to work with the data.
-        item_count = len(d.get("ps", []))
+        # The presets, durations, and transitions are separate lists in the
+        # playlist data; combine them into one entry per preset.
+        presets = d.get("ps", [])
+        durations = _spread_over_entries(d.get("dur"), len(presets), default=100)
+        # Without a transition, WLED uses its own default transition.
+        transitions = _spread_over_entries(
+            d.get("transition"), len(presets), default=None
+        )
 
-        # If the duration is a single value, we will convert it to a list.
-        # with the same length as the presets list.
-        if not isinstance(d["dur"], list):
-            d["dur"] = [d["dur"]] * item_count
-
-        # If the transition value doesn't exist, we will set it to 0.
-        if "transitions" not in d:
-            d["transitions"] = [0] * item_count
-        # If the transition is a single value, we will convert it to a list.
-        # with the same length as the presets list.
-        elif not isinstance(d["transitions"], list):
-            d["transitions"] = [d["transitions"]] * item_count
-
-        # Now we can easily combine the data into a list of dictionaries.
         d["entries"] = [
             {
                 "entry_id": entry_id,
-                "ps": ps,
-                "dur": dur,
+                "ps": preset,
+                "dur": duration,
                 "transition": transition,
             }
-            for entry_id, (ps, dur, transition) in enumerate(
-                zip(d["ps"], d["dur"], d["transitions"], strict=True)
+            for entry_id, (preset, duration, transition) in enumerate(
+                zip(presets, durations, transitions, strict=True)
             )
         ]
 
