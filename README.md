@@ -404,7 +404,7 @@ SOFTWARE.
 [poetry-install]: https://python-poetry.org/docs/#installation
 [poetry]: https://python-poetry.org
 [prek]: https://github.com/j178/prek
-[project-stage-shield]: https://img.shields.io/badge/project%20stage-experimental-yellow.svg
+[project-stage-shield]: https://img.shields.io/badge/project%20stage-production%20ready-brightgreen.svg
 [pypi]: https://pypi.org/project/wled/
 [python-versions-shield]: https://img.shields.io/pypi/pyversions/wled
 [releases-shield]: https://img.shields.io/github/release/frenck/python-wled.svg
