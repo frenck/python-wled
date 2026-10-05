@@ -7,6 +7,7 @@ import hashlib
 import re
 import socket
 import time
+import warnings
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Self
 
@@ -650,10 +651,18 @@ class WLED:
             WLEDError: Something went wrong setting the segment state.
 
         """
+        # Warned about here rather than in SegmentUpdate, so the warning
+        # points at the code that passed it. It isn't sent anyway.
+        if clones is not None:
+            warnings.warn(
+                "Segment clones are no longer supported by WLED and are ignored",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         update = SegmentUpdate(
             segment_id=segment_id,
             brightness=brightness,
-            clones=clones,
             color_primary=color_primary,
             color_secondary=color_secondary,
             color_tertiary=color_tertiary,

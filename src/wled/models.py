@@ -19,6 +19,7 @@ from .const import (
     CUSTOM_PALETTE_ID_CHANGE_VERSION,
     DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
+    SEGMENT_LIGHT_CAPABILITIES_VERSION,
     BuildOption,
     LightCapability,
     LiveDataOverride,
@@ -1447,14 +1448,23 @@ class Device(BaseModel):
         """Fill in the light capabilities of segments on WLED before 16.0.
 
         Older versions only list them in the LED info, one entry for each
-        active segment, in the same order as the segments in the state.
+        active segment, in the same order as the segments in the state. They
+        are taken from there on every update, so they follow the LED info
+        when it changes on its own.
         """
+        version = self.info.version
+        if (
+            version is not None
+            and get_awesome_version(f"{version.major}.{version.minor}.{version.patch}")
+            >= SEGMENT_LIGHT_CAPABILITIES_VERSION
+        ):
+            return
+
         capabilities = self.info.leds.segment_light_capabilities
         for segment, light_capabilities in zip(
             self.state.segments.values(), capabilities, strict=False
         ):
-            if segment.light_capabilities is None:
-                segment.light_capabilities = light_capabilities
+            segment.light_capabilities = light_capabilities
 
     def update_from_dict(self, data: dict[str, Any]) -> Device:
         """Return Device object from WLED API response.

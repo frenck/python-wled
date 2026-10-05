@@ -10,6 +10,9 @@ MIN_REQUIRED_VERSION = AwesomeVersion("0.14.0")
 
 CUSTOM_PALETTE_ID_CHANGE_VERSION = AwesomeVersion("16.0.0")
 
+# Since 16.0, WLED reports the light capabilities on each segment ("lc").
+SEGMENT_LIGHT_CAPABILITIES_VERSION = AwesomeVersion("16.0.0")
+
 # Since 0.15, WLED no longer takes "recv" to turn receiving sync on or off;
 # receiving is on when there are receive groups ("rgrp").
 SYNC_RECEIVE_BY_GROUPS_VERSION = AwesomeVersion("0.15.0")

@@ -1833,8 +1833,12 @@ async def test_segment_clones_is_not_sent(responses: aioresponses, wled: WLED) -
         content_type="application/json",
     )
 
-    with pytest.warns(DeprecationWarning, match="clones"):
+    with pytest.warns(DeprecationWarning, match="clones") as warned:
         await wled.segment(0, clones=1, on=True)
+
+    # Once, and pointing at the caller rather than at the library.
+    assert len(warned) == 1
+    assert warned[0].filename == __file__
 
     assert_post_payload(
         responses,
