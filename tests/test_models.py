@@ -1636,3 +1636,39 @@ def test_parsing_leaves_reshaped_data_alone(sensor: object) -> None:
     Device.from_dict(data)
 
     assert data == original
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"rev": [1, 2]},
+        {"seg": {"id": 0}},
+        {"5": True},
+        {"6": [1]},
+        {"7": None},
+        {"8": {"playlist": {"ps": 1}}},
+        {"9": {"seg": "not a segment"}},
+    ],
+)
+def test_presets_skip_entries_that_are_not_presets(extra: dict[str, Any]) -> None:
+    """Test entries in the presets file that aren't presets are skipped."""
+    data = full_device_data()
+    data["presets"] = data["presets"] | extra
+    expected = Device.from_dict(full_device_data())
+
+    device = Device.from_dict(data)
+    device.update_from_dict({"presets": data["presets"]})
+
+    assert device.presets == expected.presets
+    assert device.playlists == expected.playlists
+
+
+def test_presets_cleared_by_an_empty_presets_file() -> None:
+    """Test an empty presets file clears the presets the device had."""
+    device = Device.from_dict(full_device_data())
+    assert device.presets
+
+    device.update_from_dict({"presets": {}})
+
+    assert device.presets == {}
+    assert device.playlists == {}
