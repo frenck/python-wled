@@ -15,7 +15,12 @@ import backoff
 import orjson
 from yarl import URL
 
-from .const import DEFAULT_REPO
+from .const import (
+    DEFAULT_REPO,
+    SYNC_RECEIVE_BY_GROUPS_VERSION,
+    NightlightMode,
+    SyncGroup,
+)
 from .exceptions import (
     WLEDConnectionClosedError,
     WLEDConnectionError,
@@ -27,6 +32,7 @@ from .exceptions import (
     WLEDUpgradeError,
 )
 from .models import Device, Playlist, Preset, Releases, SegmentUpdate
+from .utils import get_awesome_version
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Mapping, Sequence
@@ -76,6 +82,34 @@ def _is_not_retryable(exception: Exception) -> bool:
     answer with it while they're busy handling another request.
     """
     return isinstance(exception, WLEDStatusError) and exception.status != 503
+
+
+# WLED keeps transitions in milliseconds in 16 bits, so anything above this
+# many units of 100ms wraps around to a short transition.
+_MAX_TRANSITION = 655
+
+
+def _transition(transition: int) -> int:
+    """Return a transition WLED can hold, in units of 100ms."""
+    return max(0, min(transition, _MAX_TRANSITION))
+
+
+def _resolve_by_name(name: str, ids_by_name: dict[str, int], kind: str) -> int:
+    """Return the ID of a preset or playlist given by name, or by ID as text.
+
+    WLED reads a name it gets for "ps" as a number, and one starting with "r"
+    as a random preset, so an unknown name must never be sent along.
+    """
+    # isdecimal, unlike isdigit, only accepts what int() takes.
+    if name.isdecimal():
+        return int(name)
+
+    for item_name, item_id in ids_by_name.items():
+        if item_name.lower() == name.lower():
+            return item_id
+
+    msg = f"Unknown {kind}: {name!r}"
+    raise WLEDError(msg)
 
 
 # The heading WLED shows after it accepted a firmware upload (since 0.14).
@@ -527,7 +561,7 @@ class WLED:
             state["on"] = on
 
         if transition is not None:
-            state["tt"] = transition
+            state["tt"] = _transition(transition)
 
         await self.request("/json/state", method="POST", data=state)
 
@@ -660,7 +694,7 @@ class WLED:
             state["seg"] = segments
 
         if transition is not None:
-            state["tt"] = transition
+            state["tt"] = _transition(transition)
 
         await self.request("/json/state", method="POST", data=state)
 
@@ -763,7 +797,7 @@ class WLED:
         await self.request(
             "/json/state",
             method="POST",
-            data={"transition": transition},
+            data={"transition": _transition(transition)},
         )
 
     async def preset(self, preset: int | str | Preset) -> None:
@@ -774,19 +808,13 @@ class WLED:
             preset: The preset to activate on this WLED device.
 
         """
-        # Find preset if it was based on a name
-        if self._device and self._device.presets and isinstance(preset, str):
-            preset = next(
-                (
-                    item.preset_id
-                    for item in self._device.presets.values()
-                    if item.name.lower() == preset.lower()
-                ),
-                preset,
-            )
-
         if isinstance(preset, Preset):
             preset = preset.preset_id
+        elif isinstance(preset, str):
+            presets = self._device.presets.values() if self._device else ()
+            preset = _resolve_by_name(
+                preset, {item.name: item.preset_id for item in presets}, "preset"
+            )
 
         await self.request("/json/state", method="POST", data={"ps": preset})
 
@@ -798,19 +826,15 @@ class WLED:
             playlist: The playlist to activate on this WLED device.
 
         """
-        # Find playlist if it was based on a name
-        if self._device and self._device.playlists and isinstance(playlist, str):
-            playlist = next(
-                (
-                    item.playlist_id
-                    for item in self._device.playlists.values()
-                    if item.name.lower() == playlist.lower()
-                ),
-                playlist,
-            )
-
         if isinstance(playlist, Playlist):
             playlist = playlist.playlist_id
+        elif isinstance(playlist, str):
+            playlists = self._device.playlists.values() if self._device else ()
+            playlist = _resolve_by_name(
+                playlist,
+                {item.name: item.playlist_id for item in playlists},
+                "playlist",
+            )
 
         await self.request("/json/state", method="POST", data={"ps": playlist})
 
@@ -829,24 +853,71 @@ class WLED:
         *,
         send: bool | None = None,
         receive: bool | None = None,
+        send_groups: SyncGroup | None = None,
+        receive_groups: SyncGroup | None = None,
     ) -> None:
         """Set the sync status of the WLED device.
 
         Args:
         ----
             send: Send WLED broadcast (UDP sync) packet on state change.
-            receive: Receive broadcast packets.
+            receive: Receive broadcast packets. Since WLED 0.15, receiving is
+                on when there are receive groups, so turning it on keeps the
+                current receive groups, or uses the send groups if there are
+                none (falling back to group 1), and turning it off clears them.
+            send_groups: Groups to send WLED broadcast packets to.
+            receive_groups: Groups to receive WLED broadcast packets from.
+                Takes precedence over receive.
 
         """
-        sync = {"send": send, "recv": receive}
-        sync = {k: v for k, v in sync.items() if v is not None}
+        sync: dict[str, bool | int] = {}
+        if send is not None:
+            sync["send"] = send
+        if send_groups is not None:
+            sync["sgrp"] = int(send_groups)
+        if receive_groups is not None:
+            sync["rgrp"] = int(receive_groups)
+        elif receive is not None:
+            sync |= await self._sync_receive(receive=receive, send_groups=send_groups)
+
         await self.request("/json/state", method="POST", data={"udpn": sync})
+
+    async def _sync_receive(
+        self, *, receive: bool, send_groups: SyncGroup | None
+    ) -> dict[str, bool | int]:
+        """Return what turns receiving sync on or off for this device.
+
+        The send groups are the ones being set along with this change, if any;
+        those are the ones to receive from when there are no receive groups.
+        """
+        if self._device is None:
+            await self.update()
+
+        device = self._device
+        version = device.info.version if device else None
+        if (
+            device is None
+            or version is None
+            or get_awesome_version(f"{version.major}.{version.minor}.{version.patch}")
+            < SYNC_RECEIVE_BY_GROUPS_VERSION
+        ):
+            return {"recv": receive}
+
+        if not receive:
+            return {"rgrp": 0}
+
+        sync = device.state.sync
+        groups = (
+            sync.receive_groups or send_groups or sync.send_groups or SyncGroup.GROUP1
+        )
+        return {"rgrp": int(groups)}
 
     async def nightlight(
         self,
         *,
         duration: int | None = None,
         fade: bool | None = None,
+        mode: NightlightMode | None = None,
         on: bool | None = None,
         target_brightness: int | None = None,
     ) -> None:
@@ -857,14 +928,21 @@ class WLED:
             duration: Duration of nightlight in minutes.
             fade: If true, the light will gradually dim over the course of the
                 nightlight duration. If false, it will instantly turn to the
-                target brightness once the duration has elapsed.
+                target brightness once the duration has elapsed. A shorthand
+                for the fade and instant modes; mode takes precedence.
+            mode: How the light gets to the target brightness: instantly,
+                fading, fading the color too, or as a sunrise.
             on: A boolean, true to turn the nightlight on, false otherwise.
             target_brightness: Target brightness of nightlight, between 0 and 255.
 
         """
+        # WLED has no "fade" setting; fading is one of the nightlight modes.
+        if mode is None and fade is not None:
+            mode = NightlightMode.FADE if fade else NightlightMode.INSTANT
+
         nightlight = {
             "dur": duration,
-            "fade": fade,
+            "mode": mode,
             "on": on,
             "tbri": target_brightness,
         }
