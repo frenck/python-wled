@@ -14,7 +14,11 @@ from zeroconf import ServiceStateChange, Zeroconf
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo, AsyncZeroconf
 
 from wled import WLED, WLEDReleases
-from wled.exceptions import WLEDConnectionError, WLEDUnsupportedVersionError
+from wled.exceptions import (
+    WLEDConnectionError,
+    WLEDError,
+    WLEDUnsupportedVersionError,
+)
 
 from .async_typer import AsyncTyper
 
@@ -59,6 +63,19 @@ def connection_error_handler(_: WLEDConnectionError) -> None:
         message,
         expand=False,
         title="Connection error",
+        border_style="red bold",
+    )
+    console.print(panel)
+    sys.exit(1)
+
+
+@cli.error_handler(WLEDError)
+def error_handler(error: WLEDError) -> None:
+    """Handle any other error the device or the library reports."""
+    panel = Panel(
+        str(error),
+        expand=False,
+        title="Error",
         border_style="red bold",
     )
     console.print(panel)

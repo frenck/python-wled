@@ -184,9 +184,14 @@ class AsyncTyper(SyncTyper):
             raise
         # pylint: disable-next=broad-except
         except Exception as e:
-            if (
-                not hasattr(self, "error_handlers")
-                or (handler := self.error_handlers.get(type(e))) is None
-            ):
+            # The most specific handler wins, so a handler for a base class
+            # also covers its subclasses, like a timeout being a connection
+            # error.
+            handlers = getattr(self, "error_handlers", {})
+            handler = next(
+                (handlers[cls] for cls in type(e).__mro__ if cls in handlers),
+                None,
+            )
+            if handler is None:
                 raise
             return handler(e)
