@@ -2840,6 +2840,143 @@ async def test_upgrade_finds_fork_asset_by_release_name(
     )
 
 
+@pytest.mark.parametrize(
+    ("info", "assets", "expected"),
+    [
+        # The exact file WLED names after brand, version, and release name.
+        ({}, [{"name": "WLED_16.0.1_ESP32.bin"}], True),
+        # A fork's file, prefixed differently, found by version and release.
+        (
+            {"product": "MoonModules", "release": "esp32_4MB_V4_M"},
+            [{"name": "WLEDMM_16.0.1_esp32_4MB_V4_M.bin"}],
+            True,
+        ),
+        # A custom build has no file in the release.
+        (
+            {"product": "MoonModules", "release": "Apollo_M-1-Rev2"},
+            [{"name": "WLEDMM_16.0.1_esp32_4MB_V4_M.bin"}],
+            False,
+        ),
+        # More than one candidate is no answer either.
+        (
+            {"brand": "Fork", "release": "ESP32"},
+            [{"name": "A_16.0.1_ESP32.bin"}, {"name": "B_16.0.1_ESP32.bin"}],
+            False,
+        ),
+    ],
+)
+async def test_firmware_available(
+    responses: aioresponses,
+    wled: WLED,
+    info: dict[str, str],
+    assets: list[dict[str, Any]],
+    *,
+    expected: bool,
+) -> None:
+    """Test firmware_available() tells whether a release has this device's file."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update({"arch": "esp32", "ver": "16.0.0", "release": "ESP32"})
+    wled_data["info"].update(info)
+    mock_json_and_presets(responses, wled_data)
+    device = await wled.update()
+    assert device.info.repo is not None
+    mock_release(responses, assets, repo=device.info.repo, version="16.0.1")
+
+    assert await wled.firmware_available(version="16.0.1") is expected
+
+
+async def test_firmware_available_without_a_known_repo(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() is False when the device's repo isn't known."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"].update({"arch": "esp32", "product": "Some Fork"})
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    assert await wled.firmware_available(version="16.0.1") is False
+
+    # With the repository given, it looks there.
+    mock_release(
+        responses,
+        [{"name": "WLED_16.0.1_ESP32.bin"}],
+        repo="some/fork",
+        version="16.0.1",
+    )
+    assert await wled.firmware_available(version="16.0.1", repo="some/fork") is True
+
+
+async def test_firmware_available_unsupported_architecture(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() is False for a device upgrade() can't flash."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "rp2040"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    assert await wled.firmware_available(version="16.0.1") is False
+
+
+async def test_firmware_available_release_does_not_exist(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() is False for a version without a release."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        f"https://api.github.com/repos/{DEFAULT_REPO}/releases/tags/v99.0.0",
+        status=404,
+        body="{}",
+        content_type="application/json",
+    )
+
+    assert await wled.firmware_available(version="99.0.0") is False
+
+
+async def test_firmware_available_when_github_cant_tell(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() raises when GitHub can't be asked."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+    responses.get(
+        f"https://api.github.com/repos/{DEFAULT_REPO}/releases/tags/v16.0.1",
+        status=403,
+        body='{"message": "API rate limit exceeded"}',
+        content_type="application/json",
+    )
+
+    with pytest.raises(WLEDError, match="Could not look up"):
+        await wled.firmware_available(version="16.0.1")
+
+
+async def test_firmware_available_no_session_raises() -> None:
+    """Test firmware_available() raises when there is no session and no device."""
+    wled = WLED("example.com")
+    with (
+        patch.object(wled, "update", new_callable=AsyncMock),
+        pytest.raises(WLEDError, match="Unexpected"),
+    ):
+        await wled.firmware_available(version="16.0.1")
+
+
+async def test_firmware_available_updates_first(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() fetches the device first when needed."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["arch"] = "esp32"
+    mock_json_and_presets(responses, wled_data)
+    mock_release(responses, [{"name": "WLED_16.0.1_ESP32.bin"}], version="16.0.1")
+
+    assert await wled.firmware_available(version="16.0.1") is True
+
+
 async def test_upgrade_refuses_ambiguous_fork_asset(
     responses: aioresponses, wled: WLED
 ) -> None:

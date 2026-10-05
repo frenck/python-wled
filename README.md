@@ -236,6 +236,15 @@ and a self-built firmware reports `unknown`. Upstream WLED then falls back to
 build, `device.info.repo` is `None`, and `upgrade()` needs `repo` to know
 where to look. Pass `repo` to `upgrade()` to pick another one anyway.
 
+Not every version in a release can be installed on every device: a custom
+build, for example, has no firmware file in any release. To offer an upgrade
+only when `upgrade()` can actually install it, ask first:
+
+```python
+if await led.firmware_available(version=releases.stable):
+    ...
+```
+
 The release is looked up through the GitHub API, and the download is checked
 against the SHA256 digest GitHub publishes for it; a firmware file that
 doesn't match is never sent to the device. When GitHub's API can't be
