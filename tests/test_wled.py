@@ -1219,6 +1219,93 @@ async def test_update_led_config_after_led_setup_change(
     assert requests_to(responses, "/json/cfg") == 2
 
 
+async def test_update_led_config_retried_after_an_error(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a config the device couldn't send isn't known, and is asked again."""
+    wled_data = load_fixture_json("wled")
+    mock_json_and_presets(responses, wled_data)
+    mock_cfg(responses, status=500, body="Oops", content_type="text/plain")
+    mock_si(responses, wled_data)
+    mock_cfg(
+        responses,
+        status=200,
+        body=json.dumps(load_fixture_json("led_config/wled-16.0.0-ws2812")),
+        content_type="application/json",
+    )
+
+    device = await wled.update()
+    assert device.led_config is None
+
+    device = await wled.update()
+    assert device.led_config is not None
+
+
+async def test_update_led_config_not_known_when_refetch_fails(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a changed LED setup that can't be fetched isn't reported as the old one."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["leds"]["lc"] = 1
+    wled_data["info"]["leds"]["seglc"] = [1]
+    changed_data = json.loads(json.dumps(wled_data))
+    changed_data["info"]["leds"]["lc"] = 7
+    changed_data["info"]["leds"]["seglc"] = [7]
+    mock_json_and_presets(responses, wled_data)
+    mock_cfg(
+        responses,
+        status=200,
+        body=json.dumps(load_fixture_json("led_config/wled-16.0.0-ws2812")),
+        content_type="application/json",
+    )
+    mock_si(responses, changed_data)
+    mock_catalog(responses, changed_data["effects"], changed_data["palettes"])
+    for _ in range(3):
+        mock_cfg(responses, exception=aiohttp.ClientError("gone"))
+
+    device = await wled.update()
+    assert device.led_config is not None
+
+    device = await wled.update()
+    assert device.led_config is None
+
+
+async def test_update_led_config_looked_at_again_now_and_then(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test the config is fetched again after a while, like for a new blend."""
+    wled_data = load_fixture_json("wled")
+    ws2805 = load_fixture_json("led_config/wled-16.0.0-ws2805")
+    reblended = json.loads(json.dumps(ws2805))
+    reblended["hw"]["led"]["cb"] = 80
+    mock_json_and_presets(responses, wled_data)
+    mock_cfg(
+        responses, status=200, body=json.dumps(ws2805), content_type="application/json"
+    )
+    mock_si(responses, wled_data)
+    mock_si(responses, wled_data)
+    mock_cfg(
+        responses,
+        status=200,
+        body=json.dumps(reblended),
+        content_type="application/json",
+    )
+
+    with patch("wled.wled.time.monotonic", return_value=1000.0):
+        device = await wled.update()
+    with patch("wled.wled.time.monotonic", return_value=1100.0):
+        device = await wled.update()
+    assert device.led_config is not None
+    assert device.led_config.cct_blend == 30
+    assert requests_to(responses, "/json/cfg") == 1
+
+    with patch("wled.wled.time.monotonic", return_value=1400.0):
+        device = await wled.update()
+    assert device.led_config is not None
+    assert device.led_config.cct_blend == 80
+    assert requests_to(responses, "/json/cfg") == 2
+
+
 async def test_update_polls_state_and_info_once_catalog_is_cached(
     responses: aioresponses, wled: WLED
 ) -> None:

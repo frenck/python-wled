@@ -90,6 +90,11 @@ def _is_not_retryable(exception: Exception) -> bool:
 # configuration (for its LED setup).
 _CATALOG_LISTS = ("effects", "palettes", "fxdata", "cfg")
 
+# WLED applies changes to its LED setup without restarting, and not every one
+# changes the light capabilities (like the CCT blending), so the configuration
+# is looked at again after this many seconds.
+_LED_CONFIG_MAX_AGE = 300
+
 # WLED keeps transitions in milliseconds in 16 bits, so anything above this
 # many units of 100ms wraps around to a short transition.
 _MAX_TRANSITION = 655
@@ -279,6 +284,7 @@ class WLED:  # pylint: disable=too-many-public-methods
     _catalog_version: _CatalogVersion | None = None
     _catalog: dict[str, Any] = field(default_factory=dict)
     _catalog_missing: set[str] = field(default_factory=set)
+    _led_config_fetched: float | None = None
 
     @property
     def connected(self) -> bool:
@@ -557,6 +563,11 @@ class WLED:  # pylint: disable=too-many-public-methods
         elif self._catalog_missing:
             # Only the lists that failed before are tried again.
             self._catalog_missing = await self._fetch_catalog(self._catalog_missing)
+        elif (
+            self._led_config_fetched is not None
+            and time.monotonic() - self._led_config_fetched > _LED_CONFIG_MAX_AGE
+        ):
+            self._catalog_missing = await self._fetch_catalog({"cfg"})
 
         # Prefer the complete lists over the ones from /json, on every update.
         # Device rebuilds the custom and usermod palettes from the fresh info
@@ -1324,6 +1335,36 @@ class WLED:  # pylint: disable=too-many-public-methods
 
         return presets
 
+    async def _fetch_led_config(self) -> bool:
+        """Fetch the LED setup from the device's configuration into the cache.
+
+        Only the LED setup is of use; the rest, like the network settings,
+        isn't kept. As it's extra, it never fails the update: while it can't
+        be fetched, it's not known (rather than possibly outdated).
+
+        Returns
+        -------
+            Whether it's settled: fetched, or known not to be there. False
+            when it should be tried again with the next update.
+
+        """
+        self._led_config_fetched = time.monotonic()
+        self._catalog["cfg"] = None
+        try:
+            value = await self.request("/json/cfg")
+        except WLEDStatusError as error:
+            # A device without the configuration endpoint isn't asked for it
+            # again on every update.
+            return error.status == 404
+        except WLEDError:
+            return False
+
+        hw = value.get("hw") if isinstance(value, dict) else None
+        led = hw.get("led") if isinstance(hw, dict) else None
+        if led is not None:
+            self._catalog["cfg"] = {"hw": {"led": led}}
+        return True
+
     def _check_presets_changed(
         self, data: dict[str, Any]
     ) -> tuple[bool, _PresetsVersion | None]:
@@ -1435,7 +1476,7 @@ class WLED:  # pylint: disable=too-many-public-methods
         something unexpected, the previously cached list (if any) is kept.
         A connection error still propagates: if the device is gone, the
         update should fail. The configuration is the exception: it's only
-        there for the LED setup, which is extra.
+        there for the LED setup, which is extra (see `_fetch_led_config`).
 
         Returns
         -------
@@ -1444,30 +1485,17 @@ class WLED:  # pylint: disable=too-many-public-methods
         """
         missing: set[str] = set()
         for key in lists:
-            try:
-                value = await self.request(f"/json/{key}")
-            except WLEDConnectionError:
-                if key != "cfg":
-                    raise
-                # The LED setup is extra, and doesn't fail the update; it's
-                # tried again with the next one.
-                missing.add(key)
-                continue
-            except WLEDError:
-                if key == "cfg":
-                    # Not available on this device: not known, rather than
-                    # asked for again on every update.
-                    self._catalog[key] = None
-                else:
+            if key == "cfg":
+                if not await self._fetch_led_config():
                     missing.add(key)
                 continue
 
-            if key == "cfg":
-                # Only the LED setup is of use; the rest, like the network
-                # settings, isn't kept.
-                hw = value.get("hw") if isinstance(value, dict) else None
-                led = hw.get("led") if isinstance(hw, dict) else None
-                self._catalog[key] = {"hw": {"led": led}} if led is not None else None
+            try:
+                value = await self.request(f"/json/{key}")
+            except WLEDConnectionError:
+                raise
+            except WLEDError:
+                missing.add(key)
                 continue
 
             # Some less capable devices have no palettes and return `null`,

@@ -92,16 +92,19 @@ def combine_white(warm: int, cold: int, *, cct_blend: int) -> tuple[int, int]:
     best: tuple[int, int, int] | None = None
     for cct in range(256):
         full_warm, full_cold = split_white(255, cct, cct_blend=cct_blend)
-        # The white value that gives the brightest of the two whites.
-        white = max(
-            round(warm * 255 / full_warm) if full_warm else 0,
-            round(cold * 255 / full_cold) if full_cold else 0,
-        )
-        white = min(white, 255)
-        got_warm, got_cold = split_white(white, cct, cct_blend=cct_blend)
-        error = abs(got_warm - warm) + abs(got_cold - cold)
-        if best is None or error < best[0]:
-            best = (error, white, cct)
+        # The white values that come closest to either white; WLED rounds
+        # down, so the ones just around them are worth a try too.
+        candidates = {
+            min(255, max(0, int(target * 255 / full) + offset))
+            for target, full in ((warm, full_warm), (cold, full_cold))
+            if full
+            for offset in (-1, 0, 1, 2)
+        }
+        for white in candidates:
+            got_warm, got_cold = split_white(white, cct, cct_blend=cct_blend)
+            error = abs(got_warm - warm) + abs(got_cold - cold)
+            if best is None or error < best[0]:
+                best = (error, white, cct)
 
     assert best is not None  # noqa: S101
     return best[1], best[2]

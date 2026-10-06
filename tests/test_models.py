@@ -1905,13 +1905,21 @@ def test_split_white(
 
 @pytest.mark.parametrize("cct_blend", [0, 30, 100, -50])
 def test_combine_white(cct_blend: int) -> None:
-    """Test combining warm and cold white gives back about the same split."""
+    """Test combining warm and cold white gives back the same split."""
     for white in range(0, 256, 17):
         for cct in range(0, 256, 17):
             warm, cold = split_white(white, cct, cct_blend=cct_blend)
             got_white, got_cct = combine_white(warm, cold, cct_blend=cct_blend)
-            got_warm, got_cold = split_white(got_white, got_cct, cct_blend=cct_blend)
-            assert abs(got_warm - warm) + abs(got_cold - cold) <= 2
+            assert split_white(got_white, got_cct, cct_blend=cct_blend) == (
+                warm,
+                cold,
+            )
+
+
+def test_combine_white_finds_the_exact_one() -> None:
+    """Test a combination WLED can make exactly is found, not one close by."""
+    white, cct = combine_white(17, 136, cct_blend=0)
+    assert split_white(white, cct, cct_blend=0) == (17, 136)
 
 
 def test_combine_white_without_white() -> None:
