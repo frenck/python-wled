@@ -1306,6 +1306,61 @@ async def test_update_led_config_looked_at_again_now_and_then(
     assert requests_to(responses, "/json/cfg") == 2
 
 
+async def test_update_led_config_looked_at_again_while_metadata_fails(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test a list that keeps failing doesn't stop the config being refreshed."""
+    wled_data = load_fixture_json("wled")
+    ws2805 = load_fixture_json("led_config/wled-16.0.0-ws2805")
+    reblended = json.loads(json.dumps(ws2805))
+    reblended["hw"]["led"]["cb"] = 80
+    responses.get(
+        "http://example.com/json",
+        status=200,
+        body=json.dumps(wled_data),
+        content_type="application/json",
+    )
+    responses.get(
+        "http://example.com/presets.json",
+        status=200,
+        body=json.dumps(load_fixture_json("presets")),
+        content_type="application/json",
+    )
+    for key in ("effects", "palettes"):
+        responses.get(
+            f"http://example.com/json/{key}",
+            status=200,
+            body=json.dumps(wled_data[key]),
+            content_type="application/json",
+        )
+    # The effect metadata keeps failing.
+    responses.get(
+        "http://example.com/json/fxdata",
+        status=500,
+        body="Oops",
+        content_type="text/plain",
+        repeat=True,
+    )
+    mock_cfg(
+        responses, status=200, body=json.dumps(ws2805), content_type="application/json"
+    )
+    mock_si(responses, wled_data)
+    mock_cfg(
+        responses,
+        status=200,
+        body=json.dumps(reblended),
+        content_type="application/json",
+    )
+
+    with patch("wled.wled.time.monotonic", return_value=1000.0):
+        await wled.update()
+    with patch("wled.wled.time.monotonic", return_value=1400.0):
+        device = await wled.update()
+
+    assert device.led_config is not None
+    assert device.led_config.cct_blend == 80
+
+
 async def test_update_polls_state_and_info_once_catalog_is_cached(
     responses: aioresponses, wled: WLED
 ) -> None:

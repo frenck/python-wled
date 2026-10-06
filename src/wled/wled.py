@@ -559,15 +559,20 @@ class WLED:  # pylint: disable=too-many-public-methods
         # (WLED issue #5674). The dedicated endpoints don't have that problem.
         catalog_changed, new_catalog_version = self._check_catalog_changed(data)
         if catalog_changed:
-            self._catalog_missing = await self._fetch_catalog(_CATALOG_LISTS)
-        elif self._catalog_missing:
-            # Only the lists that failed before are tried again.
-            self._catalog_missing = await self._fetch_catalog(self._catalog_missing)
-        elif (
-            self._led_config_fetched is not None
-            and time.monotonic() - self._led_config_fetched > _LED_CONFIG_MAX_AGE
-        ):
-            self._catalog_missing = await self._fetch_catalog({"cfg"})
+            fetch = set(_CATALOG_LISTS)
+        else:
+            # Only the lists that failed before are tried again, and the LED
+            # setup once it's been a while.
+            fetch = set(self._catalog_missing)
+            if (
+                self._led_config_fetched is not None
+                and time.monotonic() - self._led_config_fetched > _LED_CONFIG_MAX_AGE
+            ):
+                fetch.add("cfg")
+        if fetch:
+            self._catalog_missing = await self._fetch_catalog(
+                [key for key in _CATALOG_LISTS if key in fetch]
+            )
 
         # Prefer the complete lists over the ones from /json, on every update.
         # Device rebuilds the custom and usermod palettes from the fresh info
