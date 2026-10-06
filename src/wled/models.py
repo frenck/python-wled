@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_REPO,
     MIN_REQUIRED_VERSION,
     SEGMENT_LIGHT_CAPABILITIES_VERSION,
+    AutoWhiteMode,
     BuildOption,
     LightCapability,
     LiveDataOverride,
@@ -763,6 +764,104 @@ class Leds:
     """True if the white channel slider should be displayed."""
 
 
+# Which LED types have which channels, the way WLED's bus manager decides it
+# (Bus::hasRGB, hasWhite, and hasCCT in bus_manager.h).
+_LED_TYPES_WITHOUT_RGB = frozenset({18, 19, 20, 21, 40, 41, 42})
+_LED_TYPES_WITH_WHITE = frozenset(
+    {18, 19, 20, 21, 28, 29, 30, 31, 32, 34, 41, 42, 44, 45, 88, 89}
+)
+_LED_TYPES_WITH_CCT = frozenset({21, 28, 32, 34, 42, 45})
+
+
+@dataclass(frozen=True, kw_only=True)
+class LedOutput(BaseModel):
+    """Object holding one LED output, like a strip on a pin, of a WLED device."""
+
+    start: int = 0
+    """The first LED of this output."""
+
+    length: int = field(default=0, metadata=field_options(alias="len"))
+    """The number of LEDs on this output."""
+
+    type: int = 0
+    """The LED type, as WLED numbers them (22 is WS2812 RGB, for example)."""
+
+    auto_white_mode: AutoWhiteMode = field(
+        default=AutoWhiteMode.NONE, metadata=field_options(alias="rgbwm")
+    )
+    """How WLED fills the white channel of this output."""
+
+    @property
+    def has_rgb(self) -> bool:
+        """Return whether the LEDs on this output have RGB channels."""
+        return self.type not in _LED_TYPES_WITHOUT_RGB
+
+    @property
+    def has_white(self) -> bool:
+        """Return whether the LEDs on this output have a white channel."""
+        return self.type in _LED_TYPES_WITH_WHITE
+
+    @property
+    def has_cct(self) -> bool:
+        """Return whether the LEDs on this output have warm and cold white."""
+        return self.type in _LED_TYPES_WITH_CCT
+
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for LedOutput object."""
+        # Leave out an auto white mode this library doesn't know.
+        if d.get("rgbwm") not in {mode.value for mode in AutoWhiteMode}:
+            return {key: value for key, value in d.items() if key != "rgbwm"}
+
+        return d
+
+
+@dataclass(frozen=True, kw_only=True)
+class LedConfig(BaseModel):
+    """Object holding the LED setup of a WLED device, from its configuration.
+
+    WLED's state doesn't tell which LEDs are connected, or how it splits its
+    white over warm and cold white; this does.
+    """
+
+    white_balance_correction: bool = field(
+        default=False, metadata=field_options(alias="cct")
+    )
+    """Whether WLED corrects the RGB color for the color temperature."""
+
+    cct_from_rgb: bool = field(default=False, metadata=field_options(alias="cr"))
+    """Whether WLED calculates the color temperature from the RGB color."""
+
+    cct_blend: int = field(default=0, metadata=field_options(alias="cb"))
+    """How warm and cold white blend, in percent.
+
+    0 to 100 adds both towards the middle; since WLED 16.0, -100 to 0 narrows
+    them to one white at each end. See `split_white()`.
+    """
+
+    auto_white_override: AutoWhiteMode | None = field(
+        default=None, metadata=field_options(alias="rgbwm")
+    )
+    """The auto white mode for all outputs, or None to use their own."""
+
+    outputs: list[LedOutput] = field(
+        default_factory=list, metadata=field_options(alias="ins")
+    )
+    """The LED outputs."""
+
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
+        """Pre deserialize hook for LedConfig object."""
+        if d.get("rgbwm") not in {mode.value for mode in AutoWhiteMode}:
+            # Disabled (255), or a mode this library doesn't know.
+            d = {key: value for key, value in d.items() if key != "rgbwm"}
+
+        if isinstance(outputs := d.get("ins"), list):
+            d = d | {"ins": [output for output in outputs if isinstance(output, dict)]}
+
+        return d
+
+
 @dataclass(frozen=True, kw_only=True)
 class Matrix(BaseModel):
     """Object holding the size of a 2D LED matrix in WLED."""
@@ -1266,6 +1365,9 @@ class Device(BaseModel):
     playlists: dict[int, Playlist] = field(default_factory=dict)
     presets: dict[int, Preset] = field(default_factory=dict)
 
+    led_config: LedConfig | None = None
+    """The LED setup from the device's configuration; None when not known."""
+
     @staticmethod
     def _build_usermod_palettes(
         umpalcount: int,
@@ -1484,7 +1586,49 @@ class Device(BaseModel):
         if _presets := d.get("presets"):
             d["presets"], d["playlists"] = cls._split_presets(_presets)
 
+        if "cfg" in d:
+            d["led_config"] = cls._led_config_from(d.pop("cfg"))
+
         return d
+
+    @staticmethod
+    def _led_config_from(cfg: Any) -> dict[str, Any] | None:
+        """Return the LED part of a device's configuration, if it has one."""
+        if not isinstance(cfg, dict) or not isinstance(hw := cfg.get("hw"), dict):
+            return None
+
+        led = hw.get("led")
+        if not isinstance(led, dict):
+            return None
+
+        try:
+            LedConfig.from_dict(led)
+        except (LookupError, TypeError, ValueError):
+            return None
+
+        return led
+
+    def segment_led_outputs(self, segment_id: int) -> list[LedOutput]:
+        """Return the LED outputs the LEDs of a segment are on.
+
+        On a 2D matrix, only the device knows how segments map onto the
+        outputs, so that's all of them. Empty when the LED setup isn't known.
+        """
+        if (
+            self.led_config is None
+            or (segment := self.state.segments.get(segment_id)) is None
+        ):
+            return []
+
+        if self.info.leds.matrix is not None:
+            return list(self.led_config.outputs)
+
+        return [
+            output
+            for output in self.led_config.outputs
+            if output.start < segment.stop
+            and segment.start < output.start + output.length
+        ]
 
     @classmethod
     def __post_deserialize__(cls, obj: Device) -> Device:
@@ -1567,6 +1711,12 @@ class Device(BaseModel):
 
         if _state := data.get("state"):
             self.state = State.from_dict(_state)
+
+        if "cfg" in data:
+            led_config = self._led_config_from(data["cfg"])
+            self.led_config = (
+                LedConfig.from_dict(led_config) if led_config is not None else None
+            )
 
         self._fill_segment_light_capabilities()
         return self

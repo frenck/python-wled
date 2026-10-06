@@ -1,0 +1,32 @@
+{
+  "hw": {
+    "led": {
+      "total": 480,
+      "maxpwr": 850,
+      "cct": false,
+      "cr": false,
+      "ic": false,
+      "cb": 30,
+      "fps": 42,
+      "rgbwm": 255,
+      "ins": [
+        {
+          "start": 0,
+          "len": 480,
+          "pin": [18],
+          "order": 3,
+          "rev": false,
+          "skip": 0,
+          "type": 32,
+          "ref": false,
+          "rgbwm": 0,
+          "freq": 0,
+          "maxpwr": 850,
+          "ledma": 55,
+          "drv": 0,
+          "text": ""
+        }
+      ]
+    }
+  }
+}

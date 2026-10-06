@@ -1,11 +1,13 @@
 """Common fixtures and helpers for WLED tests."""
 
+import asyncio
 import dataclasses
 import json
 from collections.abc import AsyncGenerator, Callable, Generator
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from unittest.mock import patch
 
 import aiohttp
 import pytest
@@ -135,6 +137,25 @@ def mock_catalog(
         body=json.dumps(palettes),
         content_type="application/json",
     )
+
+
+class _AsyncioWithoutWaits:
+    """The asyncio module as backoff sees it, without its waits."""
+
+    def __getattr__(self, name: str) -> Any:
+        """Return everything else from asyncio itself."""
+        return getattr(asyncio, name)
+
+    @staticmethod
+    async def sleep(_delay: float) -> None:
+        """Don't wait."""
+
+
+@pytest.fixture(autouse=True)
+def no_retry_waits() -> Generator[None, None, None]:
+    """Skip the waits between retries, so no test sleeps through them."""
+    with patch("backoff._async.asyncio", new=_AsyncioWithoutWaits()):
+        yield
 
 
 @pytest.fixture

@@ -146,6 +146,14 @@ show only the controls that matter for the chosen effect. Segments do the
 same for colors: `segment.light_capabilities` says whether the LEDs in it do
 RGB, a white channel, or color temperature.
 
+Which LEDs are connected comes from the device's configuration, as
+`device.led_config` (None when not known): the LED outputs with their type and
+whether they have RGB, a white channel, or separate warm and cold white, and
+`device.segment_led_outputs()` tells which outputs a segment is on. For LEDs
+with warm and cold white, `split_white()` and `combine_white()` convert between
+WLED's single white value plus color temperature and the two whites, the way
+WLED does it with the device's CCT blending.
+
 To change several segments at once, so they switch together with one
 transition, pass a `SegmentUpdate` for each to `segments()`:
 

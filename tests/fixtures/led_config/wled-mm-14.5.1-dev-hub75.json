@@ -1,0 +1,58 @@
+{
+  "hw": {
+    "led": {
+      "total": 4096,
+      "maxpwr": 0,
+      "ledma": 0,
+      "cct": false,
+      "cr": false,
+      "cb": 0,
+      "fps": 60,
+      "rgbwm": 255,
+      "ld": false,
+      "matrix": {
+        "mpc": 1,
+        "ba": false,
+        "mph": 1,
+        "mpv": 1,
+        "pb": false,
+        "pr": false,
+        "pv": false,
+        "ps": false,
+        "pbl": false,
+        "prl": false,
+        "pvl": false,
+        "psl": false,
+        "panels": [
+          {
+            "b": false,
+            "r": false,
+            "v": false,
+            "s": false,
+            "x": 0,
+            "y": 0,
+            "h": 64,
+            "w": 64
+          }
+        ]
+      },
+      "ins": [
+        {
+          "start": 0,
+          "len": 4096,
+          "pin": [1],
+          "order": 1,
+          "rev": false,
+          "skip": 0,
+          "type": 103,
+          "ref": false,
+          "rgbwm": 0,
+          "freq": 0,
+          "artnet_outputs": 0,
+          "artnet_fps_limit": 0,
+          "artnet_leds_per_output": 0
+        }
+      ]
+    }
+  }
+}

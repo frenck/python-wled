@@ -32,6 +32,16 @@ class BuildOption(IntFlag):
     NETWORK_DEBUG = 256
 
 
+class AutoWhiteMode(IntEnum):
+    """Enumeration representing how WLED fills the white channel."""
+
+    NONE = 0
+    BRIGHTER = 1
+    ACCURATE = 2
+    DUAL = 3
+    MAX = 4
+
+
 class LightCapability(IntFlag):
     """Enumeration representing the capabilities of a light in WLED."""
 
