@@ -958,6 +958,7 @@
         signal=100,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -2379,6 +2380,7 @@
         signal=100,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -3830,6 +3832,7 @@
         signal=100,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -5227,6 +5230,7 @@
         signal=100,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -6624,6 +6628,7 @@
         signal=100,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -8222,6 +8227,7 @@
         signal=92,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -9646,6 +9652,7 @@
         signal=90,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -11043,6 +11050,7 @@
         signal=90,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -12445,6 +12453,7 @@
         signal=88,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -13849,6 +13858,7 @@
         signal=90,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -15253,6 +15263,7 @@
         signal=88,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -16657,6 +16668,7 @@
         signal=90,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -18061,6 +18073,7 @@
         signal=76,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -19645,6 +19658,7 @@
         signal=80,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,
@@ -21234,6 +21248,7 @@
         signal=90,
       ),
     ),
+    led_config=None,
     palettes=dict({
       0: Palette(
         custom=False,

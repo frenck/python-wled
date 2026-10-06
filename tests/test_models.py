@@ -11,7 +11,7 @@ from awesomeversion import AwesomeVersion
 from syrupy.assertion import SnapshotAssertion
 
 from wled import Device, Playlist, Preset, Releases
-from wled.const import DEFAULT_REPO, BuildOption, LightCapability
+from wled.const import DEFAULT_REPO, AutoWhiteMode, BuildOption, LightCapability
 from wled.exceptions import WLEDUnsupportedVersionError
 from wled.models import (
     AwesomeVersionSerializationStrategy,
@@ -26,7 +26,7 @@ from wled.models import (
     TimedeltaSerializationStrategy,
     TimestampSerializationStrategy,
 )
-from wled.utils import get_awesome_version
+from wled.utils import combine_white, get_awesome_version, split_white
 
 from .conftest import FIXTURES_DIR, full_device_data, load_fixture_json
 
@@ -1731,3 +1731,197 @@ def test_info_repo(product: str | None, repo: str | None, expected: str | None) 
             data["info"][key] = value
 
     assert Device.from_dict(data).info.repo == expected
+
+
+@pytest.mark.parametrize(
+    ("fixture", "outputs"),
+    [
+        ("wled-16.0.0-ws2812", [(22, True, False, False)]),
+        ("wled-16.0.0-ws2805", [(32, True, True, True)]),
+        ("wled-mm-14.5.1-dev-hub75", [(103, True, False, False)]),
+    ],
+)
+def test_led_config(fixture: str, outputs: list[tuple[int, bool, bool, bool]]) -> None:
+    """Test the LED setup is read from a device's real configuration."""
+    data = full_device_data()
+    data["cfg"] = load_fixture_json(f"led_config/{fixture}")
+
+    led_config = Device.from_dict(data).led_config
+
+    assert led_config is not None
+    assert [
+        (output.type, output.has_rgb, output.has_white, output.has_cct)
+        for output in led_config.outputs
+    ] == outputs
+
+
+def test_led_config_details() -> None:
+    """Test the LED setup settings, and what's left out of it."""
+    data = full_device_data()
+    data["cfg"] = load_fixture_json("led_config/wled-16.0.0-ws2805")
+
+    led_config = Device.from_dict(data).led_config
+
+    assert led_config is not None
+    assert led_config.cct_blend == 30
+    assert led_config.white_balance_correction is False
+    assert led_config.cct_from_rgb is False
+    # 255 means no override: each output uses its own.
+    assert led_config.auto_white_override is None
+    assert led_config.outputs[0].start == 0
+    assert led_config.outputs[0].length == 480
+    assert led_config.outputs[0].auto_white_mode is AutoWhiteMode.NONE
+
+
+def test_led_config_leaves_out_what_it_does_not_know() -> None:
+    """Test unknown auto white modes and broken outputs are left out."""
+    data = full_device_data()
+    data["cfg"] = {
+        "hw": {
+            "led": {
+                "rgbwm": 3,
+                "ins": [
+                    {"start": 0, "len": 10, "type": 30, "rgbwm": 9},
+                    "not an output",
+                ],
+            }
+        }
+    }
+
+    led_config = Device.from_dict(data).led_config
+
+    assert led_config is not None
+    assert led_config.auto_white_override is AutoWhiteMode.DUAL
+    assert len(led_config.outputs) == 1
+    assert led_config.outputs[0].auto_white_mode is AutoWhiteMode.NONE
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [
+        None,
+        "not a config",
+        {"nw": {}},
+        {"hw": {"led": "nope"}},
+        {"hw": {"led": {"cb": "x"}}},
+    ],
+)
+def test_led_config_unknown(cfg: Any) -> None:
+    """Test the LED setup isn't known without a usable configuration."""
+    data = full_device_data()
+    data["cfg"] = cfg
+
+    device = Device.from_dict(data)
+    assert device.led_config is None
+
+    device.update_from_dict({"cfg": cfg})
+    assert device.led_config is None
+
+
+def test_led_config_from_an_update() -> None:
+    """Test the LED setup is taken from an update, and cleared by one."""
+    device = Device.from_dict(full_device_data())
+    assert device.led_config is None
+
+    device.update_from_dict({"cfg": load_fixture_json("led_config/wled-16.0.0-ws2805")})
+    assert device.led_config is not None
+    assert device.led_config.cct_blend == 30
+
+    device.update_from_dict({"cfg": None})
+    assert device.led_config is None
+
+
+def test_segment_led_outputs() -> None:
+    """Test which LED outputs a segment's LEDs are on."""
+    data = full_device_data()
+    data["state"]["seg"] = [
+        {"id": 0, "start": 0, "stop": 15},
+        {"id": 1, "start": 15, "stop": 30},
+    ]
+    data["cfg"] = {
+        "hw": {
+            "led": {
+                "ins": [
+                    {"start": 0, "len": 10, "type": 22},
+                    {"start": 10, "len": 20, "type": 32},
+                ]
+            }
+        }
+    }
+    device = Device.from_dict(data)
+
+    assert [output.type for output in device.segment_led_outputs(0)] == [22, 32]
+    assert [output.type for output in device.segment_led_outputs(1)] == [32]
+    assert device.segment_led_outputs(99) == []
+
+
+def test_segment_led_outputs_on_a_matrix() -> None:
+    """Test a segment on a 2D matrix is on all outputs."""
+    data = full_device_data()
+    data["info"]["leds"]["matrix"] = {"w": 8, "h": 8}
+    data["cfg"] = {
+        "hw": {
+            "led": {
+                "ins": [
+                    {"start": 0, "len": 32, "type": 22},
+                    {"start": 32, "len": 32, "type": 22},
+                ]
+            }
+        }
+    }
+
+    assert len(Device.from_dict(data).segment_led_outputs(0)) == 2
+
+
+def test_segment_led_outputs_without_led_config() -> None:
+    """Test there are no outputs to tell when the LED setup isn't known."""
+    assert Device.from_dict(full_device_data()).segment_led_outputs(0) == []
+
+
+@pytest.mark.parametrize(
+    ("white", "cct", "cct_blend", "expected"),
+    [
+        # Linear: warm and cold add up to the white.
+        (255, 0, 0, (255, 0)),
+        (255, 255, 0, (0, 255)),
+        (255, 127, 0, (128, 127)),
+        (100, 127, 0, (50, 49)),
+        # Additive: both towards the middle; 30% as measured on a WS2805 strip.
+        (255, 127, 30, (150, 149)),
+        (255, 127, 100, (255, 253)),
+        # Exclusive (WLED 16.0): one white at each side of the middle.
+        (255, 127, -100, (255, 0)),
+        (255, 128, -100, (0, 255)),
+        (255, 64, -50, (255, 0)),
+        (0, 127, 50, (0, 0)),
+    ],
+)
+def test_split_white(
+    white: int, cct: int, cct_blend: int, expected: tuple[int, int]
+) -> None:
+    """Test white is split over warm and cold white the way WLED does it."""
+    assert split_white(white, cct, cct_blend=cct_blend) == expected
+
+
+@pytest.mark.parametrize("cct_blend", [0, 30, 100, -50])
+def test_combine_white(cct_blend: int) -> None:
+    """Test combining warm and cold white gives back the same split."""
+    for white in range(0, 256, 17):
+        for cct in range(0, 256, 17):
+            warm, cold = split_white(white, cct, cct_blend=cct_blend)
+            got_white, got_cct = combine_white(warm, cold, cct_blend=cct_blend)
+            assert split_white(got_white, got_cct, cct_blend=cct_blend) == (
+                warm,
+                cold,
+            )
+
+
+def test_combine_white_finds_the_exact_one() -> None:
+    """Test a combination WLED can make exactly is found, not one close by."""
+    white, cct = combine_white(17, 136, cct_blend=0)
+    assert split_white(white, cct, cct_blend=0) == (17, 136)
+
+
+def test_combine_white_without_white() -> None:
+    """Test no white at all gives no white, at the middle color temperature."""
+    assert combine_white(0, 0, cct_blend=0) == (0, 127)

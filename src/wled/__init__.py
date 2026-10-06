@@ -1,6 +1,7 @@
 """Asynchronous Python client for WLED."""
 
 from .const import (
+    AutoWhiteMode,
     BuildOption,
     LightCapability,
     LiveDataOverride,
@@ -28,6 +29,8 @@ from .models import (
     EffectMetadata,
     Filesystem,
     Info,
+    LedConfig,
+    LedOutput,
     Leds,
     Matrix,
     Nightlight,
@@ -43,11 +46,13 @@ from .models import (
     UDPSync,
     Wifi,
 )
+from .utils import combine_white, split_white
 from .wled import WLED, WLEDReleases
 
 __all__ = [
     "WLED",
     "AudioReactive",
+    "AutoWhiteMode",
     "BuildOption",
     "Color",
     "Device",
@@ -55,6 +60,8 @@ __all__ = [
     "EffectMetadata",
     "Filesystem",
     "Info",
+    "LedConfig",
+    "LedOutput",
     "Leds",
     "LightCapability",
     "LiveDataOverride",
@@ -85,4 +92,6 @@ __all__ = [
     "WLEDUnsupportedVersionError",
     "WLEDUpgradeError",
     "Wifi",
+    "combine_white",
+    "split_white",
 ]

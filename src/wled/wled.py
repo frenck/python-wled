@@ -85,9 +85,15 @@ def _is_not_retryable(exception: Exception) -> bool:
     return isinstance(exception, WLEDStatusError) and exception.status != 503
 
 
-# The complete lists fetched from their own endpoints, rather than taken from
-# /json: the effects, the palettes, and the effect metadata.
-_CATALOG_LISTS = ("effects", "palettes", "fxdata")
+# What's fetched from its own endpoint, rather than taken from /json: the
+# complete effects and palettes lists, the effect metadata, and the device's
+# configuration (for its LED setup).
+_CATALOG_LISTS = ("effects", "palettes", "fxdata", "cfg")
+
+# WLED applies changes to its LED setup without restarting, and not every one
+# changes the light capabilities (like the CCT blending), so the configuration
+# is looked at again after this many seconds.
+_LED_CONFIG_MAX_AGE = 300
 
 # WLED keeps transitions in milliseconds in 16 bits, so anything above this
 # many units of 100ms wraps around to a short transition.
@@ -258,6 +264,9 @@ class _CatalogVersion:
     effect_count: int
     palette_count: int
     boot_time: int
+    # Changing the LED setup changes the light capabilities, and with that
+    # the LED configuration.
+    light_capabilities: tuple[Any, ...]
 
 
 @dataclass
@@ -273,8 +282,9 @@ class WLED:  # pylint: disable=too-many-public-methods
     _device: Device | None = None
     _presets_version: _PresetsVersion | None = None
     _catalog_version: _CatalogVersion | None = None
-    _catalog: dict[str, list[Any] | None] = field(default_factory=dict)
+    _catalog: dict[str, Any] = field(default_factory=dict)
     _catalog_missing: set[str] = field(default_factory=set)
+    _led_config_fetched: float | None = None
 
     @property
     def connected(self) -> bool:
@@ -549,10 +559,20 @@ class WLED:  # pylint: disable=too-many-public-methods
         # (WLED issue #5674). The dedicated endpoints don't have that problem.
         catalog_changed, new_catalog_version = self._check_catalog_changed(data)
         if catalog_changed:
-            self._catalog_missing = await self._fetch_catalog(_CATALOG_LISTS)
-        elif self._catalog_missing:
-            # Only the lists that failed before are tried again.
-            self._catalog_missing = await self._fetch_catalog(self._catalog_missing)
+            fetch = set(_CATALOG_LISTS)
+        else:
+            # Only the lists that failed before are tried again, and the LED
+            # setup once it's been a while.
+            fetch = set(self._catalog_missing)
+            if (
+                self._led_config_fetched is not None
+                and time.monotonic() - self._led_config_fetched > _LED_CONFIG_MAX_AGE
+            ):
+                fetch.add("cfg")
+        if fetch:
+            self._catalog_missing = await self._fetch_catalog(
+                [key for key in _CATALOG_LISTS if key in fetch]
+            )
 
         # Prefer the complete lists over the ones from /json, on every update.
         # Device rebuilds the custom and usermod palettes from the fresh info
@@ -1320,6 +1340,36 @@ class WLED:  # pylint: disable=too-many-public-methods
 
         return presets
 
+    async def _fetch_led_config(self) -> bool:
+        """Fetch the LED setup from the device's configuration into the cache.
+
+        Only the LED setup is of use; the rest, like the network settings,
+        isn't kept. As it's extra, it never fails the update: while it can't
+        be fetched, it's not known (rather than possibly outdated).
+
+        Returns
+        -------
+            Whether it's settled: fetched, or known not to be there. False
+            when it should be tried again with the next update.
+
+        """
+        self._led_config_fetched = time.monotonic()
+        self._catalog["cfg"] = None
+        try:
+            value = await self.request("/json/cfg")
+        except WLEDStatusError as error:
+            # A device without the configuration endpoint isn't asked for it
+            # again on every update.
+            return error.status == 404
+        except WLEDError:
+            return False
+
+        hw = value.get("hw") if isinstance(value, dict) else None
+        led = hw.get("led") if isinstance(hw, dict) else None
+        if led is not None:
+            self._catalog["cfg"] = {"hw": {"led": led}}
+        return True
+
     def _check_presets_changed(
         self, data: dict[str, Any]
     ) -> tuple[bool, _PresetsVersion | None]:
@@ -1373,11 +1423,13 @@ class WLED:  # pylint: disable=too-many-public-methods
     ) -> tuple[bool, _CatalogVersion | None]:
         """Check if the effects or palettes lists have changed.
 
-        Compares the effect and built-in palette counts, and the approximate
-        boot time. A shift in boot time of more than 2 seconds means the
-        device restarted, which can come with a firmware update and thus new
-        effects or palettes. Custom and usermod palettes don't need tracking:
-        those are rebuilt from the device info on every update.
+        Compares the effect and built-in palette counts, the light
+        capabilities, and the approximate boot time. A shift in boot time of
+        more than 2 seconds means the device restarted, which can come with a
+        firmware update and thus new effects or palettes. Changed light
+        capabilities mean the LED setup changed, which is in the configuration.
+        Custom and usermod palettes don't need tracking: those are rebuilt
+        from the device info on every update.
 
         Returns
         -------
@@ -1391,10 +1443,20 @@ class WLED:  # pylint: disable=too-many-public-methods
             return (True, None)
 
         try:
+            leds = info.get("leds") if isinstance(info.get("leds"), dict) else {}
+            segment_capabilities = leds.get("seglc")
             new_version = _CatalogVersion(
                 effect_count=int(info["fxcount"]),
                 palette_count=int(info["palcount"]),
                 boot_time=int(time.time()) - int(info["uptime"]),
+                light_capabilities=(
+                    leds.get("lc"),
+                    *(
+                        segment_capabilities
+                        if isinstance(segment_capabilities, list)
+                        else ()
+                    ),
+                ),
             )
         except (KeyError, TypeError, ValueError):
             return (True, None)
@@ -1406,6 +1468,8 @@ class WLED:  # pylint: disable=too-many-public-methods
             self._catalog_version.effect_count != new_version.effect_count
             or self._catalog_version.palette_count != new_version.palette_count
             or abs(self._catalog_version.boot_time - new_version.boot_time) > 2
+            or self._catalog_version.light_capabilities
+            != new_version.light_capabilities
         )
         return (changed, new_version)
 
@@ -1416,7 +1480,8 @@ class WLED:  # pylint: disable=too-many-public-methods
         throw away the others. When the device answers with an error or
         something unexpected, the previously cached list (if any) is kept.
         A connection error still propagates: if the device is gone, the
-        update should fail.
+        update should fail. The configuration is the exception: it's only
+        there for the LED setup, which is extra (see `_fetch_led_config`).
 
         Returns
         -------
@@ -1425,6 +1490,11 @@ class WLED:  # pylint: disable=too-many-public-methods
         """
         missing: set[str] = set()
         for key in lists:
+            if key == "cfg":
+                if not await self._fetch_led_config():
+                    missing.add(key)
+                continue
+
             try:
                 value = await self.request(f"/json/{key}")
             except WLEDConnectionError:
