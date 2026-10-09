@@ -2809,6 +2809,17 @@ async def test_upgrade_unsupported_architecture(
         await wled.upgrade(version="0.15.0")
 
 
+async def test_upgrade_build_without_ota(responses: aioresponses, wled: WLED) -> None:
+    """Test upgrade raises before downloading for a build without OTA."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["opt"] = 8
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    with pytest.raises(WLEDUpgradeError, match="doesn't support firmware updates"):
+        await wled.upgrade(version="0.15.0")
+
+
 async def test_upgrade_same_version(responses: aioresponses, wled: WLED) -> None:
     """Test upgrade raises when already on requested version."""
     await prepare_wled_for_upgrade(responses, wled)
@@ -3169,6 +3180,18 @@ async def test_firmware_available_unsupported_architecture(
     """Test firmware_available() is False for a device upgrade() can't flash."""
     wled_data = load_fixture_json("wled")
     wled_data["info"]["arch"] = "rp2040"
+    mock_json_and_presets(responses, wled_data)
+    await wled.update()
+
+    assert await wled.firmware_available(version="16.0.1") is False
+
+
+async def test_firmware_available_build_without_ota(
+    responses: aioresponses, wled: WLED
+) -> None:
+    """Test firmware_available() is False for a build without OTA."""
+    wled_data = load_fixture_json("wled")
+    wled_data["info"]["opt"] = 8
     mock_json_and_presets(responses, wled_data)
     await wled.update()
 

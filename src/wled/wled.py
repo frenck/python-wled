@@ -19,6 +19,7 @@ from yarl import URL
 from .const import (
     DEFAULT_REPO,
     SYNC_RECEIVE_BY_GROUPS_VERSION,
+    BuildOption,
     NightlightMode,
     SyncGroup,
 )
@@ -171,6 +172,16 @@ def _match_firmware_asset(
     suffix = expected.removeprefix(info.brand)
     matches = [name for name in assets if name.endswith(suffix)]
     return matches[0] if len(matches) == 1 else None
+
+
+def _built_without_ota(info: Info) -> bool:
+    """Return whether the firmware was built without OTA updates.
+
+    Every build reports the filesystem, so without it the device didn't
+    report its build options at all, and OTA isn't known to be missing.
+    """
+    options = info.build_options
+    return BuildOption.FILESYSTEM in options and BuildOption.OTA not in options
 
 
 def _firmware_repo(requested: str | None, info: Info) -> str:
@@ -1092,6 +1103,11 @@ class WLED:  # pylint: disable=too-many-public-methods
             )
             raise WLEDUpgradeError(msg)
 
+        # The device would refuse the upload; say why before downloading.
+        if _built_without_ota(self._device.info):
+            msg = "This WLED build doesn't support firmware updates (OTA)"
+            raise WLEDUpgradeError(msg)
+
         if not self._device.info.version:
             msg = "Current version is unknown, cannot perform upgrade"
             raise WLEDUpgradeError(msg)
@@ -1119,9 +1135,9 @@ class WLED:  # pylint: disable=too-many-public-methods
         """Return whether a release has a firmware file for this device.
 
         This tells whether `upgrade()` can install a version, before offering
-        it. A custom build, for example, has no file in any release, and a
-        fork that doesn't say where its firmware comes from has no release to
-        look in at all.
+        it. A custom build, for example, has no file in any release, a build
+        without OTA can't install one at all, and a fork that doesn't say
+        where its firmware comes from has no release to look in.
 
         Args:
         ----
@@ -1147,8 +1163,10 @@ class WLED:  # pylint: disable=too-many-public-methods
             raise WLEDError(msg)
 
         info = self._device.info
-        if info.architecture not in _UPGRADABLE_ARCHITECTURES or (
-            repo is None and info.repo is None
+        if (
+            info.architecture not in _UPGRADABLE_ARCHITECTURES
+            or _built_without_ota(info)
+            or (repo is None and info.repo is None)
         ):
             return False
 
