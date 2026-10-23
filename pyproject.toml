@@ -69,7 +69,7 @@ Changelog = "https://github.com/frenck/python-wled/releases"
 aioresponses = "0.7.9"
 codespell = "2.4.3"
 covdefaults = "2.3.0"
-coverage = { version = "7.16.2", extras = ["toml"] }
+coverage = { version = "7.17.0", extras = ["toml"] }
 pre-commit-hooks = "6.0.0"
 prek = "0.5.7"
 pylint = "4.1.3"
