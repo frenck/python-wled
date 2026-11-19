@@ -71,7 +71,7 @@ codespell = "2.4.3"
 covdefaults = "2.3.0"
 coverage = { version = "7.17.3", extras = ["toml"] }
 pre-commit-hooks = "6.0.0"
-prek = "0.5.10"
+prek = "0.5.11"
 pylint = "4.1.4"
 pytest = "9.2.0"
 pytest-asyncio = "1.5.0"
