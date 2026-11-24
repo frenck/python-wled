@@ -156,7 +156,7 @@ def _parse_color(
             return tuple(color)
 
         # WLED fills in the missing channels with 0.
-        return (*color, *[0] * (3 - len(color)))  # ty: ignore[invalid-return-type]
+        return (*color, *[0] * (3 - len(color)))  # ty: ignore[invalid-explicit-return]
 
     if isinstance(color, dict):
         return _color_from_channels(color)
